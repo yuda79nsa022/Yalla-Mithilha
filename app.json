@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Yalla Mithilha",
+    "slug": "yalla-mithilha",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "yallamithilha",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#17102A",
+    "splash": {
+      "backgroundColor": "#17102A",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.yallamithilha",
+      "infoPlist": {
+        "UIRequiresPersistentWiFi": false
+      }
+    },
+    "android": {
+      "package": "com.example.yallamithilha",
+      "adaptiveIcon": {
+        "backgroundColor": "#17102A"
+      },
+      "permissions": []
+    },
+    "plugins": ["expo-router", "expo-localization"],
+    "extra": {
+      "note": "No camera, microphone, contacts or network permissions are requested."
+    }
+  }
+}
