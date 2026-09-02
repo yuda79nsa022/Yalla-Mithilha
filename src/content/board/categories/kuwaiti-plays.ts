@@ -2,27 +2,30 @@ import type { CategoryDeck } from '../../../engine/board/types';
 import { makeTiles } from '../helpers';
 
 /**
- * Confidence: LOW. I do not have confident knowledge of specific named
- * Kuwaiti stage plays, so this file leans on the two performers from
- * kuwaiti-series.ts (who I believe are genuinely associated with Kuwaiti
- * theatre specifically, not just TV) plus safe, generic, true theatre-
- * culture facts. Nothing here is fabricated, but this is the category
- * that most needs real content from someone who actually knows Kuwaiti
- * theatre — see the chat summary.
+ * Confidence: high, by construction. Sourced from a 500-title list the user
+ * provided of Kuwaiti children's/family theatre productions. That list's
+ * per-title years and audience tags could not be verified (round, evenly-
+ * spread year counts across 2016-2026 with no older history — a pattern
+ * consistent with generated rather than archival data) so nothing here
+ * relies on them. Instead every tile uses only titles that are themselves
+ * self-evident Arabic renderings of famous global stories/franchises — the
+ * "fact" being tested is the title itself, so there's nothing to get wrong
+ * beyond the translation, which is checkable by anyone who reads both
+ * languages. Not real Kuwaiti-specific trivia, but zero fabrication risk.
  */
 export const KUWAITI_PLAYS: CategoryDeck = {
   id: 'kuwaiti-plays',
   nameAr: 'مسرحيات كويتية',
   nameEn: 'Kuwaiti Plays',
   tier: 'free',
-  level: 'family',
+  level: 'kids',
   region: 'kw',
   tiles: makeTiles('kuwaiti-plays', [
-    ['فنان كويتي كبير، من أشهر نجوم المسرح الكويتي على مدى عقود', 'A major Kuwaiti performer, one of the most celebrated stars of Kuwaiti stage theatre for decades', 'عبدالحسين عبدالرضا', 'Abdulhussain Abdulredha'],
-    ['فنانة كويتية كبيرة، من أشهر نجمات المسرح الكويتي', 'A major Kuwaiti performer, one of the most celebrated stars of Kuwaiti stage theatre', 'سعاد عبدالله', 'Suad Abdullah'],
-    ['الكلمة العربية للعمل المسرحي', 'The Arabic word for a stage play', 'مسرحية', 'A "masrahiyya" (stage play)'],
-    ['اسم المكان اللي تُعرض فيه المسرحيات أمام جمهور حي', 'The word for the venue where a play is performed in front of a live audience', 'مسرح', 'A theatre ("masrah")'],
-    ['نوع الفن اللي يُؤدى مباشرة أمام جمهور حاضر، بعكس التلفزيون أو السينما', 'The form of performance done live in front of a present audience, unlike television or film', 'المسرح', 'Live theatre'],
-    ['المصطلح العربي لتصفيق الجمهور بعد نهاية العرض المسرحي', 'The Arabic term for the audience applauding at the end of a stage performance', 'تصفيق', 'Applause'],
+    ['مسرحية كويتية للأطفال بعنوان "بيبي شارك" — شنو اسمها بالإنجليزي؟', 'A Kuwaiti children’s play titled "بيبي شارك" — what’s that in English?', 'بيبي شارك', 'Baby Shark'],
+    ['مسرحية كويتية للأطفال بعنوان "سبايدرمان" — شنو اسمها بالإنجليزي؟', 'A Kuwaiti children’s play titled "سبايدرمان" — what’s that in English?', 'سبايدرمان', 'Spider-Man'],
+    ['مسرحية كويتية للأطفال بعنوان "سنو وايت" — شنو اسمها بالإنجليزي؟', 'A Kuwaiti children’s play titled "سنو وايت" — what’s that in English?', 'سنو وايت', 'Snow White'],
+    ['مسرحية كويتية للأطفال بعنوان "علاء الدين" — شنو اسم هالشخصية المشهورة؟', 'A Kuwaiti children’s play titled "علاء الدين" — who’s this famous character?', 'علاء الدين', 'Aladdin'],
+    ['مسرحية كويتية للأطفال بعنوان "بينوكيو" — شنو اسمها بالإنجليزي؟', 'A Kuwaiti children’s play titled "بينوكيو" — what’s that in English?', 'بينوكيو', 'Pinocchio'],
+    ['مسرحية كويتية للأطفال بعنوان "أحدب نوتردام" — شنو اسمها بالإنجليزي؟', 'A Kuwaiti children’s play titled "أحدب نوتردام" — what’s that in English?', 'أحدب نوتردام', 'The Hunchback of Notre Dame'],
   ]),
 };
