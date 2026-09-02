@@ -1,4 +1,4 @@
-# Assumptions and decisions
+# Major Assumptions and decisions
 
 Where the brief left room, here is what was decided and why.
 
