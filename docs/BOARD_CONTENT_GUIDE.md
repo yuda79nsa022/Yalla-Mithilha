@@ -18,7 +18,7 @@ export const HISTORY: CategoryDeck = {
   nameEn: 'History',
   tier: 'free',             // free | paid, feeds the entitlement layer
   level: 'family',          // the LOWEST audience this suits
-  region: 'gulf',           // kw | gulf | global
+  region: 'gulf',           // kw | gulf | egypt | global
   tiles: [
     {
       id: 'history-1',      // `${categoryId}-${1..6}`, never reused

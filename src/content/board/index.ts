@@ -1,43 +1,29 @@
 import type { CategoryDeck } from '../../engine/board/types';
-import { HISTORY } from './categories/history';
-import { SPORTS } from './categories/sports';
-import { MOVIES } from './categories/movies';
-import { MUSIC } from './categories/music';
-import { GEOGRAPHY } from './categories/geography';
-import { FOOD } from './categories/food';
-import { SCIENCE } from './categories/science';
-import { KUWAIT_GULF } from './categories/kuwait-gulf';
-import { TECHNOLOGY } from './categories/technology';
-import { ANIMALS } from './categories/animals';
-import { GENERAL_KNOWLEDGE } from './categories/general-knowledge';
-import { SPACE } from './categories/space';
-import { LANDMARKS } from './categories/landmarks';
-import { INVENTIONS } from './categories/inventions';
-import { HUMAN_BODY } from './categories/human-body';
-import { CAPITALS } from './categories/capitals';
+import { KUWAITI_SERIES } from './categories/kuwaiti-series';
+import { KHALEEJI_SERIES } from './categories/khaleeji-series';
+import { EGYPTIAN_SERIES } from './categories/egyptian-series';
+import { EGYPTIAN_MOVIES } from './categories/egyptian-movies';
+import { EGYPTIAN_PLAYS } from './categories/egyptian-plays';
+import { KUWAITI_PLAYS } from './categories/kuwaiti-plays';
+import { KHALEEJI_PLAYS } from './categories/khaleeji-plays';
 
 /**
  * The whole shipped board catalogue. A future admin dashboard would produce
  * files with exactly this shape and drop them in `categories/`, then add one
  * import here — nothing else downstream needs to change.
+ *
+ * Content confidence varies by category — see each category file's header
+ * comment. kuwaiti-plays and khaleeji-plays in particular are draft-quality
+ * pending review by someone who actually knows this content.
  */
 export const BOARD_CATALOGUE: CategoryDeck[] = [
-  HISTORY,
-  SPORTS,
-  MOVIES,
-  MUSIC,
-  GEOGRAPHY,
-  FOOD,
-  SCIENCE,
-  KUWAIT_GULF,
-  TECHNOLOGY,
-  ANIMALS,
-  GENERAL_KNOWLEDGE,
-  SPACE,
-  LANDMARKS,
-  INVENTIONS,
-  HUMAN_BODY,
-  CAPITALS,
+  KUWAITI_SERIES,
+  KHALEEJI_SERIES,
+  EGYPTIAN_SERIES,
+  EGYPTIAN_MOVIES,
+  EGYPTIAN_PLAYS,
+  KUWAITI_PLAYS,
+  KHALEEJI_PLAYS,
 ];
 
 const EXPECTED_POINTS = [100, 200, 300, 400, 500, 600];

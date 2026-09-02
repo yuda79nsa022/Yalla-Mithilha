@@ -46,7 +46,7 @@ export const CONTENT_LEVEL_ORDER: Record<ContentLevel, number> = {
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 /** Where the reference is from, so packs can be re-targeted per country. */
-export type RegionTag = 'kw' | 'gulf' | 'global';
+export type RegionTag = 'kw' | 'gulf' | 'egypt' | 'global';
 
 export interface Prompt {
   /** Stable unique id, e.g. `act-014`. Never re-use an id for new text. */
