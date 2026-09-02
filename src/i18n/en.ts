@@ -181,4 +181,40 @@ export const en: Record<TranslationKey, string> = {
 
   'error.notEnoughContent': 'Not enough cards for those settings. Try another room or level.',
   'error.notEnoughPlayers': 'Add at least two players to start',
+
+  'board.home.play': 'Board game (beta)',
+  'board.home.subtitle': 'Draft categories, pay once, play on one shared screen',
+
+  'board.draft.title': 'Draft your board',
+  'board.draft.subtitle': 'Two teams, six categories, thirty-six questions',
+  'board.draft.teamAName': 'Team A name',
+  'board.draft.teamBName': 'Team B name',
+  'board.draft.picksFor': '{{team}} picks {{count}} more',
+  'board.draft.picksDone': '{{team}} picked all three',
+  'board.draft.confirm': 'Continue to checkout',
+  'board.draft.back': 'Back to team names',
+
+  'board.checkout.title': 'Unlock the board',
+  'board.checkout.subtitle': 'One payment unlocks all 36 questions for this game',
+  'board.checkout.creditsAvailable': '{{count}} credits available',
+  'board.checkout.buyOne': 'Buy 1 game — $6.99',
+  'board.checkout.buyBundle': 'Buy 2 games — $12.99',
+  'board.checkout.devNotice':
+    'Placeholder checkout. Real payment (KNET via MyFatoorah/Tap) is not wired up yet — these buttons simulate a purchase.',
+  'board.checkout.start': 'Start the game',
+
+  'board.play.turn': '{{team}}’s turn',
+  'board.play.award': 'Award {{team}}',
+  'board.play.skip': 'No one scored',
+  'board.play.showAnswer': 'Show answer',
+  'board.play.answer': 'Answer: {{answer}}',
+  'board.play.complete': 'Board complete',
+  'board.play.winner': '{{team}} wins!',
+  'board.play.tie': 'It’s a tie',
+  'board.play.quit': 'End game',
+  'board.play.quitConfirm': 'End this board game? Progress will be lost.',
+  'board.play.home': 'Home',
+
+  'board.resume.title': 'You have a board game in progress',
+  'board.resume.body': 'Pick up where you stopped?',
 };

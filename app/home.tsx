@@ -6,7 +6,7 @@ import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
 export default function Home() {
-  const { t, savedSession, resumeSaved, discardSaved } = useApp();
+  const { t, savedSession, resumeSaved, discardSaved, board, quitBoard } = useApp();
 
   const resume = () => {
     resumeSaved();
@@ -55,6 +55,49 @@ export default function Home() {
       <Spacer size={spacing.sm} />
       <Button label={t('home.settings')} tone="secondary" onPress={() => router.push('/settings')} />
 
+      <Spacer size={spacing.lg} />
+      <View style={styles.boardCard}>
+        {board ? (
+          <>
+            <T variant="heading">{t('board.resume.title')}</T>
+            <T variant="label" color={colors.textMuted}>
+              {t('board.resume.body')}
+            </T>
+            <Spacer size={spacing.sm} />
+            <Button
+              label={t('resume.continue')}
+              accent={colors.gold}
+              onPress={() =>
+                router.push(board.lock === 'unlocked' ? '/board/play' : '/board/checkout')
+              }
+            />
+            <Spacer size={spacing.sm} />
+            <Button
+              label={t('resume.discard')}
+              tone="ghost"
+              onPress={() => {
+                quitBoard();
+                router.push('/board/draft');
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <T variant="heading">{t('board.home.play')}</T>
+            <T variant="label" color={colors.textMuted}>
+              {t('board.home.subtitle')}
+            </T>
+            <Spacer size={spacing.sm} />
+            <Button
+              label={t('board.home.play')}
+              tone="secondary"
+              accent={colors.gold}
+              onPress={() => router.push('/board/draft')}
+            />
+          </>
+        )}
+      </View>
+
       <View style={{ flex: 1 }} />
       <Divider />
       <Button label={t('home.about')} tone="ghost" onPress={() => router.push('/privacy')} />
@@ -68,6 +111,13 @@ const styles = StyleSheet.create({
   resume: {
     borderWidth: 2,
     borderColor: colors.correct,
+    borderRadius: 18,
+    padding: spacing.md,
+    backgroundColor: colors.bgRaised,
+  },
+  boardCard: {
+    borderWidth: 2,
+    borderColor: colors.gold,
     borderRadius: 18,
     padding: spacing.md,
     backgroundColor: colors.bgRaised,

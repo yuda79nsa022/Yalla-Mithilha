@@ -184,6 +184,42 @@ export const ar = {
 
   'error.notEnoughContent': 'ما عندنا كروت كافية لهالخيارات. جرّب غرفة أو مستوى ثاني.',
   'error.notEnoughPlayers': 'أضف لاعبين على الأقل عشان نبدأ',
+
+  'board.home.play': 'لعبة اللوحة (تجريبي)',
+  'board.home.subtitle': 'اختاروا الفئات، ادفعوا مرة وحدة، والعبوا على شاشة وحدة',
+
+  'board.draft.title': 'جهّزوا لوحتكم',
+  'board.draft.subtitle': 'فريقين، ست فئات، ستة وثلاثين سؤال',
+  'board.draft.teamAName': 'اسم الفريق الأول',
+  'board.draft.teamBName': 'اسم الفريق الثاني',
+  'board.draft.picksFor': 'باقي {{count}} فئات لـ {{team}}',
+  'board.draft.picksDone': '{{team}} اختار فئاته الثلاث',
+  'board.draft.confirm': 'كمّل للدفع',
+  'board.draft.back': 'رجوع لأسماء الفرق',
+
+  'board.checkout.title': 'افتحوا اللوحة',
+  'board.checkout.subtitle': 'دفعة وحدة تفتح كل الستة وثلاثين سؤال لهالمباراة',
+  'board.checkout.creditsAvailable': 'عندك {{count}} رصيد متاح',
+  'board.checkout.buyOne': 'اشترِ لعبة وحدة — ٦.٩٩ دولار',
+  'board.checkout.buyBundle': 'اشترِ لعبتين — ١٢.٩٩ دولار',
+  'board.checkout.devNotice':
+    'دفع تجريبي مؤقت. الدفع الحقيقي (كي‌نت عن طريق ماي فاتورة أو تاب) ما ربطناه بعد — هالأزرار تحاكي عملية شراء.',
+  'board.checkout.start': 'ابدأ اللعبة',
+
+  'board.play.turn': 'دور {{team}}',
+  'board.play.award': 'أعطِ النقاط لـ {{team}}',
+  'board.play.skip': 'ما جاوب أحد',
+  'board.play.showAnswer': 'وضّح الجواب',
+  'board.play.answer': 'الجواب: {{answer}}',
+  'board.play.complete': 'خلصت اللوحة',
+  'board.play.winner': '{{team}} فاز!',
+  'board.play.tie': 'تعادل',
+  'board.play.quit': 'إنهاء اللعبة',
+  'board.play.quitConfirm': 'تبي تنهي لعبة اللوحة؟ راح تضيع النتيجة.',
+  'board.play.home': 'الرئيسية',
+
+  'board.resume.title': 'عندك لعبة لوحة ما خلصت',
+  'board.resume.body': 'تبي تكمّل من وين وقفتوا؟',
 } as const;
 
 export type TranslationKey = keyof typeof ar;

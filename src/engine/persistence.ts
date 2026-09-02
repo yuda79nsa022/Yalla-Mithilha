@@ -1,4 +1,6 @@
 import { STATE_VERSION } from './config';
+import { isBoardComplete } from './board/board';
+import type { BoardState } from './board/types';
 import type {
   ContentLevel,
   Lang,
@@ -39,6 +41,7 @@ export const KEYS = {
   reports: 'ym:reports:v1',
   entitlements: 'ym:entitlements:v1',
   boardCredits: 'ym:boardCredits:v1',
+  board: 'ym:board:v1',
 } as const;
 
 export interface Preferences {
@@ -147,6 +150,28 @@ export async function addReport(
   const next = [...all, report].slice(-200);
   await store.setItem(KEYS.reports, JSON.stringify(next));
   return next;
+}
+
+export async function saveBoard(store: KeyValueStore, state: BoardState): Promise<void> {
+  await store.setItem(KEYS.board, JSON.stringify(state));
+}
+
+/** Returns `null` for a missing, corrupt or malformed saved board. */
+export async function loadBoard(store: KeyValueStore): Promise<BoardState | null> {
+  try {
+    const raw = await store.getItem(KEYS.board);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as BoardState;
+    if (parsed.tiles?.length !== 36 || parsed.teams?.length !== 2) return null;
+    if (isBoardComplete(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearBoard(store: KeyValueStore): Promise<void> {
+  await store.removeItem(KEYS.board);
 }
 
 /** "Delete everything on this device" — one call, no server involved. */

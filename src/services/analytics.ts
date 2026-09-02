@@ -29,7 +29,11 @@ export type AnalyticsEvent =
   | { name: 'prompt_skipped'; promptId: string; game: MiniGameId }
   | { name: 'prompt_reported'; promptId: string; reason: string }
   | { name: 'rematch_selected' }
-  | { name: 'language_changed'; lang: 'ar' | 'en' };
+  | { name: 'language_changed'; lang: 'ar' | 'en' }
+  | { name: 'board_drafted'; categoryIds: string[] }
+  | { name: 'board_unlocked' }
+  | { name: 'board_credits_granted'; count: number }
+  | { name: 'board_completed'; winnerTeamId: string | null };
 
 export interface AnalyticsSink {
   track(event: AnalyticsEvent): void;

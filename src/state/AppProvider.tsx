@@ -13,26 +13,32 @@ import {
   sessionPromptIdsByGame,
   type CreateSessionInput,
 } from '../engine/engine';
+import { draftBoard, unlockBoard as unlockBoardState } from '../engine/board/board';
+import type { BoardState } from '../engine/board/types';
 import {
   DEFAULT_PREFERENCES,
   addReport,
+  clearBoard,
   clearSession,
+  loadBoard,
   loadPreferences,
   loadRecent,
   loadReports,
   loadSession,
   resetAllLocalData,
+  saveBoard,
   saveRecent,
   savePreferences,
   saveSession,
   type Preferences,
 } from '../engine/persistence';
 import { rememberPrompts } from '../engine/selector';
-import type { Lang, MiniGameId, PromptReport, SessionState } from '../engine/types';
+import type { Lang, MiniGameId, PromptReport, SessionState, Team } from '../engine/types';
+import { BOARD_CATALOGUE } from '../content/board/catalogue';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
 import { setSoundEnabled } from '../platform/audio';
-import { ownedPacks } from '../services/entitlements';
+import { boardCredits, grantCredits, ownedPacks, spendCredit } from '../services/entitlements';
 import { track } from '../services/analytics';
 
 interface AppValue {
@@ -57,6 +63,22 @@ interface AppValue {
   reports: PromptReport[];
   report: (promptId: string, reason: PromptReport['reason']) => Promise<void>;
   wipeEverything: () => Promise<void>;
+
+  /** SeenJeem-style board game: draft, pay, play on one shared screen. */
+  board: BoardState | null;
+  boardCredits: number;
+  startBoardDraft: (
+    teamAName: string,
+    teamBName: string,
+    teamAPicks: readonly [string, string, string],
+    teamBPicks: readonly [string, string, string]
+  ) => BoardState;
+  updateBoard: (next: BoardState) => void;
+  /** Spends one credit and unlocks the drafted board. False when there is no credit to spend. */
+  unlockCurrentBoard: () => Promise<boolean>;
+  /** Stands in for a real MyFatoorah/Tap purchase callback until that integration exists. */
+  buyBoardCreditsDev: (count: number) => Promise<void>;
+  quitBoard: () => void;
 }
 
 const AppContext = createContext<AppValue | null>(null);
@@ -80,18 +102,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [recent, setRecent] = useState<Record<string, string[]>>({});
   const [reports, setReports] = useState<PromptReport[]>([]);
   const [packs, setPacks] = useState<string[]>(['core']);
+  const [board, setBoardState] = useState<BoardState | null>(null);
+  const [credits, setCredits] = useState(0);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [storedPrefs, storedRecent, storedReports, storedPacks, unfinished] =
+      const [storedPrefs, storedRecent, storedReports, storedPacks, unfinished, storedBoard, storedCredits] =
         await Promise.all([
           loadPreferences(deviceStore),
           loadRecent(deviceStore),
           loadReports(deviceStore),
           ownedPacks(deviceStore),
           loadSession(deviceStore),
+          loadBoard(deviceStore),
+          boardCredits(deviceStore),
         ]);
 
       setPrefsState({ ...storedPrefs, lang: storedPrefs.lang ?? deviceLanguage() });
@@ -99,6 +125,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setReports(storedReports);
       setPacks(storedPacks);
       setSavedSession(unfinished);
+      setBoardState(storedBoard);
+      setCredits(storedCredits);
       setSoundEnabled(storedPrefs.sound);
       setReady(true);
     })();
@@ -235,8 +263,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRecent({});
     setReports([]);
     setPacks(['core']);
+    setBoardState(null);
+    setCredits(0);
     setPrefsState({ ...DEFAULT_PREFERENCES, lang });
   }, [lang]);
+
+  const updateBoard = useCallback((next: BoardState) => {
+    setBoardState(next);
+    void saveBoard(deviceStore, next);
+  }, []);
+
+  const startBoardDraft = useCallback(
+    (
+      teamAName: string,
+      teamBName: string,
+      teamAPicks: readonly [string, string, string],
+      teamBPicks: readonly [string, string, string]
+    ) => {
+      const teamA: Team = { id: 'board-a', name: teamAName, playerIds: [], performerCursor: 0 };
+      const teamB: Team = { id: 'board-b', name: teamBName, playerIds: [], performerCursor: 0 };
+      const next = draftBoard(teamA, teamB, teamAPicks, teamBPicks, BOARD_CATALOGUE);
+      updateBoard(next);
+      track({ name: 'board_drafted', categoryIds: next.categories.map((c) => c.id) });
+      return next;
+    },
+    [updateBoard]
+  );
+
+  const unlockCurrentBoard = useCallback(async () => {
+    if (!board) return false;
+    const remaining = await spendCredit(deviceStore);
+    if (remaining === null) return false;
+    setCredits(remaining);
+    updateBoard(unlockBoardState(board));
+    track({ name: 'board_unlocked' });
+    return true;
+  }, [board, updateBoard]);
+
+  const buyBoardCreditsDev = useCallback(async (count: number) => {
+    const next = await grantCredits(deviceStore, count);
+    setCredits(next);
+    track({ name: 'board_credits_granted', count });
+  }, []);
+
+  const quitBoard = useCallback(() => {
+    setBoardState(null);
+    void clearBoard(deviceStore);
+  }, []);
 
   const value: AppValue = {
     ready,
@@ -257,6 +330,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     reports,
     report,
     wipeEverything,
+    board,
+    boardCredits: credits,
+    startBoardDraft,
+    updateBoard,
+    unlockCurrentBoard,
+    buyBoardCreditsDev,
+    quitBoard,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
