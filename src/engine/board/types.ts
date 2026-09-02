@@ -5,12 +5,14 @@
  * rules (fixed two teams, host-judged scoring, no performer rotation).
  */
 
-import type { Team } from '../types';
+import type { ContentLevel, RegionTag, Team } from '../types';
 
 export type TileMediaType = 'text' | 'image' | 'audio' | 'reorder' | 'dotless';
 
 /** Static tile content, as it lives in a category deck before drafting. */
 export interface TileContent {
+  /** Stable unique id, e.g. `history-1`. Never re-use an id for new content. */
+  id: string;
   /** 0-5, ordered by point value within its category. */
   index: number;
   points: number;
@@ -29,6 +31,10 @@ export interface CategoryDeck {
   nameAr: string;
   nameEn: string;
   tier: 'free' | 'paid';
+  /** The lowest audience this category suits, same convention as `Prompt.level`. */
+  level: ContentLevel;
+  /** Where the content is targeted, same convention as `Prompt.region`. */
+  region: RegionTag;
   /** Exactly six tiles. */
   tiles: TileContent[];
 }

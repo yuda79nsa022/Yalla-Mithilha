@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Screen, Spacer, T } from '../../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
-import { BOARD_CATALOGUE } from '../../src/content/board/catalogue';
+import { BOARD_CATALOGUE } from '../../src/content/board';
 
 const PICKS_PER_TEAM = 3;
 

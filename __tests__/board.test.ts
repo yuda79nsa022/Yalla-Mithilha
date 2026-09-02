@@ -16,6 +16,7 @@ const teamB: Team = { id: 'team-b', name: 'team.b', playerIds: ['p3', 'p4'], per
 
 function makeTiles(prefix: string): TileContent[] {
   return Array.from({ length: 6 }, (_, i) => ({
+    id: `${prefix}-${i + 1}`,
     index: i,
     points: (i + 1) * 100,
     mediaType: 'text',
@@ -27,7 +28,7 @@ function makeTiles(prefix: string): TileContent[] {
 }
 
 function makeDeck(id: string, tier: 'free' | 'paid' = 'free'): CategoryDeck {
-  return { id, nameAr: id, nameEn: id, tier, tiles: makeTiles(id) };
+  return { id, nameAr: id, nameEn: id, tier, level: 'family', region: 'global', tiles: makeTiles(id) };
 }
 
 const catalogue: CategoryDeck[] = [

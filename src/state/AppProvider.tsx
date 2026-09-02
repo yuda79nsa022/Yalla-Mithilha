@@ -34,7 +34,7 @@ import {
 } from '../engine/persistence';
 import { rememberPrompts } from '../engine/selector';
 import type { Lang, MiniGameId, PromptReport, SessionState, Team } from '../engine/types';
-import { BOARD_CATALOGUE } from '../content/board/catalogue';
+import { BOARD_CATALOGUE } from '../content/board';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
 import { setSoundEnabled } from '../platform/audio';
