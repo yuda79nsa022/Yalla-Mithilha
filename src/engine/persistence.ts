@@ -38,6 +38,7 @@ export const KEYS = {
   recent: 'ym:recent:v1',
   reports: 'ym:reports:v1',
   entitlements: 'ym:entitlements:v1',
+  boardCredits: 'ym:boardCredits:v1',
 } as const;
 
 export interface Preferences {
