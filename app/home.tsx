@@ -24,7 +24,7 @@ export default function Home() {
         {Array.from({ length: 9 }, (_, i) => (
           <View
             key={i}
-            style={[styles.chevron, { backgroundColor: i % 2 ? colors.gold : colors.taboo }]}
+            style={[styles.chevron, { backgroundColor: i % 2 ? colors.accent : colors.brand }]}
           />
         ))}
       </View>
@@ -70,7 +70,7 @@ export default function Home() {
             <Spacer size={spacing.sm} />
             <Button
               label={t('resume.continue')}
-              accent={colors.gold}
+              accent={colors.accent}
               onPress={() =>
                 router.push(board.lock === 'unlocked' ? '/board/play' : '/board/checkout')
               }
@@ -95,7 +95,7 @@ export default function Home() {
             <Button
               label={t('board.home.play')}
               tone="secondary"
-              accent={colors.gold}
+              accent={colors.accent}
               onPress={() => router.push('/board/draft')}
             />
             {catalogue.length ? (
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   boardCard: {
     borderWidth: 2,
-    borderColor: colors.gold,
+    borderColor: colors.accent,
     borderRadius: 18,
     padding: spacing.md,
     backgroundColor: colors.bgRaised,

@@ -2,34 +2,39 @@ import { Platform } from 'react-native';
 import type { MiniGameId } from '../engine/types';
 
 /**
- * Visual direction: a lit room at night. The base is a deep plum rather than
- * black so the colour blocks feel warm instead of clinical, and every
- * mini-game owns one saturated hue that fills the whole screen — from three
- * metres away you should know which game is running before you read a word.
+ * Visual direction: the app's own poster. Warm paper cream instead of black
+ * or white, deep ink-navy for reading text and line art, hot pink as the one
+ * colour that means "tap this," and every mini-game still owns one saturated
+ * hue that fills the whole screen — from three metres away you should know
+ * which game is running before you read a word. Palette lifted straight from
+ * the Yalla Mithilha logo (cream ground, blue illustration, pink accent).
  */
 export const colors = {
-  bg: '#17102A',
-  bgRaised: '#221838',
-  bgSunken: '#0F0A1D',
-  text: '#FFF6EC',
-  textMuted: '#B7A9C9',
-  border: '#3A2D55',
-  correct: '#3DDC91',
-  skip: '#FF7A6B',
-  gold: '#FFC94D',
-  overlay: 'rgba(15, 10, 29, 0.92)',
+  bg: '#F7F0DF',
+  bgRaised: '#FFFCF4',
+  bgSunken: '#EDE1C3',
+  text: '#17222E',
+  textMuted: '#57697E',
+  border: '#D8C79C',
+  correct: '#1F9E6C',
+  skip: '#C23A2E',
+  /** Poster blue, straight off the logo's masks and film reel. Chrome and brand marks, not a mini-game. */
+  brand: '#246E9C',
+  /** The one colour that means "tap this" — the logo's hand gesture and ticket stubs. */
+  accent: '#E8368F',
+  overlay: 'rgba(247, 240, 223, 0.94)',
 
   // Mini-game identity colours.
-  act: '#FFB020',
-  taboo: '#FF5A6E',
-  who: '#3FC7F4',
-  imitate: '#B98BFF',
-  lips: '#4FE3B0',
-  sound: '#FF8FB0',
-  final: '#FFD75E',
+  act: '#F0A23C',
+  taboo: '#F0614C',
+  who: '#4FB6E0',
+  imitate: '#A98BEE',
+  lips: '#33C9A5',
+  sound: '#F17FA6',
+  final: '#F5C64B',
 
-  teamA: '#FF5A6E',
-  teamB: '#3FC7F4',
+  teamA: '#F0614C',
+  teamB: '#4FB6E0',
 } as const;
 
 export function miniGameColor(game: MiniGameId): string {
@@ -37,7 +42,7 @@ export function miniGameColor(game: MiniGameId): string {
 }
 
 /** Text that sits on top of a mini-game colour block. */
-export const onAccent = '#1B1130';
+export const onAccent = '#17222E';
 
 export const spacing = {
   xs: 4,

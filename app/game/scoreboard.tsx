@@ -8,7 +8,7 @@ import { progress } from '../../src/engine/engine';
 import { standings } from '../../src/engine/scoring';
 import { formatNumber } from '../../src/i18n';
 
-const TEAM_COLORS = [colors.teamA, colors.teamB, colors.gold, colors.lips, colors.imitate];
+const TEAM_COLORS = [colors.teamA, colors.teamB, colors.accent, colors.lips, colors.imitate];
 
 export default function Scoreboard() {
   const { t, lang, session } = useApp();

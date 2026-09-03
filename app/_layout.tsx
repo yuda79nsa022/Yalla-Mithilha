@@ -21,7 +21,7 @@ function Gate({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center' }}>
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={colors.accent} size="large" />
       </View>
     );
   }
@@ -32,7 +32,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Gate>
           <Stack
             screenOptions={{

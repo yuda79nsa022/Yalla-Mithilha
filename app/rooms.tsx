@@ -12,7 +12,7 @@ import type { RoomId } from '../src/engine/types';
 const ROOM_ACCENTS: Record<RoomId, string> = {
   friends: colors.act,
   family: colors.lips,
-  diwaniya: colors.gold,
+  diwaniya: colors.accent,
   kuwait: colors.taboo,
   ramadan: colors.imitate,
   couples: colors.sound,

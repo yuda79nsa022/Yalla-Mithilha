@@ -5,10 +5,10 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "yallamithilha",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#17102A",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F7F0DF",
     "splash": {
-      "backgroundColor": "#17102A",
+      "backgroundColor": "#F7F0DF",
       "resizeMode": "contain"
     },
     "assetBundlePatterns": ["**/*"],
@@ -22,7 +22,7 @@
     "android": {
       "package": "com.example.yallamithilha",
       "adaptiveIcon": {
-        "backgroundColor": "#17102A"
+        "backgroundColor": "#F7F0DF"
       },
       "permissions": []
     },

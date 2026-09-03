@@ -71,7 +71,7 @@ export default function Players() {
                       ? index % 2 === 0
                         ? colors.teamA
                         : colors.teamB
-                      : colors.gold,
+                      : colors.accent,
                 },
               ]}
             />
@@ -95,7 +95,7 @@ export default function Players() {
       {!enough ? (
         <>
           <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.gold}>
+          <T variant="label" color={colors.accent}>
             {t('players.min')}
           </T>
         </>
@@ -114,7 +114,7 @@ export default function Players() {
       <OptionCard
         title={t('players.mode.ffa')}
         selected={prefs.lastMode === 'ffa'}
-        accent={colors.gold}
+        accent={colors.accent}
         onPress={() => setPrefs({ lastMode: 'ffa' })}
       />
 
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     width: HIT_SIZE,
     height: HIT_SIZE,
     borderRadius: radius.md,
-    backgroundColor: colors.gold,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },

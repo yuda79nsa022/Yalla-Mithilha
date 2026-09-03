@@ -75,7 +75,7 @@ export default function BoardCheckout() {
       <Spacer size={spacing.xl} />
 
       <View style={styles.card}>
-        <T variant="heading" color={colors.gold}>
+        <T variant="heading" color={colors.accent}>
           {t('board.checkout.creditsAvailable', { count: boardCredits })}
         </T>
       </View>
@@ -129,7 +129,7 @@ export default function BoardCheckout() {
 const styles = {
   card: {
     borderWidth: 2,
-    borderColor: colors.gold,
+    borderColor: colors.accent,
     borderRadius: 18,
     padding: spacing.md,
     backgroundColor: colors.bgRaised,

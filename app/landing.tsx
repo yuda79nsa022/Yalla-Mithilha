@@ -20,12 +20,12 @@ export default function Landing() {
         {Array.from({ length: 9 }, (_, i) => (
           <View
             key={i}
-            style={[styles.chevron, { backgroundColor: i % 2 ? colors.gold : colors.taboo }]}
+            style={[styles.chevron, { backgroundColor: i % 2 ? colors.accent : colors.brand }]}
           />
         ))}
       </View>
 
-      <T variant="label" color={colors.gold}>
+      <T variant="label" color={colors.accent}>
         {t('landing.eyebrow')}
       </T>
       <T variant="display">{t('app.name')}</T>
@@ -48,15 +48,15 @@ export default function Landing() {
       </View>
 
       <Spacer size={spacing.md} />
-      <View style={[styles.card, { borderColor: colors.gold }]}>
-        <T variant="heading" color={colors.gold}>
+      <View style={[styles.card, { borderColor: colors.accent }]}>
+        <T variant="heading" color={colors.accent}>
           {t('landing.boardTitle')}
         </T>
         <T variant="body" color={colors.textMuted}>
           {t('landing.boardBody')}
         </T>
         <Spacer size={spacing.sm} />
-        <Button label={t('landing.boardCta')} accent={colors.gold} onPress={() => router.push('/board/draft')} />
+        <Button label={t('landing.boardCta')} accent={colors.accent} onPress={() => router.push('/board/draft')} />
       </View>
 
       <Spacer size={spacing.xl} />

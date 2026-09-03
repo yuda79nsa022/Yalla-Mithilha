@@ -4,45 +4,47 @@
 <meta charset="utf-8" />
 <title>Yalla Mithilha — Board Catalogue Admin</title>
 <style>
+  /* Palette lifted from the Yalla Mithilha logo, same tokens as src/ui/theme.ts:
+     cream paper, poster blue for chrome, hot pink for the one thing to tap. */
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f5f8; color: #201a2e; }
-  header { background: #17102A; color: #FFF6EC; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #F7F0DF; color: #17222E; }
+  header { background: #246E9C; color: #FFFCF4; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   header h1 { font-size: 18px; margin: 0; }
   nav { display: flex; gap: 8px; }
-  nav button { background: transparent; border: 1px solid #4a3d66; color: #cabfe0; }
-  nav button.active { background: #2c2246; color: #fff; border-color: #2c2246; }
-  .headerRight { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #cabfe0; }
+  nav button { background: transparent; border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.85); }
+  nav button.active { background: #E8368F; color: #fff; border-color: #E8368F; }
+  .headerRight { display: flex; align-items: center; gap: 12px; font-size: 13px; color: rgba(255,255,255,0.85); }
   main { max-width: 960px; margin: 24px auto; padding: 0 16px 64px; }
-  .card { background: #fff; border: 1px solid #ddd6e8; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card { background: #FFFCF4; border: 1px solid #D8C79C; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 14px; }
-  th { color: #6b6280; font-weight: 600; }
-  button { cursor: pointer; border: 1px solid #17102A; background: #17102A; color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
-  button.secondary { background: #fff; color: #17102A; }
-  button.danger { background: #fff; color: #b0293f; border-color: #b0293f; }
-  button.link { background: none; border: none; color: #6b6280; padding: 0; text-decoration: underline; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #EAE0C4; font-size: 14px; }
+  th { color: #57697E; font-weight: 600; }
+  button { cursor: pointer; border: 1px solid #E8368F; background: #E8368F; color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
+  button.secondary { background: #FFFCF4; color: #17222E; border-color: #D8C79C; }
+  button.danger { background: #FFFCF4; color: #C23A2E; border-color: #C23A2E; }
+  button.link { background: none; border: none; color: #57697E; padding: 0; text-decoration: underline; }
   button:disabled { opacity: 0.5; cursor: default; }
-  input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid #ccc4d9; border-radius: 6px; width: 100%; }
-  label { display: block; font-size: 12px; color: #6b6280; margin-bottom: 4px; }
+  input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid #D8C79C; border-radius: 6px; width: 100%; }
+  label { display: block; font-size: 12px; color: #57697E; margin-bottom: 4px; }
   .field { margin-bottom: 10px; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
-  .tile-card { border: 1px solid #eee; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
-  .tile-card.needs-content { border-color: #e0a83e; background: #fffaf0; }
-  .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eee; }
-  .badge.complete { background: #d5f3e3; color: #146c43; }
-  .badge.incomplete { background: #fdecec; color: #b0293f; }
-  .badge.published { background: #d5f3e3; color: #146c43; }
-  .badge.draft { background: #eee; color: #6b6280; }
-  .badge.archived { background: #ece4f7; color: #6a3fa3; }
-  .badge.duplicate { background: #fff4d6; color: #8a6100; }
+  .tile-card { border: 1px solid #EAE0C4; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .tile-card.needs-content { border-color: #F0A23C; background: #FDF3E2; }
+  .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #EAE0C4; color: #17222E; }
+  .badge.complete { background: #DCF3E9; color: #166F4C; }
+  .badge.incomplete { background: #FBE3E0; color: #C23A2E; }
+  .badge.published { background: #DCF3E9; color: #166F4C; }
+  .badge.draft { background: #EAE0C4; color: #57697E; }
+  .badge.archived { background: #F0EAFC; color: #6E4FB8; }
+  .badge.duplicate { background: #FDF3D6; color: #8A6100; }
   [dir="rtl"] { text-align: right; }
-  .muted { color: #6b6280; font-size: 13px; }
+  .muted { color: #57697E; font-size: 13px; }
   .hidden { display: none !important; }
-  a.back { color: #6b6280; text-decoration: none; font-size: 14px; cursor: pointer; }
-  .thumb { width: 96px; height: 96px; border-radius: 10px; object-fit: cover; background: #f0edf5; border: 1px solid #ddd6e8; }
-  .thumbPlaceholder { width: 96px; height: 96px; border-radius: 10px; background: #f0edf5; border: 1px dashed #ccc4d9; display: flex; align-items: center; justify-content: center; color: #b3a9c4; font-size: 12px; text-align: center; }
+  a.back { color: #57697E; text-decoration: none; font-size: 14px; cursor: pointer; }
+  .thumb { width: 96px; height: 96px; border-radius: 10px; object-fit: cover; background: #F3ECDA; border: 1px solid #D8C79C; }
+  .thumbPlaceholder { width: 96px; height: 96px; border-radius: 10px; background: #F3ECDA; border: 1px dashed #D8C79C; display: flex; align-items: center; justify-content: center; color: #8B93A0; font-size: 12px; text-align: center; }
 </style>
 </head>
 <body>
@@ -58,7 +60,7 @@
   </nav>
   <div class="headerRight">
     <span id="whoami"></span>
-    <button id="logoutBtn" class="hidden secondary" style="background:transparent;color:#fff;border-color:#4a3d66">Log out</button>
+    <button id="logoutBtn" class="hidden secondary" style="background:transparent;color:#fff;border-color:rgba(255,255,255,0.5)">Log out</button>
   </div>
 </header>
 
@@ -74,7 +76,7 @@
       <input id="passwordInput" type="password" autocomplete="current-password" />
     </div>
     <button id="signInBtn">Sign in</button>
-    <p id="gateError" class="muted hidden" style="color:#b0293f"></p>
+    <p id="gateError" class="muted hidden" style="color:#C23A2E"></p>
     <p class="muted">No account yet? Ask another admin to add one, or run <code>npm run create-admin</code> on the server.</p>
   </div>
 
@@ -165,7 +167,7 @@
           <button id="importPreviewBtn" class="secondary">Preview import</button>
           <div id="importPreviewResult" class="hidden" style="margin-top:12px">
             <p id="importPreviewSummary" class="muted"></p>
-            <div id="importPreviewRows" style="max-height:260px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:8px"></div>
+            <div id="importPreviewRows" style="max-height:260px;overflow-y:auto;border:1px solid #D8C79C;border-radius:8px;padding:8px"></div>
             <div style="margin-top:10px">
               <button id="importCommitBtn">Confirm and fill empty slots</button>
               <button id="importCancelBtn" class="secondary">Cancel</button>
@@ -212,7 +214,7 @@
           <div class="field"><label>Password (8+ characters)</label><input id="newAdminPassword" type="password" /></div>
         </div>
         <button id="addAdminBtn">Add admin</button>
-        <p id="addAdminError" class="muted hidden" style="color:#b0293f"></p>
+        <p id="addAdminError" class="muted hidden" style="color:#C23A2E"></p>
       </div>
     </div>
 

@@ -37,7 +37,7 @@ export default function Splash() {
           {Array.from({ length: 7 }, (_, i) => (
             <View
               key={i}
-              style={[styles.chevron, { backgroundColor: i % 2 ? colors.gold : colors.taboo }]}
+              style={[styles.chevron, { backgroundColor: i % 2 ? colors.accent : colors.brand }]}
             />
           ))}
         </View>

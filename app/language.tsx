@@ -48,7 +48,7 @@ export default function LanguageScreen() {
         <>
           <Spacer />
           {/* Being honest about the reload beats showing a half-mirrored screen. */}
-          <T variant="label" color={colors.gold}>
+          <T variant="label" color={colors.accent}>
             {t('lang.restartNotice')}
           </T>
         </>

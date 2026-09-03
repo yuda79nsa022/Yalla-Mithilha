@@ -56,7 +56,7 @@ export default function Brief() {
               color={colors.textMuted}
             />
           ) : null}
-          {plan.isFinal ? <Pill text={t('brief.finalRound')} color={colors.gold} /> : null}
+          {plan.isFinal ? <Pill text={t('brief.finalRound')} color={colors.accent} /> : null}
           {plan.isSuddenDeath ? (
             <Pill text={t('winner.suddenDeath')} color={colors.skip} />
           ) : null}

@@ -42,7 +42,7 @@ export default function BoardPlay() {
           <T variant="title" align="center">
             {t('board.play.complete')}
           </T>
-          <T variant="display" align="center" color={colors.gold}>
+          <T variant="display" align="center" color={colors.accent}>
             {winner ? t('board.play.winner', { team: winner.name }) : t('board.play.tie')}
           </T>
           <Spacer />
@@ -130,7 +130,7 @@ export default function BoardPlay() {
                     ]}
                   >
                     {!tile.revealed ? (
-                      <T variant="heading" color={colors.gold}>
+                      <T variant="heading" color={colors.accent}>
                         {tile.points}
                       </T>
                     ) : null}
@@ -154,7 +154,7 @@ export default function BoardPlay() {
               </T>
               <Spacer />
               {answerShown ? (
-                <T variant="body" align="center" color={colors.gold}>
+                <T variant="body" align="center" color={colors.accent}>
                   {t('board.play.answer', {
                     answer: lang === 'ar' ? currentTile.answerAr : currentTile.answerEn,
                   })}

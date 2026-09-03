@@ -8,7 +8,7 @@ import { leaders, standings, topPerformerId } from '../../src/engine/scoring';
 import { performerName } from '../../src/engine/engine';
 import { formatNumber } from '../../src/i18n';
 
-const TEAM_COLORS = [colors.teamA, colors.teamB, colors.gold, colors.lips, colors.imitate];
+const TEAM_COLORS = [colors.teamA, colors.teamB, colors.accent, colors.lips, colors.imitate];
 
 export default function Winner() {
   const { t, lang, session, playAgain, quitSession } = useApp();
@@ -40,7 +40,7 @@ export default function Winner() {
         {Array.from({ length: 9 }, (_, i) => (
           <View
             key={i}
-            style={[styles.chevron, { backgroundColor: i % 2 ? colors.gold : colors.correct }]}
+            style={[styles.chevron, { backgroundColor: i % 2 ? colors.accent : colors.correct }]}
           />
         ))}
       </View>
@@ -48,7 +48,7 @@ export default function Winner() {
       <T variant="label" color={colors.textMuted}>
         {t('winner.title')}
       </T>
-      <T variant="display" color={colors.gold}>
+      <T variant="display" color={colors.accent}>
         {top.length === 1 ? nameOf(top[0]) : top.map(nameOf).join(' + ')}
       </T>
 

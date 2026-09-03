@@ -85,7 +85,7 @@ export function Button({
   label,
   onPress,
   tone = 'primary',
-  accent = colors.gold,
+  accent = colors.accent,
   disabled = false,
   busy = false,
   style,
@@ -181,7 +181,7 @@ export function OptionCard({
   subtitle,
   selected,
   onPress,
-  accent = colors.gold,
+  accent = colors.accent,
   badge,
 }: {
   title: string;
@@ -267,7 +267,7 @@ export function Toggle({
 
 /* ------------------------------------------------------------------ bits */
 
-export function Pill({ text, color = colors.gold }: { text: string; color?: string }) {
+export function Pill({ text, color = colors.accent }: { text: string; color?: string }) {
   return (
     <View style={[styles.pill, { borderColor: color }]}>
       <T variant="label" color={color}>
@@ -297,7 +297,7 @@ export function RoundProgress({ round, total }: { round: number; total: number }
       {Array.from({ length: capped }, (_, i) => (
         <View
           key={i}
-          style={[styles.progressDot, i < round && { backgroundColor: colors.gold }]}
+          style={[styles.progressDot, i < round && { backgroundColor: colors.accent }]}
         />
       ))}
     </View>
