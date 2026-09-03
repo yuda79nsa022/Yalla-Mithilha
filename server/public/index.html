@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Yalla Mithilha — Board Catalogue Admin</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f5f8; color: #201a2e; }
+  header { background: #17102A; color: #FFF6EC; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 18px; margin: 0; }
+  main { max-width: 960px; margin: 24px auto; padding: 0 16px 64px; }
+  .card { background: #fff; border: 1px solid #ddd6e8; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 14px; }
+  th { color: #6b6280; font-weight: 600; }
+  button { cursor: pointer; border: 1px solid #17102A; background: #17102A; color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
+  button.secondary { background: #fff; color: #17102A; }
+  button.danger { background: #fff; color: #b0293f; border-color: #b0293f; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid #ccc4d9; border-radius: 6px; width: 100%; }
+  label { display: block; font-size: 12px; color: #6b6280; margin-bottom: 4px; }
+  .field { margin-bottom: 10px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .tile-card { border: 1px solid #eee; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .tile-card.needs-content { border-color: #e0a83e; background: #fffaf0; }
+  .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eee; }
+  .badge.complete { background: #d5f3e3; color: #146c43; }
+  .badge.incomplete { background: #fdecec; color: #b0293f; }
+  [dir="rtl"] { text-align: right; }
+  .muted { color: #6b6280; font-size: 13px; }
+  .hidden { display: none !important; }
+  a.back { color: #6b6280; text-decoration: none; font-size: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Board Catalogue Admin</h1>
+  <div id="authStatus" class="muted" style="color:#cabfe0"></div>
+</header>
+
+<main>
+  <div id="gate" class="card">
+    <div class="field">
+      <label for="tokenInput">Admin token</label>
+      <input id="tokenInput" type="password" placeholder="Paste the ADMIN_TOKEN" />
+    </div>
+    <button id="signInBtn">Sign in</button>
+    <p id="gateError" class="muted hidden" style="color:#b0293f"></p>
+  </div>
+
+  <div id="app" class="hidden">
+    <div id="listView">
+      <div class="card">
+        <div class="row" style="align-items:flex-end">
+          <div>
+            <h2 style="margin:0 0 4px">Categories</h2>
+            <p class="muted" style="margin:0">Only categories where all six tiles are complete ever reach the app.</p>
+          </div>
+          <div style="flex:0 0 auto"><button id="newCategoryBtn">+ New category</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Name</th><th>Tier</th><th>Level</th><th>Region</th><th>Complete</th><th></th></tr>
+          </thead>
+          <tbody id="categoryRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="editView" class="hidden">
+      <a class="back" id="backLink">&larr; Back to categories</a>
+      <div class="card">
+        <h2 id="editTitle" style="margin-top:0"></h2>
+        <div class="row">
+          <div class="field"><label>id</label><input id="fId" disabled /></div>
+          <div class="field"><label>tier</label>
+            <select id="fTier"><option value="free">free</option><option value="paid">paid</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Name (Arabic)</label><input id="fNameAr" dir="rtl" /></div>
+          <div class="field"><label>Name (English)</label><input id="fNameEn" /></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>level</label>
+            <select id="fLevel">
+              <option value="kids">kids</option><option value="family">family</option>
+              <option value="friends">friends</option><option value="adults">adults</option>
+            </select>
+          </div>
+          <div class="field"><label>region</label>
+            <select id="fRegion">
+              <option value="kw">kw</option><option value="gulf">gulf</option>
+              <option value="egypt">egypt</option><option value="global">global</option>
+            </select>
+          </div>
+        </div>
+        <button id="saveCategoryBtn">Save category</button>
+        <button class="danger" id="deleteCategoryBtn">Delete category</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Import titles</h3>
+        <p class="muted">Upload a .docx, .xlsx or .pdf list of names. Only fills empty slots — never overwrites a tile that already has content. Fills the Arabic prompt only; you still need to add the English prompt and both answers per tile.</p>
+        <input id="importFile" type="file" accept=".docx,.xlsx,.pdf" />
+        <button id="importBtn" class="secondary">Import into empty slots</button>
+        <p id="importResult" class="muted"></p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Tiles</h3>
+        <div id="tilesContainer"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+let token = localStorage.getItem('adminToken') || '';
+let currentCategoryId = null;
+let currentCategory = null;
+
+const $ = (id) => document.getElementById(id);
+
+function api(path, opts = {}) {
+  return fetch(path, {
+    ...opts,
+    headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + token },
+  }).then(async (res) => {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || ('HTTP ' + res.status));
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  });
+}
+
+async function signIn() {
+  token = $('tokenInput').value.trim();
+  try {
+    await api('/admin/categories');
+    localStorage.setItem('adminToken', token);
+    $('gate').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    $('authStatus').textContent = 'signed in';
+    showList();
+  } catch (e) {
+    $('gateError').textContent = 'Could not sign in: ' + e.message;
+    $('gateError').classList.remove('hidden');
+  }
+}
+
+function isComplete(category) {
+  return category.tiles.length === 6 && category.tiles.every((t) => !t.needsContent);
+}
+
+async function showList() {
+  $('editView').classList.add('hidden');
+  $('listView').classList.remove('hidden');
+  const categories = await api('/admin/categories');
+  const rows = categories.map((c) => {
+    const complete = isComplete(c);
+    return `<tr>
+      <td>${c.id}</td>
+      <td>${c.nameEn} <span class="muted">/ ${c.nameAr}</span></td>
+      <td>${c.tier}</td><td>${c.level}</td><td>${c.region}</td>
+      <td><span class="badge ${complete ? 'complete' : 'incomplete'}">${c.tiles.filter((t) => !t.needsContent).length}/6</span></td>
+      <td><button class="secondary" data-open="${c.id}">Open</button></td>
+    </tr>`;
+  }).join('');
+  $('categoryRows').innerHTML = rows || '<tr><td colspan="7" class="muted">No categories yet.</td></tr>';
+  $('categoryRows').querySelectorAll('[data-open]').forEach((btn) => {
+    btn.addEventListener('click', () => openCategory(btn.dataset.open));
+  });
+}
+
+function newCategoryDraft() {
+  return { id: '', nameAr: '', nameEn: '', tier: 'free', level: 'family', region: 'global', tiles: [] };
+}
+
+async function openCategory(id) {
+  currentCategoryId = id;
+  currentCategory = id ? await api('/admin/categories/' + encodeURIComponent(id)) : newCategoryDraft();
+  renderEdit();
+}
+
+function renderEdit() {
+  $('listView').classList.add('hidden');
+  $('editView').classList.remove('hidden');
+  const c = currentCategory;
+  $('editTitle').textContent = currentCategoryId ? 'Edit category' : 'New category';
+  $('fId').value = c.id;
+  $('fId').disabled = Boolean(currentCategoryId);
+  $('fNameAr').value = c.nameAr;
+  $('fNameEn').value = c.nameEn;
+  $('fTier').value = c.tier;
+  $('fLevel').value = c.level;
+  $('fRegion').value = c.region;
+  $('deleteCategoryBtn').classList.toggle('hidden', !currentCategoryId);
+  $('importResult').textContent = '';
+
+  const tilesHtml = (c.tiles.length ? c.tiles : Array.from({ length: 6 }, (_, i) => ({
+    index: i, points: [100,200,300,400,500,600][i], promptAr: '', promptEn: '', answerAr: '', answerEn: '', mediaType: 'text', needsContent: true,
+  }))).map((t) => `
+    <div class="tile-card ${t.needsContent ? 'needs-content' : ''}" data-index="${t.index}">
+      <div class="row" style="align-items:center">
+        <strong>${t.points} pts</strong>
+        <span class="badge ${t.needsContent ? 'incomplete' : 'complete'}">${t.needsContent ? 'needs content' : 'complete'}</span>
+      </div>
+      <div class="row">
+        <div class="field"><label>Prompt (Arabic)</label><textarea dir="rtl" data-field="promptAr">${escapeHtml(t.promptAr)}</textarea></div>
+        <div class="field"><label>Prompt (English)</label><textarea data-field="promptEn">${escapeHtml(t.promptEn)}</textarea></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Answer (Arabic)</label><input dir="rtl" data-field="answerAr" value="${escapeHtml(t.answerAr)}" /></div>
+        <div class="field"><label>Answer (English)</label><input data-field="answerEn" value="${escapeHtml(t.answerEn)}" /></div>
+      </div>
+      <button class="secondary save-tile" data-index="${t.index}" ${currentCategoryId ? '' : 'disabled'}>Save tile</button>
+      ${currentCategoryId ? '' : '<span class="muted"> save the category first</span>'}
+    </div>
+  `).join('');
+  $('tilesContainer').innerHTML = tilesHtml;
+
+  $('tilesContainer').querySelectorAll('.save-tile').forEach((btn) => {
+    btn.addEventListener('click', () => saveTile(Number(btn.dataset.index)));
+  });
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function saveCategory() {
+  const body = {
+    nameAr: $('fNameAr').value.trim(),
+    nameEn: $('fNameEn').value.trim(),
+    tier: $('fTier').value,
+    level: $('fLevel').value,
+    region: $('fRegion').value,
+  };
+  try {
+    if (currentCategoryId) {
+      currentCategory = await api('/admin/categories/' + encodeURIComponent(currentCategoryId), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+    } else {
+      const id = $('fId').value.trim();
+      currentCategory = await api('/admin/categories', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...body }),
+      });
+      currentCategoryId = id;
+    }
+    renderEdit();
+  } catch (e) {
+    alert('Could not save: ' + e.message);
+  }
+}
+
+async function deleteCategory() {
+  if (!confirm('Delete "' + currentCategoryId + '" and all its tiles? This cannot be undone.')) return;
+  await api('/admin/categories/' + encodeURIComponent(currentCategoryId), { method: 'DELETE' });
+  showList();
+}
+
+async function saveTile(index) {
+  const card = $('tilesContainer').querySelector('[data-index="' + index + '"]');
+  const body = {};
+  card.querySelectorAll('[data-field]').forEach((el) => { body[el.dataset.field] = el.value; });
+  try {
+    currentCategory = await api(
+      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/tiles/' + index,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+    const full = await api('/admin/categories/' + encodeURIComponent(currentCategoryId));
+    currentCategory = full;
+    renderEdit();
+  } catch (e) {
+    alert('Could not save tile: ' + e.message);
+  }
+}
+
+async function importTitles() {
+  const file = $('importFile').files[0];
+  if (!file) { alert('Choose a file first'); return; }
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const result = await api(
+      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/import',
+      { method: 'POST', body: form }
+    );
+    $('importResult').textContent = `Found ${result.titlesFound} titles, filled ${result.filled} empty slot(s), ${result.skipped} left over unused.`;
+    currentCategory = result.category;
+    renderEdit();
+  } catch (e) {
+    alert('Import failed: ' + e.message);
+  }
+}
+
+$('signInBtn').addEventListener('click', signIn);
+$('tokenInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
+$('newCategoryBtn').addEventListener('click', () => openCategory(null));
+$('backLink').addEventListener('click', showList);
+$('saveCategoryBtn').addEventListener('click', saveCategory);
+$('deleteCategoryBtn').addEventListener('click', deleteCategory);
+$('importBtn').addEventListener('click', importTitles);
+
+if (token) {
+  $('tokenInput').value = token;
+  signIn();
+}
+</script>
+</body>
+</html>

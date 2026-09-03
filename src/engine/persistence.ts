@@ -1,6 +1,6 @@
 import { STATE_VERSION } from './config';
 import { isBoardComplete } from './board/board';
-import type { BoardState } from './board/types';
+import type { BoardState, CategoryDeck } from './board/types';
 import type {
   ContentLevel,
   Lang,
@@ -42,6 +42,7 @@ export const KEYS = {
   entitlements: 'ym:entitlements:v1',
   boardCredits: 'ym:boardCredits:v1',
   board: 'ym:board:v1',
+  catalogueCache: 'ym:catalogueCache:v1',
 } as const;
 
 export interface Preferences {
@@ -172,6 +173,23 @@ export async function loadBoard(store: KeyValueStore): Promise<BoardState | null
 
 export async function clearBoard(store: KeyValueStore): Promise<void> {
   await store.removeItem(KEYS.board);
+}
+
+export async function saveCatalogueCache(store: KeyValueStore, decks: CategoryDeck[]): Promise<void> {
+  await store.setItem(KEYS.catalogueCache, JSON.stringify(decks));
+}
+
+/** Returns `null` for a missing or corrupt cache — the caller falls back to the bundled catalogue. */
+export async function loadCatalogueCache(store: KeyValueStore): Promise<CategoryDeck[] | null> {
+  try {
+    const raw = await store.getItem(KEYS.catalogueCache);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CategoryDeck[];
+    if (!Array.isArray(parsed) || !parsed.length) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 /** "Delete everything on this device" — one call, no server involved. */

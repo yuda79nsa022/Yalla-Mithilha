@@ -4,12 +4,11 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Screen, Spacer, T } from '../../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
-import { BOARD_CATALOGUE } from '../../src/content/board';
 
 const PICKS_PER_TEAM = 3;
 
 export default function BoardDraft() {
-  const { t, lang, startBoardDraft } = useApp();
+  const { t, lang, catalogue, startBoardDraft } = useApp();
   const [teamAName, setTeamAName] = useState('');
   const [teamBName, setTeamBName] = useState('');
   const [phase, setPhase] = useState<'names' | 'teamA' | 'teamB'>('names');
@@ -103,7 +102,7 @@ export default function BoardDraft() {
       <Spacer />
 
       <View style={{ gap: spacing.sm }}>
-        {BOARD_CATALOGUE.map((deck) => {
+        {catalogue.map((deck) => {
           const pickedByOther = taken.has(deck.id) && !currentPicks.includes(deck.id);
           const selected = currentPicks.includes(deck.id);
           return (

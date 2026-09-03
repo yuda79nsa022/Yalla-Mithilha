@@ -14,19 +14,21 @@ import {
   type CreateSessionInput,
 } from '../engine/engine';
 import { draftBoard, unlockBoard as unlockBoardState } from '../engine/board/board';
-import type { BoardState } from '../engine/board/types';
+import type { BoardState, CategoryDeck } from '../engine/board/types';
 import {
   DEFAULT_PREFERENCES,
   addReport,
   clearBoard,
   clearSession,
   loadBoard,
+  loadCatalogueCache,
   loadPreferences,
   loadRecent,
   loadReports,
   loadSession,
   resetAllLocalData,
   saveBoard,
+  saveCatalogueCache,
   saveRecent,
   savePreferences,
   saveSession,
@@ -40,6 +42,7 @@ import { deviceLanguage, deviceStore } from '../platform';
 import { setSoundEnabled } from '../platform/audio';
 import { boardCredits, grantCredits, ownedPacks, spendCredit } from '../services/entitlements';
 import { track } from '../services/analytics';
+import { fetchBoardCatalogue } from '../services/catalogueApi';
 
 interface AppValue {
   ready: boolean;
@@ -64,7 +67,13 @@ interface AppValue {
   report: (promptId: string, reason: PromptReport['reason']) => Promise<void>;
   wipeEverything: () => Promise<void>;
 
-  /** SeenJeem-style board game: draft, pay, play on one shared screen. */
+  /**
+   * SeenJeem-style board game: draft, pay, play on one shared screen.
+   * `catalogue` starts as the cached or bundled category list and is
+   * replaced in the background by a live fetch — never blocks startup, and
+   * silently keeps whatever it already had if the fetch fails.
+   */
+  catalogue: CategoryDeck[];
   board: BoardState | null;
   boardCredits: number;
   startBoardDraft: (
@@ -104,21 +113,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [packs, setPacks] = useState<string[]>(['core']);
   const [board, setBoardState] = useState<BoardState | null>(null);
   const [credits, setCredits] = useState(0);
+  const [catalogue, setCatalogue] = useState<CategoryDeck[]>(BOARD_CATALOGUE);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [storedPrefs, storedRecent, storedReports, storedPacks, unfinished, storedBoard, storedCredits] =
-        await Promise.all([
-          loadPreferences(deviceStore),
-          loadRecent(deviceStore),
-          loadReports(deviceStore),
-          ownedPacks(deviceStore),
-          loadSession(deviceStore),
-          loadBoard(deviceStore),
-          boardCredits(deviceStore),
-        ]);
+      const [
+        storedPrefs,
+        storedRecent,
+        storedReports,
+        storedPacks,
+        unfinished,
+        storedBoard,
+        storedCredits,
+        cachedCatalogue,
+      ] = await Promise.all([
+        loadPreferences(deviceStore),
+        loadRecent(deviceStore),
+        loadReports(deviceStore),
+        ownedPacks(deviceStore),
+        loadSession(deviceStore),
+        loadBoard(deviceStore),
+        boardCredits(deviceStore),
+        loadCatalogueCache(deviceStore),
+      ]);
 
       setPrefsState({ ...storedPrefs, lang: storedPrefs.lang ?? deviceLanguage() });
       setRecent(storedRecent);
@@ -127,8 +146,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSavedSession(unfinished);
       setBoardState(storedBoard);
       setCredits(storedCredits);
+      if (cachedCatalogue) setCatalogue(cachedCatalogue);
       setSoundEnabled(storedPrefs.sound);
       setReady(true);
+
+      // Never blocks startup — the cached or bundled catalogue is already
+      // showing. A failure here (offline, server down) just leaves it be.
+      fetchBoardCatalogue()
+        .then((fresh) => {
+          setCatalogue(fresh);
+          void saveCatalogueCache(deviceStore, fresh);
+        })
+        .catch(() => undefined);
     })();
   }, []);
 
@@ -282,12 +311,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const teamA: Team = { id: 'board-a', name: teamAName, playerIds: [], performerCursor: 0 };
       const teamB: Team = { id: 'board-b', name: teamBName, playerIds: [], performerCursor: 0 };
-      const next = draftBoard(teamA, teamB, teamAPicks, teamBPicks, BOARD_CATALOGUE);
+      const next = draftBoard(teamA, teamB, teamAPicks, teamBPicks, catalogue);
       updateBoard(next);
       track({ name: 'board_drafted', categoryIds: next.categories.map((c) => c.id) });
       return next;
     },
-    [updateBoard]
+    [catalogue, updateBoard]
   );
 
   const unlockCurrentBoard = useCallback(async () => {
@@ -330,6 +359,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     reports,
     report,
     wipeEverything,
+    catalogue,
     board,
     boardCredits: credits,
     startBoardDraft,
