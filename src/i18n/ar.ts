@@ -220,6 +220,18 @@ export const ar = {
 
   'board.resume.title': 'عندك لعبة لوحة ما خلصت',
   'board.resume.body': 'تبي تكمّل من وين وقفتوا؟',
+
+  'account.title': 'الحساب',
+  'account.subtitle': 'اختياري. اللعب كضيف يشتغل بالكامل بدون حساب — هذا بس يحفظ اسم مستخدم عشان ترجع له.',
+  'account.username': 'اسم المستخدم',
+  'account.password': 'كلمة السر',
+  'account.signIn': 'تسجيل الدخول',
+  'account.createAccount': 'إنشاء حساب',
+  'account.switchToSignIn': 'عندك حساب؟ سجّل دخولك',
+  'account.switchToCreate': 'ما عندك حساب؟ أنشئ وحد',
+  'account.loggedInAs': 'مسجّل باسم {{username}}',
+  'account.logout': 'تسجيل الخروج',
+  'account.logoutConfirm': 'تبي تسجّل خروج من هالحساب؟ اللعب كضيف يستمر عادي.',
 } as const;
 
 export type TranslationKey = keyof typeof ar;

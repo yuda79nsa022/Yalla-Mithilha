@@ -33,7 +33,10 @@ export type AnalyticsEvent =
   | { name: 'board_drafted'; categoryIds: string[] }
   | { name: 'board_unlocked' }
   | { name: 'board_credits_granted'; count: number }
-  | { name: 'board_completed'; winnerTeamId: string | null };
+  | { name: 'board_completed'; winnerTeamId: string | null }
+  | { name: 'player_account_created' }
+  | { name: 'player_logged_in' }
+  | { name: 'player_logout' };
 
 export interface AnalyticsSink {
   track(event: AnalyticsEvent): void;

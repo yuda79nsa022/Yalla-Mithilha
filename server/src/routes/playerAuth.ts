@@ -6,6 +6,22 @@ import { parseRegisterPlayerBody } from '../validate';
 
 export const playerAuthRouter = Router();
 
+// Public, called directly by the app running as a web page on a different
+// origin — same reasoning as the catalogue route. Unlike that GET-only
+// route, a JSON POST body triggers a CORS preflight, so OPTIONS needs an
+// explicit response here. Deliberately not applied to /admin, which stays
+// same-origin-only on top of requiring a session.
+playerAuthRouter.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 /** Optional — guest play never touches this route. Only players who choose to create an account do. */
 playerAuthRouter.post('/register', async (req, res) => {
   try {

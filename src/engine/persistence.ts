@@ -43,6 +43,7 @@ export const KEYS = {
   boardCredits: 'ym:boardCredits:v1',
   board: 'ym:board:v1',
   catalogueCache: 'ym:catalogueCache:v1',
+  playerSession: 'ym:playerSession:v1',
 } as const;
 
 export interface Preferences {
@@ -190,6 +191,36 @@ export async function loadCatalogueCache(store: KeyValueStore): Promise<Category
   } catch {
     return null;
   }
+}
+
+/** An optional, real account — separate from guest play, which never creates one of these. */
+export interface PlayerSession {
+  id: string;
+  username: string;
+  token: string;
+}
+
+export async function savePlayerSession(store: KeyValueStore, session: PlayerSession): Promise<void> {
+  await store.setItem(KEYS.playerSession, JSON.stringify(session));
+}
+
+/** Returns `null` for a missing or corrupt session — the caller falls back to guest play. */
+export async function loadPlayerSession(store: KeyValueStore): Promise<PlayerSession | null> {
+  try {
+    const raw = await store.getItem(KEYS.playerSession);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PlayerSession;
+    if (typeof parsed.id !== 'string' || typeof parsed.username !== 'string' || typeof parsed.token !== 'string') {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearPlayerSession(store: KeyValueStore): Promise<void> {
+  await store.removeItem(KEYS.playerSession);
 }
 
 /** "Delete everything on this device" — one call, no server involved. */

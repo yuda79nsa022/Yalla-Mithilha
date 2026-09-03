@@ -13,6 +13,26 @@ const app = createApp();
 
 beforeEach(() => resetDbForTests());
 
+describe('CORS on /players', () => {
+  it('answers a preflight OPTIONS request so a cross-origin POST can succeed', async () => {
+    const res = await request(app)
+      .options('/players/register')
+      .set('Origin', 'http://example.test')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'Content-Type');
+    expect(res.status).toBe(204);
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+    expect(res.headers['access-control-allow-methods']).toContain('POST');
+  });
+
+  it('sets Access-Control-Allow-Origin on the actual response, unlike /admin routes', async () => {
+    const res = await request(app)
+      .post('/players/register')
+      .send({ username: 'corscheck', password: 'password1234' });
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
 describe('POST /players/register', () => {
   it('creates a player account and returns a token', async () => {
     const res = await request(app)

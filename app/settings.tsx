@@ -6,7 +6,7 @@ import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
 export default function Settings() {
-  const { t, prefs, setPrefs, reports, wipeEverything } = useApp();
+  const { t, prefs, setPrefs, reports, wipeEverything, player } = useApp();
   const [wiped, setWiped] = useState(false);
 
   const confirmReset = () => {
@@ -33,6 +33,13 @@ export default function Settings() {
         label={`${t('settings.language')} — ${prefs.lang === 'ar' ? 'العربية' : 'English'}`}
         tone="secondary"
         onPress={() => router.push('/language')}
+      />
+
+      <Spacer size={spacing.sm} />
+      <Button
+        label={player ? t('account.loggedInAs', { username: player.username }) : t('account.title')}
+        tone="secondary"
+        onPress={() => router.push('/account')}
       />
 
       <Spacer />

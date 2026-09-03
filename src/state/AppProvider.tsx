@@ -19,9 +19,11 @@ import {
   DEFAULT_PREFERENCES,
   addReport,
   clearBoard,
+  clearPlayerSession,
   clearSession,
   loadBoard,
   loadCatalogueCache,
+  loadPlayerSession,
   loadPreferences,
   loadRecent,
   loadReports,
@@ -29,10 +31,12 @@ import {
   resetAllLocalData,
   saveBoard,
   saveCatalogueCache,
+  savePlayerSession,
   saveRecent,
   savePreferences,
   saveSession,
   type Preferences,
+  type PlayerSession,
 } from '../engine/persistence';
 import { rememberPrompts } from '../engine/selector';
 import type { Lang, MiniGameId, PromptReport, SessionState, Team } from '../engine/types';
@@ -43,6 +47,7 @@ import { setSoundEnabled } from '../platform/audio';
 import { boardCredits, grantCredits, ownedPacks, spendCredit } from '../services/entitlements';
 import { track } from '../services/analytics';
 import { fetchBoardCatalogue } from '../services/catalogueApi';
+import { PlayerAuthError, loginPlayer as loginPlayerApi, registerPlayer as registerPlayerApi } from '../services/playerAuthApi';
 
 interface AppValue {
   ready: boolean;
@@ -88,6 +93,19 @@ interface AppValue {
   /** Stands in for a real MyFatoorah/Tap purchase callback until that integration exists. */
   buyBoardCreditsDev: (count: number) => Promise<void>;
   quitBoard: () => void;
+
+  /**
+   * Optional player account, entirely separate from guest play — which never
+   * creates one of these and keeps working exactly as before. Signing up or
+   * signing in sends a username and password to the backend; nothing else
+   * about how the game runs depends on it.
+   */
+  player: { id: string; username: string } | null;
+  playerAuthBusy: boolean;
+  playerAuthError: string | null;
+  registerPlayerAccount: (username: string, password: string) => Promise<boolean>;
+  loginPlayerAccount: (username: string, password: string) => Promise<boolean>;
+  logoutPlayerAccount: () => void;
 }
 
 const AppContext = createContext<AppValue | null>(null);
@@ -114,6 +132,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [board, setBoardState] = useState<BoardState | null>(null);
   const [credits, setCredits] = useState(0);
   const [catalogue, setCatalogue] = useState<CategoryDeck[]>(BOARD_CATALOGUE);
+  const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
+  const [playerAuthBusy, setPlayerAuthBusy] = useState(false);
+  const [playerAuthError, setPlayerAuthError] = useState<string | null>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,6 +149,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         storedBoard,
         storedCredits,
         cachedCatalogue,
+        storedPlayerSession,
       ] = await Promise.all([
         loadPreferences(deviceStore),
         loadRecent(deviceStore),
@@ -137,6 +159,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadBoard(deviceStore),
         boardCredits(deviceStore),
         loadCatalogueCache(deviceStore),
+        loadPlayerSession(deviceStore),
       ]);
 
       setPrefsState({ ...storedPrefs, lang: storedPrefs.lang ?? deviceLanguage() });
@@ -147,6 +170,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setBoardState(storedBoard);
       setCredits(storedCredits);
       if (cachedCatalogue) setCatalogue(cachedCatalogue);
+      setPlayerSession(storedPlayerSession);
       setSoundEnabled(storedPrefs.sound);
       setReady(true);
 
@@ -294,6 +318,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPacks(['core']);
     setBoardState(null);
     setCredits(0);
+    setPlayerSession(null);
+    setPlayerAuthError(null);
     setPrefsState({ ...DEFAULT_PREFERENCES, lang });
   }, [lang]);
 
@@ -340,6 +366,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     void clearBoard(deviceStore);
   }, []);
 
+  const registerPlayerAccount = useCallback(async (username: string, password: string) => {
+    setPlayerAuthBusy(true);
+    setPlayerAuthError(null);
+    try {
+      const result = await registerPlayerApi(username, password);
+      const session: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
+      setPlayerSession(session);
+      await savePlayerSession(deviceStore, session);
+      track({ name: 'player_account_created' });
+      return true;
+    } catch (err) {
+      setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
+      return false;
+    } finally {
+      setPlayerAuthBusy(false);
+    }
+  }, []);
+
+  const loginPlayerAccount = useCallback(async (username: string, password: string) => {
+    setPlayerAuthBusy(true);
+    setPlayerAuthError(null);
+    try {
+      const result = await loginPlayerApi(username, password);
+      const session: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
+      setPlayerSession(session);
+      await savePlayerSession(deviceStore, session);
+      track({ name: 'player_logged_in' });
+      return true;
+    } catch (err) {
+      setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
+      return false;
+    } finally {
+      setPlayerAuthBusy(false);
+    }
+  }, []);
+
+  const logoutPlayerAccount = useCallback(() => {
+    setPlayerSession(null);
+    setPlayerAuthError(null);
+    void clearPlayerSession(deviceStore);
+    track({ name: 'player_logout' });
+  }, []);
+
   const value: AppValue = {
     ready,
     lang,
@@ -367,6 +436,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     unlockCurrentBoard,
     buyBoardCreditsDev,
     quitBoard,
+    player: playerSession ? { id: playerSession.id, username: playerSession.username } : null,
+    playerAuthBusy,
+    playerAuthError,
+    registerPlayerAccount,
+    loginPlayerAccount,
+    logoutPlayerAccount,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

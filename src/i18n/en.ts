@@ -217,4 +217,16 @@ export const en: Record<TranslationKey, string> = {
 
   'board.resume.title': 'You have a board game in progress',
   'board.resume.body': 'Pick up where you stopped?',
+
+  'account.title': 'Account',
+  'account.subtitle': 'Optional. Guest play works fully without one — this only saves a username so you can come back to it.',
+  'account.username': 'Username',
+  'account.password': 'Password',
+  'account.signIn': 'Sign in',
+  'account.createAccount': 'Create account',
+  'account.switchToSignIn': 'Already have an account? Sign in',
+  'account.switchToCreate': "Don't have an account? Create one",
+  'account.loggedInAs': 'Signed in as {{username}}',
+  'account.logout': 'Sign out',
+  'account.logoutConfirm': 'Sign out of this account? Guest play keeps working as usual.',
 };
