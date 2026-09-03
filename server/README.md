@@ -3,9 +3,9 @@
 A small, separate Node/Express/TypeScript backend for managing the board-game
 category catalogue — add/edit/delete categories and tiles, upload a cover
 image per category, bulk-import title lists from .docx/.xlsx/.pdf, manage
-admin accounts, and serve the finished content live to the app. Not part of
-the Expo app's dependency graph; nothing here is bundled into the mobile/web
-build.
+admin accounts, manage optional player accounts, and serve the finished
+content live to the app. Not part of the Expo app's dependency graph;
+nothing here is bundled into the mobile/web build.
 
 ## The one rule that matters
 
@@ -44,6 +44,7 @@ npm run seed   # idempotent — skips any category id that already exists
 |---|---|---|
 | `PORT` | `4000` | |
 | `SESSION_SECRET` | — | Signs admin login sessions (JWT). Required for any `/admin/*` route — the server 500s on those routes if unset, rather than silently running unauthenticated. |
+| `PLAYER_SESSION_SECRET` | — | Signs player-account session tokens (JWT), entirely separate from `SESSION_SECRET` — a player token can never verify as an admin session or vice versa. Required for `/players/*` and any player-only route. |
 | `DATA_DIR` | `./data` | Where the SQLite file and uploaded images live. |
 | `DB_PATH` | `<DATA_DIR>/catalogue.sqlite` | Override the exact file — tests set this to an isolated temp path. |
 
@@ -58,6 +59,16 @@ no roles, appropriate for a small trusted content team. The one guard rail:
 deleting the last remaining admin account is refused, so nobody can lock
 everyone out of the dashboard by mistake.
 
+Player accounts are a separate, optional system for people actually playing
+the game — not the CMS. `src/auth.ts` + the `players` table, signed with
+their own `PLAYER_SESSION_SECRET`. `POST /players/register` and
+`POST /players/login` are public and exchange a username/password for a
+12-hour JWT. Guest play in the app never touches this — it only exists for
+someone who chooses to create an account. Admins can list, rename, reset the
+password of, and delete any player account (`/admin/players`); unlike admin
+accounts, there's no "last remaining account" guard, since deleting every
+player carries no lockout risk.
+
 ## API shape
 
 - `GET /catalogue` — public, no auth, CORS-open (the app fetches this from a
@@ -68,6 +79,15 @@ everyone out of the dashboard by mistake.
   `{ token, user }`.
 - `GET/POST/PUT/DELETE /admin/users[/:id]` — bearer-token protected. Manage
   admin accounts. Never returns a password hash.
+- `POST /players/register` / `POST /players/login` — public, CORS-open (same
+  reasoning as `/catalogue` — called cross-origin from the app running as a
+  web page; a JSON POST also triggers a CORS preflight, so `OPTIONS` gets an
+  explicit response too). `{ username, password }` → `{ token, player }`.
+  Never returns a password hash.
+- `GET/PUT/DELETE /admin/players[/:id]` — bearer-token protected (admin
+  session, not a player session). List, rename, reset the password of, or
+  delete a player account. No route to create one here — accounts are
+  created by the player themselves via `/players/register`.
 - `GET/POST/PUT/DELETE /admin/categories[/:id]` — bearer-token protected.
   Creating a category makes six empty, `needsContent` tile slots (points
   100-600) automatically.
@@ -104,6 +124,12 @@ has a working board mode. Point the app at a non-default server with
 `EXPO_PUBLIC_CATALOGUE_API_URL` (`src/config.ts`). The home screen renders a
 scrollable row of category thumbnails from the live catalogue — a themed
 color block stands in for any category without an uploaded image yet.
+
+Reachable from Settings, an optional Account screen lets a player create an
+account or sign in (`src/services/playerAuthApi.ts` in the main project).
+Guest play needs none of this and keeps working exactly as before — signing
+up only saves a username/session token on-device so the player can come back
+to it later.
 
 ## Known gaps
 

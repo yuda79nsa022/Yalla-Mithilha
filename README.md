@@ -91,12 +91,22 @@ happens. `npm test` asserts this.
 
 ## Privacy
 
-- Player names, scores and settings are stored on the device only.
-- No network calls anywhere in the app.
+- Player names, scores and settings are stored on the device only, and the
+  core party game (rooms, mini-games, scoring) needs no network call at all.
+- Two things do talk to a separate backend (see `server/`), both optional
+  and both off by default until used:
+  - The board-game mode fetches its category catalogue from a server on
+    startup, with no personal data in that request, and falls back to a
+    bundled offline copy if the fetch fails.
+  - A player can optionally create an account (Settings → Account) to save
+    a username across sessions. That sends a username and password to the
+    server. **Guest play needs none of this and works exactly the same
+    without ever creating an account.**
 - No camera, microphone, contacts, or location permission is declared.
 - The analytics module is typed so player names and prompt text *cannot* be put
   in an event, and it is wired to a no-op sink.
-- Settings has a one-tap wipe of everything stored locally.
+- Settings has a one-tap wipe of everything stored locally, including any
+  saved account session.
 
 ## Documentation
 

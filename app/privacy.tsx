@@ -17,6 +17,10 @@ export default function Privacy() {
       <T variant="title">{t('privacy.title')}</T>
       <Spacer />
       <T variant="body">{t('privacy.body')}</T>
+      <Spacer />
+      <T variant="body" color={colors.textMuted}>
+        {t('privacy.network')}
+      </T>
 
       <Spacer />
       <Divider />
