@@ -123,3 +123,15 @@ export interface BoardGameRow {
   createdAt: number;
   completedAt: number | null;
 }
+
+/** One sensitive admin action. `before`/`after` are opaque snapshots — shaped differently per `action`. */
+export interface AuditLogRow {
+  id: string;
+  actorId: string;
+  actorUsername: string;
+  action: string;
+  target: string;
+  before: unknown;
+  after: unknown;
+  createdAt: number;
+}

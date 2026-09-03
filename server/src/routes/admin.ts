@@ -9,7 +9,9 @@ import {
   deleteCategory,
   getCategory,
   importTitlesIntoCategory,
+  listAuditLog,
   listCategories,
+  recordAudit,
   setCategoryImage,
   updateCategory,
   updateTile,
@@ -49,6 +51,11 @@ adminRouter.get('/categories', (_req, res) => {
   res.json(listCategories());
 });
 
+/** Read-only by design — never exposed for edit or delete from the admin UI. */
+adminRouter.get('/audit-log', (_req, res) => {
+  res.json(listAuditLog());
+});
+
 adminRouter.get('/categories/:id', (req, res) => {
   const category = getCategory(req.params.id);
   if (!category) {
@@ -61,7 +68,15 @@ adminRouter.get('/categories/:id', (req, res) => {
 adminRouter.post('/categories', (req, res) => {
   try {
     const input = parseCreateCategoryBody(req.body);
-    res.status(201).json(createCategory(input));
+    const created = createCategory(input);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'category.create',
+      target: created.id,
+      after: created,
+    });
+    res.status(201).json(created);
   } catch (err) {
     handleError(err, res);
   }
@@ -69,8 +84,18 @@ adminRouter.post('/categories', (req, res) => {
 
 adminRouter.put('/categories/:id', (req, res) => {
   try {
+    const before = getCategory(req.params.id);
     const input = parseUpdateCategoryBody(req.body);
-    res.json(updateCategory(req.params.id, input));
+    const updated = updateCategory(req.params.id, input);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'category.update',
+      target: req.params.id,
+      before,
+      after: updated,
+    });
+    res.json(updated);
   } catch (err) {
     handleError(err, res);
   }
@@ -78,7 +103,15 @@ adminRouter.put('/categories/:id', (req, res) => {
 
 adminRouter.delete('/categories/:id', (req, res) => {
   try {
+    const before = getCategory(req.params.id);
     deleteCategory(req.params.id);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'category.delete',
+      target: req.params.id,
+      before,
+    });
     res.status(204).end();
   } catch (err) {
     handleError(err, res);
@@ -88,8 +121,18 @@ adminRouter.delete('/categories/:id', (req, res) => {
 adminRouter.put('/categories/:categoryId/tiles/:index', (req, res) => {
   try {
     const index = parseTileIndex(req.params.index);
+    const before = getCategory(req.params.categoryId)?.tiles.find((t) => t.index === index);
     const input = parseUpdateTileBody(req.body);
-    res.json(updateTile(req.params.categoryId, index, input));
+    const updated = updateTile(req.params.categoryId, index, input);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'tile.update',
+      target: `${req.params.categoryId}#${index}`,
+      before,
+      after: updated,
+    });
+    res.json(updated);
   } catch (err) {
     handleError(err, res);
   }
@@ -117,6 +160,13 @@ adminRouter.post('/categories/:categoryId/import', upload.single('file'), async 
     }
 
     const result = importTitlesIntoCategory(req.params.categoryId, titles);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'category.import',
+      target: req.params.categoryId,
+      after: { titlesFound: titles.length, ...result },
+    });
     res.json({ ...result, titlesFound: titles.length, category: getCategory(req.params.categoryId) });
   } catch (err) {
     handleError(err, res);
@@ -146,6 +196,14 @@ adminRouter.post('/categories/:id/image', uploadImage.single('image'), (req, res
     const updated = setCategoryImage(req.params.id, `/uploads/${filename}`);
     if (previous) deleteUploadedFile(previous);
 
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'category.image.upload',
+      target: req.params.id,
+      before: { imageUrl: previous },
+      after: { imageUrl: updated.imageUrl },
+    });
     res.json(updated);
   } catch (err) {
     handleError(err, res);
@@ -160,7 +218,15 @@ adminRouter.delete('/categories/:id/image', (req, res) => {
       return;
     }
     if (category.imageUrl) deleteUploadedFile(category.imageUrl);
-    res.json(setCategoryImage(req.params.id, null));
+    const updated = setCategoryImage(req.params.id, null);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'category.image.remove',
+      target: req.params.id,
+      before: { imageUrl: category.imageUrl },
+    });
+    res.json(updated);
   } catch (err) {
     handleError(err, res);
   }

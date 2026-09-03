@@ -49,6 +49,7 @@
     <button id="navCategories" class="active">Categories</button>
     <button id="navPlayers">Players</button>
     <button id="navAdmins">Admins</button>
+    <button id="navAuditLog">Audit log</button>
   </nav>
   <div class="headerRight">
     <span id="whoami"></span>
@@ -193,6 +194,19 @@
       </div>
     </div>
 
+    <div id="auditLogSection" class="hidden">
+      <div class="card">
+        <h2 style="margin:0 0 4px">Audit log</h2>
+        <p class="muted" style="margin:0">Every sensitive change, who made it, and what changed. Read-only — there is no edit or delete here on purpose.</p>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
+          <tbody id="auditRows"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </main>
 
@@ -271,9 +285,11 @@ function showCategoriesSection() {
   $('categoriesSection').classList.remove('hidden');
   $('playersSection').classList.add('hidden');
   $('adminsSection').classList.add('hidden');
+  $('auditLogSection').classList.add('hidden');
   $('navCategories').classList.add('active');
   $('navPlayers').classList.remove('active');
   $('navAdmins').classList.remove('active');
+  $('navAuditLog').classList.remove('active');
   showList();
 }
 
@@ -281,9 +297,11 @@ function showPlayersSection() {
   $('categoriesSection').classList.add('hidden');
   $('playersSection').classList.remove('hidden');
   $('adminsSection').classList.add('hidden');
+  $('auditLogSection').classList.add('hidden');
   $('navCategories').classList.remove('active');
   $('navPlayers').classList.add('active');
   $('navAdmins').classList.remove('active');
+  $('navAuditLog').classList.remove('active');
   renderPlayers();
 }
 
@@ -291,10 +309,24 @@ function showAdminsSection() {
   $('categoriesSection').classList.add('hidden');
   $('playersSection').classList.add('hidden');
   $('adminsSection').classList.remove('hidden');
+  $('auditLogSection').classList.add('hidden');
   $('navCategories').classList.remove('active');
   $('navPlayers').classList.remove('active');
   $('navAdmins').classList.add('active');
+  $('navAuditLog').classList.remove('active');
   renderAdmins();
+}
+
+function showAuditLogSection() {
+  $('categoriesSection').classList.add('hidden');
+  $('playersSection').classList.add('hidden');
+  $('adminsSection').classList.add('hidden');
+  $('auditLogSection').classList.remove('hidden');
+  $('navCategories').classList.remove('active');
+  $('navPlayers').classList.remove('active');
+  $('navAdmins').classList.remove('active');
+  $('navAuditLog').classList.add('active');
+  renderAuditLog();
 }
 
 function isComplete(category) {
@@ -584,6 +616,39 @@ async function renderAdmins() {
   });
 }
 
+function summarizeAuditEntry(entry) {
+  // A small per-action renderer rather than a raw JSON dump, so the common
+  // cases read as a sentence; anything unrecognized still shows something.
+  if (entry.action === 'category.update' || entry.action === 'tile.update') {
+    const before = entry.before || {};
+    const after = entry.after || {};
+    const noisy = ['updatedAt', 'createdAt', 'tiles']; // always differ or too large to summarize usefully
+    const changed = Object.keys(after)
+      .filter((k) => !noisy.includes(k))
+      .filter((k) => JSON.stringify(after[k]) !== JSON.stringify(before[k]));
+    return changed.length ? `changed: ${changed.join(', ')}` : '';
+  }
+  if (entry.action === 'category.import') {
+    return `${entry.after.filled} filled, ${entry.after.skipped} left over`;
+  }
+  if (entry.action.endsWith('.update') && entry.after && 'passwordChanged' in entry.after) {
+    return entry.after.passwordChanged ? 'password changed' : 'username changed';
+  }
+  return '';
+}
+
+async function renderAuditLog() {
+  const entries = await api('/admin/audit-log');
+  const rows = entries.map((e) => `<tr>
+      <td class="muted">${new Date(e.createdAt).toLocaleString()}</td>
+      <td>${escapeHtml(e.actorUsername)}</td>
+      <td>${escapeHtml(e.action)}</td>
+      <td>${escapeHtml(e.target)}</td>
+      <td class="muted">${escapeHtml(summarizeAuditEntry(e))}</td>
+    </tr>`).join('');
+  $('auditRows').innerHTML = rows || '<tr><td colspan="5" class="muted">Nothing logged yet.</td></tr>';
+}
+
 async function addAdmin() {
   const username = $('newAdminUsername').value.trim();
   const password = $('newAdminPassword').value;
@@ -607,6 +672,7 @@ $('logoutBtn').addEventListener('click', signOut);
 $('navCategories').addEventListener('click', showCategoriesSection);
 $('navPlayers').addEventListener('click', showPlayersSection);
 $('navAdmins').addEventListener('click', showAdminsSection);
+$('navAuditLog').addEventListener('click', showAuditLogSection);
 $('newCategoryBtn').addEventListener('click', () => openCategory(null));
 $('backLink').addEventListener('click', showList);
 $('saveCategoryBtn').addEventListener('click', saveCategory);

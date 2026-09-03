@@ -5,6 +5,7 @@ import fs from 'fs';
 import { POINTS_BY_INDEX, PRODUCTS } from './types';
 import type {
   AdminUserRow,
+  AuditLogRow,
   BoardGameRow,
   CategoryRow,
   CategoryWithTiles,
@@ -116,6 +117,22 @@ db.exec(`
     amount INTEGER NOT NULL CHECK (amount > 0),
     payment_id TEXT REFERENCES payments(id),
     board_game_id TEXT REFERENCES board_games(id),
+    created_at INTEGER NOT NULL
+  );
+
+  -- Sensitive admin actions, append-only and never exposed for edit/delete
+  -- from the admin UI. Deliberately no foreign key on actor_id: deleting an
+  -- admin account must never cascade-delete (or be blocked by) the record of
+  -- what that admin did — actor_username is a snapshot for exactly that
+  -- reason, since the live username could later change or disappear.
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id TEXT PRIMARY KEY,
+    actor_id TEXT NOT NULL,
+    actor_username TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT NOT NULL,
+    before_json TEXT,
+    after_json TEXT,
     created_at INTEGER NOT NULL
   );
 `);
@@ -692,9 +709,61 @@ export function completeBoardGame(playerId: string, boardGameId: string): BoardG
   return getBoardGame(boardGameId)!;
 }
 
+export interface RecordAuditInput {
+  actorId: string;
+  actorUsername: string;
+  action: string;
+  target: string;
+  before?: unknown;
+  after?: unknown;
+}
+
+function rowToAuditLog(r: any): AuditLogRow {
+  return {
+    id: r.id,
+    actorId: r.actor_id,
+    actorUsername: r.actor_username,
+    action: r.action,
+    target: r.target,
+    before: r.before_json ? JSON.parse(r.before_json) : null,
+    after: r.after_json ? JSON.parse(r.after_json) : null,
+    createdAt: r.created_at,
+  };
+}
+
+/** Fire-and-forget from a route's point of view — never throws, since a logging failure must never block (or roll back) the action it's logging. */
+export function recordAudit(input: RecordAuditInput): void {
+  try {
+    db.prepare(
+      `INSERT INTO audit_log (id, actor_id, actor_username, action, target, before_json, after_json, created_at)
+       VALUES (@id, @actorId, @actorUsername, @action, @target, @beforeJson, @afterJson, @now)`
+    ).run({
+      id: crypto.randomUUID(),
+      actorId: input.actorId,
+      actorUsername: input.actorUsername,
+      action: input.action,
+      target: input.target,
+      beforeJson: input.before !== undefined ? JSON.stringify(input.before) : null,
+      afterJson: input.after !== undefined ? JSON.stringify(input.after) : null,
+      now: Date.now(),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('recordAudit failed', err);
+  }
+}
+
+/** `rowid DESC` breaks ties when two entries land in the same millisecond — `created_at` alone isn't fine-grained enough to order those. */
+export function listAuditLog(limit = 200): AuditLogRow[] {
+  return db
+    .prepare('SELECT * FROM audit_log ORDER BY created_at DESC, rowid DESC LIMIT ?')
+    .all(limit)
+    .map(rowToAuditLog);
+}
+
 export function resetDbForTests(): void {
   db.exec(
-    `DELETE FROM credit_transactions; DELETE FROM board_games; DELETE FROM payments;
+    `DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM board_games; DELETE FROM payments;
      DELETE FROM tiles; DELETE FROM categories; DELETE FROM admin_users; DELETE FROM players;`
   );
 }

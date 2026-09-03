@@ -102,6 +102,21 @@ Pricing (`PRODUCTS` in `src/types.ts`) is placeholder, same status as the
 old "$6.99/$12.99" dev-stub labels it replaced — real KWD pricing is a
 business decision for whoever owns the KNET merchant account.
 
+## Audit log
+
+Every sensitive admin action — category/tile create, update, delete, image
+upload/remove, bulk import, admin and player account create/rename/delete —
+is recorded in an append-only `audit_log` table (`recordAudit` in
+`src/db.ts`): who (actor id and a *snapshotted* username, so a later rename
+or deletion never rewrites history), what action, what target, and a
+before/after JSON snapshot where one is meaningful. It is deliberately
+read-only from the API and the admin UI's new "Audit log" tab — there is no
+edit or delete route for it, on purpose. A password is never written to it,
+only whether one changed (`passwordChanged: true/false`); this is asserted
+by a test, not just a convention. Logging itself can never fail the action
+it's logging — `recordAudit` catches and logs its own errors rather than
+throwing.
+
 ## API shape
 
 - `GET /catalogue` — public, no auth, CORS-open (the app fetches this from a
@@ -159,6 +174,8 @@ business decision for whoever owns the KNET merchant account.
   `boardGameId` (see above). 402 when the balance is empty.
 - `POST /board-games/:id/complete` — player session required, and the board
   game must belong to the caller. Marks it completed.
+- `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit
+  log" above.
 
 ## App integration
 
