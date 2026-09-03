@@ -23,6 +23,10 @@ export default function LanguageScreen() {
       <Spacer size={spacing.xl} />
       <T variant="title">{t('lang.title')}</T>
       <Spacer />
+      {/* title/subtitle here are deliberately not run through t(): each
+          option previews the language it offers, in that language, so an
+          Arabic speaker sees "العربية" and an English speaker sees
+          "English" no matter which language is currently active. */}
       <View style={{ gap: spacing.md }}>
         <OptionCard
           title="العربية"
@@ -45,9 +49,7 @@ export default function LanguageScreen() {
           <Spacer />
           {/* Being honest about the reload beats showing a half-mirrored screen. */}
           <T variant="label" color={colors.gold}>
-            {lang === 'ar'
-              ? 'سكّر التطبيق وافتحه مرة ثانية عشان يضبط اتجاه الواجهة.'
-              : 'Close and reopen the app so the layout direction updates.'}
+            {t('lang.restartNotice')}
           </T>
         </>
       ) : null}

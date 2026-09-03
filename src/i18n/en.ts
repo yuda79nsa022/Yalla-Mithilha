@@ -22,6 +22,7 @@ export const en: Record<TranslationKey, string> = {
   'lang.title': 'Choose your language',
   'lang.arabic': 'العربية',
   'lang.english': 'English',
+  'lang.restartNotice': 'Close and reopen the app so the layout direction updates.',
 
   'home.play': 'Play now',
   'home.resume': 'Resume game',
@@ -166,6 +167,8 @@ export const en: Record<TranslationKey, string> = {
   'privacy.network':
     'The board game mode fetches its categories from a server on startup (no personal data in that request), and falls back to an offline copy if it can not reach it. If you choose to create an optional account, your username and password are sent to that same server — guest play never does this and keeps working exactly the same without an account. If you report a card, that report (which card, why, your language, roughly which app version — never your name) is queued on your device and sent to the same server once it can reach it, so it can be reviewed; it works the same whether or not you have an account.',
   'privacy.reset': 'Delete my data',
+  'privacy.cardCount': '{{count}} bilingual cards',
+  'privacy.originalContent': 'All content is written for this game. Nothing is taken from another game.',
 
   'report.title': 'Report this card',
   'report.unclear': 'Unclear',
@@ -237,4 +240,24 @@ export const en: Record<TranslationKey, string> = {
   'account.loggedInAs': 'Signed in as {{username}}',
   'account.logout': 'Sign out',
   'account.logoutConfirm': 'Sign out of this account? Guest play keeps working as usual.',
+
+  'landing.eyebrow': 'New here?',
+  'landing.intro':
+    'Yalla Mithilha is two games in one: a charades-style party game everyone plays for free, and a paid trivia board game inspired by SeenJeem. Both run fully in Arabic and English.',
+  'landing.partyTitle': 'Party Game',
+  'landing.partyBody':
+    'Pass one phone around. Seven mini-games — act it out, avoid the taboo words, guess who, and more — with cards written for Kuwaiti and Gulf players. Free, works fully offline, no account needed.',
+  'landing.partyCta': 'Play the party game',
+  'landing.boardTitle': 'Board Game',
+  'landing.boardBody':
+    'Two teams draft categories onto a 36-tile board — Kuwaiti and Khaleeji series, Egyptian series, movies and plays — then race to answer. Drafting is free; unlocking the full board is a one-time paid credit.',
+  'landing.boardCta': 'Play the board game',
+  'landing.bilingualTitle': 'Arabic and English',
+  'landing.bilingualBody': 'Every screen and every card, in both languages — switch anytime in Settings.',
+  'landing.privacyTitle': 'Privacy',
+  'landing.privacyBody':
+    'The party game needs no internet connection and no account. Read exactly what the paid board game sends, and when.',
+  'landing.privacyLink': 'Read the privacy page',
+  'landing.howToLink': 'How to play',
+  'landing.fullMenu': 'See the full menu',
 };

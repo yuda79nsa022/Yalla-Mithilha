@@ -5,10 +5,9 @@ import { Button, Divider, Screen, Spacer, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { ALL_PROMPTS } from '../src/content';
-import { formatNumber } from '../src/i18n';
 
 export default function Privacy() {
-  const { t, lang, wipeEverything } = useApp();
+  const { t, wipeEverything } = useApp();
   const total = ALL_PROMPTS.filter((p) => p.enabled).length;
 
   return (
@@ -27,12 +26,10 @@ export default function Privacy() {
       <View style={{ gap: spacing.sm }}>
         <T variant="heading">{t('app.name')}</T>
         <T variant="label" color={colors.textMuted}>
-          {formatNumber(lang, total)} {lang === 'ar' ? 'كرت ثنائي اللغة' : 'bilingual cards'}
+          {t('privacy.cardCount', { count: total })}
         </T>
         <T variant="label" color={colors.textMuted}>
-          {lang === 'ar'
-            ? 'المحتوى مكتوب خصيصاً لهذي اللعبة. لا نستخدم أسئلة أو محتوى من ألعاب ثانية.'
-            : 'All content is written for this game. Nothing is taken from another game.'}
+          {t('privacy.originalContent')}
         </T>
       </View>
 
