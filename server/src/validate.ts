@@ -1,10 +1,11 @@
-import type { ContentLevel, MediaType, ProductId, RegionTag, Tier } from './types';
+import type { CategoryStatus, ContentLevel, MediaType, ProductId, RegionTag, Tier } from './types';
 
 const TIERS: Tier[] = ['free', 'paid'];
 const LEVELS: ContentLevel[] = ['kids', 'family', 'friends', 'adults'];
 const REGIONS: RegionTag[] = ['kw', 'gulf', 'egypt', 'global'];
 const MEDIA_TYPES: MediaType[] = ['text', 'image', 'audio', 'reorder', 'dotless'];
 const PRODUCT_IDS: ProductId[] = ['single', 'bundle2'];
+const CATEGORY_STATUSES: CategoryStatus[] = ['draft', 'published', 'archived'];
 
 export class ValidationError extends Error {}
 
@@ -69,6 +70,31 @@ export function parseUpdateCategoryBody(body: unknown): UpdateCategoryBody {
   if (b.level !== undefined) out.level = requireEnum(b.level, 'level', LEVELS);
   if (b.region !== undefined) out.region = requireEnum(b.region, 'region', REGIONS);
   return out;
+}
+
+export interface SetCategoryStatusBody {
+  status: CategoryStatus;
+}
+
+export function parseSetCategoryStatusBody(body: unknown): SetCategoryStatusBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  return { status: requireEnum(b.status, 'status', CATEGORY_STATUSES) };
+}
+
+export interface ImportCommitBody {
+  titles: string[];
+}
+
+/** The exact title list a prior /import/preview call proposed, sent back once an admin confirms it. */
+export function parseImportCommitBody(body: unknown): ImportCommitBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  if (!Array.isArray(b.titles) || !b.titles.every((t) => typeof t === 'string')) {
+    throw new ValidationError('"titles" must be an array of strings');
+  }
+  if (b.titles.length > 2000) {
+    throw new ValidationError('"titles" has too many entries');
+  }
+  return { titles: b.titles };
 }
 
 export interface UpdateTileBody {

@@ -9,12 +9,46 @@ nothing here is bundled into the mobile/web build.
 
 ## The one rule that matters
 
-**A category is only ever returned by `GET /catalogue` once all six of its
-tiles have real content** (non-empty Arabic/English prompt and answer). A
-half-imported category — titles filled in, prompts/answers still blank — can
-sit in the admin UI indefinitely with zero risk of reaching a real game. This
-is enforced in `listCompleteCategories()` (`src/db.ts`), not just by
-convention.
+**A category is only ever returned by `GET /catalogue` once it is BOTH
+`published` AND complete** (all six tiles have real, non-empty Arabic/English
+prompt and answer). These are two independent gates, both enforced in
+`listCompleteCategories()` (`src/db.ts`), not just by convention — an admin
+publishing an incomplete category by mistake still can't leak it, and a
+complete-but-still-draft category (the default for anything new or imported)
+can sit in the admin UI indefinitely with zero risk of reaching a real game.
+
+## Content states
+
+Every category has a `status`: `draft` (default — nothing publishes itself,
+imported or not), `published` (eligible for `GET /catalogue`, subject to the
+completeness gate above), or `archived` (pulled back out, without deleting
+it). Change it with `PUT /admin/categories/:id/status`. There is no separate
+version-history table — the audit log (below) already records every
+`category.update`/`tile.update`/`category.status.*` with a before/after
+snapshot, which is the same information a dedicated versions table would
+hold, without a second source of truth to keep in sync.
+
+## Staged import review
+
+`POST /admin/categories/:id/import` used to parse a file and commit straight
+to the database in one request — nothing stood between an admin's upload and
+possibly thousands of new tile prompts landing live. It's now two steps:
+
+1. `POST /admin/categories/:id/import/preview` (multipart, field `file`) —
+   parses the file and returns what *would* be filled (`proposed`, in
+   drafted order) and how many titles are left over (`skipped`). Writes
+   nothing. Each proposed title is checked against every existing tile's
+   Arabic prompt (`findTitleMatches` in `src/db.ts`) and flagged with
+   `duplicates: [{ categoryId, categoryNameEn, tileIndex }, ...]` when one
+   matches — surfaced for review, never deleted or skipped automatically.
+2. `POST /admin/categories/:id/import/commit` — `{ titles: string[] }`, the
+   same list the preview proposed, sent back once an admin has actually
+   looked at it. Recomputes empty slots itself rather than trusting the
+   preview's tile assignments, since another admin could have filled one in
+   the time between the two calls.
+
+The admin UI's "Import titles" card walks through both steps: preview,
+review (duplicates shown inline), confirm or cancel.
 
 ## Running it
 
@@ -142,11 +176,12 @@ throwing.
 - `PUT /admin/categories/:id/tiles/:index` — edit one tile (index 0-5).
   `needsContent` flips to `false` automatically once all four text fields
   (promptAr/En, answerAr/En) are non-empty — you never set that flag by hand.
-- `POST /admin/categories/:id/import` — multipart upload, field name `file`,
-  `.docx`/`.xlsx`/`.pdf`. Parses out a list of titles and fills empty slots
-  only, in order — **never** overwrites a tile that already has content.
-  Fills the Arabic prompt only; English prompt and both answers still need a
-  human (or an LLM doing real fact-checking) afterward. See
+- `PUT /admin/categories/:id/status` — bearer-token protected.
+  `{ status: 'draft' | 'published' | 'archived' }`. See "Content states"
+  above.
+- `POST /admin/categories/:id/import/preview` — multipart upload, field name
+  `file`, `.docx`/`.xlsx`/`.pdf`. Parses out a list of titles and returns
+  what would fill empty slots, plus likely duplicates — writes nothing. See
   `src/import/parseTitles.ts` for exactly how titles are picked out of a
   table — the short version: the title is the only cell per row that's both
   non-numeric and not a highly-repeated value (row numbers, years, and
@@ -155,6 +190,12 @@ throwing.
   displace a short real title otherwise). One known artifact: a table's own
   header row usually survives as a stray "title" too — harmless, an admin
   recognizes and discards it on sight.
+- `POST /admin/categories/:id/import/commit` — `{ titles: string[] }`, JSON
+  body (no file — the file was already parsed by `/preview`). Actually fills
+  empty slots, in order — **never** overwrites a tile that already has
+  content. Fills the Arabic prompt only; English prompt and both answers
+  still need a human (or an LLM doing real fact-checking) afterward. See
+  "Staged import review" above.
 - `POST /admin/categories/:id/image` — multipart upload, field name `image`,
   jpeg/png/webp/gif up to 5MB. Stored under `<DATA_DIR>/uploads` with a
   generated filename (the client's filename is never trusted as part of a
@@ -204,6 +245,14 @@ only the credit balance and the act of spending one talk to the server
 
 - **Not deployed anywhere.** This runs locally; putting it on a real host
   with a real domain is a separate step.
+- **The `status` column migration backfills existing installs once.** The
+  first time a server with an older database starts after this change, any
+  category that was already complete (and therefore already public under
+  the old completeness-only rule) is automatically set to `published`, so
+  existing content doesn't silently vanish from the catalogue. This runs
+  exactly once, guarded by the same migration check as the `ALTER TABLE`
+  itself — a later admin choice to draft or archive something is never
+  overwritten on a subsequent restart.
 - **No real payment provider.** `MockPaymentProvider` stands in until real
   KNET/aggregator merchant credentials exist — see "Payments and board-game
   credits" above.

@@ -8,14 +8,17 @@ import type {
   AuditLogRow,
   BoardGameRow,
   CategoryRow,
+  CategoryStatus,
   CategoryWithTiles,
   ContentLevel,
   PaymentRow,
   PlayerRow,
   ProductId,
+  ProposedImportFill,
   RegionTag,
   Tier,
   TileRow,
+  TitleMatch,
 } from './types';
 
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
@@ -146,6 +149,25 @@ try {
   // already migrated
 }
 
+try {
+  db.exec("ALTER TABLE categories ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'");
+  // One-time backfill, inside the same try block so it only ever runs the
+  // moment this migration first applies: a category that was already
+  // complete (and therefore already public under the old completeness-only
+  // rule) stays public, rather than silently vanishing from the catalogue
+  // until an admin manually republishes everything that already existed.
+  // Content created after this point always starts 'draft' regardless of
+  // completeness — this backfill is a one-time grandfather clause, not an
+  // ongoing rule, and a later admin choice to draft/archive something is
+  // never overwritten on a subsequent server start.
+  db.exec(`
+    UPDATE categories SET status = 'published'
+    WHERE id NOT IN (SELECT DISTINCT category_id FROM tiles WHERE needs_content = 1)
+  `);
+} catch {
+  // already migrated
+}
+
 function rowToCategory(r: any): CategoryRow {
   return {
     id: r.id,
@@ -154,6 +176,7 @@ function rowToCategory(r: any): CategoryRow {
     tier: r.tier as Tier,
     level: r.level as ContentLevel,
     region: r.region as RegionTag,
+    status: r.status as CategoryStatus,
     imageUrl: r.image_url ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -275,6 +298,21 @@ export function deleteCategory(id: string): void {
   if (result.changes === 0) throw new CategoryNotFoundError(`category "${id}" not found`);
 }
 
+/**
+ * Independent of completeness — see `listCompleteCategories`, which is the
+ * function that actually decides what `GET /catalogue` returns. Publishing
+ * an incomplete category is allowed here; it still won't reach the app.
+ */
+export function setCategoryStatus(id: string, status: CategoryStatus): CategoryWithTiles {
+  if (!getCategory(id)) throw new CategoryNotFoundError(`category "${id}" not found`);
+  db.prepare('UPDATE categories SET status=@status, updated_at=@updatedAt WHERE id=@id').run({
+    id,
+    status,
+    updatedAt: Date.now(),
+  });
+  return getCategory(id)!;
+}
+
 export interface UpdateTileInput {
   promptAr?: string;
   promptEn?: string;
@@ -352,9 +390,68 @@ export function importTitlesIntoCategory(
   return { filled: toFill.length, skipped: titles.length - toFill.length };
 }
 
-/** Categories where every tile has real content — the only ones the app ever sees. */
+/**
+ * Exact-match (trimmed) search across every existing tile's Arabic prompt —
+ * used to flag likely duplicates before an import commits. Never used to
+ * delete or skip anything automatically; the caller decides what to do with
+ * a match.
+ */
+export function findTitleMatches(titles: string[]): Record<string, TitleMatch[]> {
+  const trimmed = Array.from(new Set(titles.map((t) => t.trim()).filter(Boolean)));
+  const out: Record<string, TitleMatch[]> = {};
+  if (!trimmed.length) return out;
+
+  const placeholders = trimmed.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `SELECT t.prompt_ar as promptAr, t.idx as tileIndex, c.id as categoryId, c.name_en as categoryNameEn
+       FROM tiles t JOIN categories c ON c.id = t.category_id
+       WHERE t.prompt_ar IN (${placeholders})`
+    )
+    .all(...trimmed) as Array<{ promptAr: string; tileIndex: number; categoryId: string; categoryNameEn: string }>;
+
+  for (const r of rows) {
+    (out[r.promptAr] ??= []).push({
+      categoryId: r.categoryId,
+      categoryNameEn: r.categoryNameEn,
+      tileIndex: r.tileIndex,
+    });
+  }
+  return out;
+}
+
+/**
+ * Computes what `importTitlesIntoCategory` *would* do, without writing
+ * anything — the "preview" half of upload → preview → confirm → commit.
+ * Slots are recomputed again at commit time rather than trusted from this
+ * preview, since another admin could fill one in between the two calls.
+ */
+export function previewImportForCategory(
+  categoryId: string,
+  titles: string[]
+): { proposed: ProposedImportFill[]; skipped: number } {
+  const category = getCategory(categoryId);
+  if (!category) throw new CategoryNotFoundError(`category "${categoryId}" not found`);
+
+  const emptySlots = category.tiles.filter((t) => t.needsContent);
+  const toFill = titles.slice(0, emptySlots.length);
+  const matches = findTitleMatches(toFill);
+
+  const proposed: ProposedImportFill[] = toFill.map((title, i) => ({
+    tileId: emptySlots[i].id,
+    index: emptySlots[i].index,
+    title,
+    duplicates: matches[title.trim()] ?? [],
+  }));
+
+  return { proposed, skipped: titles.length - toFill.length };
+}
+
+/** Categories where every tile has real content AND the admin has explicitly published them — the only ones the app ever sees. */
 export function listCompleteCategories(): CategoryWithTiles[] {
-  return listCategories().filter((c) => c.tiles.length === 6 && c.tiles.every((t) => !t.needsContent));
+  return listCategories().filter(
+    (c) => c.status === 'published' && c.tiles.length === 6 && c.tiles.every((t) => !t.needsContent)
+  );
 }
 
 export class DuplicateUsernameError extends Error {}

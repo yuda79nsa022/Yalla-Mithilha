@@ -3,6 +3,16 @@ export type ContentLevel = 'kids' | 'family' | 'friends' | 'adults';
 export type RegionTag = 'kw' | 'gulf' | 'egypt' | 'global';
 export type MediaType = 'text' | 'image' | 'audio' | 'reorder' | 'dotless';
 
+/**
+ * Editorial state, independent of content completeness. A category only
+ * ever reaches `GET /catalogue` when it is BOTH `published` AND complete
+ * (every tile filled) — the two gates are enforced separately, so an admin
+ * publishing an incomplete category by mistake still can't leak it. New
+ * categories always start `draft`, imported or not, so nothing publishes
+ * itself.
+ */
+export type CategoryStatus = 'draft' | 'published' | 'archived';
+
 export interface CategoryRow {
   id: string;
   nameAr: string;
@@ -10,6 +20,7 @@ export interface CategoryRow {
   tier: Tier;
   level: ContentLevel;
   region: RegionTag;
+  status: CategoryStatus;
   /** Relative path under /uploads, or null. Turned into an absolute URL at the API boundary. */
   imageUrl: string | null;
   createdAt: number;
@@ -81,6 +92,20 @@ export interface PublicCategoryDeck {
 }
 
 export const POINTS_BY_INDEX = [100, 200, 300, 400, 500, 600];
+
+/** One existing tile whose Arabic prompt exactly matches a title an import is about to add — surfaced so an admin can review it, never deleted automatically. */
+export interface TitleMatch {
+  categoryId: string;
+  categoryNameEn: string;
+  tileIndex: number;
+}
+
+export interface ProposedImportFill {
+  tileId: string;
+  index: number;
+  title: string;
+  duplicates: TitleMatch[];
+}
 
 /**
  * Placeholder pricing, same status as the checkout screen's existing

@@ -17,6 +17,7 @@ import {
   deleteAdminUser,
   deleteCategory,
   deletePlayer,
+  findTitleMatches,
   getAdminUserById,
   getCategory,
   getPlayerById,
@@ -25,7 +26,9 @@ import {
   listCategories,
   listCompleteCategories,
   listPlayers,
+  previewImportForCategory,
   resetDbForTests,
+  setCategoryStatus,
   updateAdminUser,
   updateCategory,
   updatePlayer,
@@ -140,7 +143,7 @@ describe('listCompleteCategories', () => {
     expect(listCompleteCategories()).toEqual([]);
   });
 
-  it('includes a category once every tile has real content', () => {
+  it('includes a category once every tile has real content AND it is published', () => {
     createCategory(sample);
     for (let i = 0; i < 6; i++) {
       updateTile(sample.id, i, {
@@ -150,9 +153,65 @@ describe('listCompleteCategories', () => {
         answerEn: `a${i}`,
       });
     }
+    // Complete but still draft — a new category never publishes itself.
+    expect(listCompleteCategories()).toEqual([]);
+
+    setCategoryStatus(sample.id, 'published');
     const complete = listCompleteCategories();
     expect(complete).toHaveLength(1);
     expect(complete[0].id).toBe(sample.id);
+  });
+
+  it('excludes a published category that is archived again', () => {
+    createCategory(sample);
+    for (let i = 0; i < 6; i++) {
+      updateTile(sample.id, i, { promptAr: `س${i}`, promptEn: `q${i}`, answerAr: `ج${i}`, answerEn: `a${i}` });
+    }
+    setCategoryStatus(sample.id, 'published');
+    expect(listCompleteCategories()).toHaveLength(1);
+
+    setCategoryStatus(sample.id, 'archived');
+    expect(listCompleteCategories()).toEqual([]);
+  });
+});
+
+describe('setCategoryStatus', () => {
+  it('new categories start as draft', () => {
+    const created = createCategory(sample);
+    expect(created.status).toBe('draft');
+  });
+
+  it('throws for an unknown category', () => {
+    expect(() => setCategoryStatus('nope', 'published')).toThrow(CategoryNotFoundError);
+  });
+});
+
+describe('findTitleMatches / previewImportForCategory', () => {
+  it('flags an existing tile with the same Arabic prompt as a duplicate', () => {
+    createCategory(sample);
+    updateTile(sample.id, 0, { promptAr: 'موجود', promptEn: 'q', answerAr: 'ج', answerEn: 'a' });
+
+    const matches = findTitleMatches(['موجود', 'جديد']);
+    expect(matches['موجود']).toEqual([{ categoryId: sample.id, categoryNameEn: sample.nameEn, tileIndex: 0 }]);
+    expect(matches['جديد']).toBeUndefined();
+  });
+
+  it('preview never writes to the database', () => {
+    createCategory(sample);
+    const { proposed, skipped } = previewImportForCategory(sample.id, ['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+    expect(proposed).toHaveLength(6);
+    expect(skipped).toBe(1);
+    // Nothing was actually filled — still all six empty slots.
+    expect(listCategories().find((c) => c.id === sample.id)?.tiles.every((t) => t.needsContent)).toBe(true);
+  });
+
+  it('preview surfaces duplicates without excluding them from the proposed fills', () => {
+    createCategory(sample);
+    createCategory({ ...sample, id: 'other-cat' });
+    updateTile('other-cat', 0, { promptAr: 'مكرر', promptEn: 'q', answerAr: 'ج', answerEn: 'a' });
+
+    const { proposed } = previewImportForCategory(sample.id, ['مكرر']);
+    expect(proposed[0].duplicates).toEqual([{ categoryId: 'other-cat', categoryNameEn: sample.nameEn, tileIndex: 0 }]);
   });
 });
 

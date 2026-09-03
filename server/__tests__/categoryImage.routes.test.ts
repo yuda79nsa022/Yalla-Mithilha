@@ -7,7 +7,7 @@ process.env.SESSION_SECRET = 'test-secret';
 import fs from 'fs';
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { createCategory, getCategory, resetDbForTests, UPLOADS_DIR } from '../src/db';
+import { createCategory, getCategory, resetDbForTests, setCategoryStatus, UPLOADS_DIR } from '../src/db';
 import { makeAdminAuthHeader } from './helpers/testAuth';
 
 const app = createApp();
@@ -153,6 +153,7 @@ describe('GET /catalogue with images', () => {
       .post(`/admin/categories/${sample.id}/image`)
       .set(auth)
       .attach('image', PNG_1X1, 'pic.png');
+    setCategoryStatus(sample.id, 'published');
 
     const res = await request(app).get('/catalogue');
     expect(res.body[0].imageUrl).toMatch(/^https?:\/\/.+\/uploads\/.+\.png$/);

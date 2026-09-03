@@ -5,7 +5,7 @@ process.env.DB_PATH = path.join(os.tmpdir(), `yalla-test-catalogue-${Date.now()}
 
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { createCategory, resetDbForTests, updateTile } from '../src/db';
+import { createCategory, resetDbForTests, setCategoryStatus, updateTile } from '../src/db';
 
 const app = createApp();
 
@@ -56,9 +56,17 @@ describe('GET /catalogue', () => {
     expect(res.body).toEqual([]);
   });
 
-  it('includes a category once every tile is complete, in the CategoryDeck shape the app expects', async () => {
+  it('excludes a category that is complete but still draft — new content never publishes itself', async () => {
     createCategory(sample);
     completeAllTiles(sample.id);
+    const res = await request(app).get('/catalogue');
+    expect(res.body).toEqual([]);
+  });
+
+  it('includes a category once every tile is complete AND it has been published, in the CategoryDeck shape the app expects', async () => {
+    createCategory(sample);
+    completeAllTiles(sample.id);
+    setCategoryStatus(sample.id, 'published');
     const res = await request(app).get('/catalogue');
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);

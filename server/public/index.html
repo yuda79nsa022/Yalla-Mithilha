@@ -33,6 +33,10 @@
   .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eee; }
   .badge.complete { background: #d5f3e3; color: #146c43; }
   .badge.incomplete { background: #fdecec; color: #b0293f; }
+  .badge.published { background: #d5f3e3; color: #146c43; }
+  .badge.draft { background: #eee; color: #6b6280; }
+  .badge.archived { background: #ece4f7; color: #6a3fa3; }
+  .badge.duplicate { background: #fff4d6; color: #8a6100; }
   [dir="rtl"] { text-align: right; }
   .muted { color: #6b6280; font-size: 13px; }
   .hidden { display: none !important; }
@@ -89,7 +93,7 @@
         <div class="card">
           <table>
             <thead>
-              <tr><th></th><th>ID</th><th>Name</th><th>Tier</th><th>Level</th><th>Region</th><th>Complete</th><th></th></tr>
+              <tr><th></th><th>ID</th><th>Name</th><th>Tier</th><th>Level</th><th>Region</th><th>Complete</th><th>Status</th><th></th></tr>
             </thead>
             <tbody id="categoryRows"></tbody>
           </table>
@@ -129,6 +133,15 @@
         </div>
 
         <div class="card">
+          <h3 style="margin-top:0">Status</h3>
+          <p class="muted">A category only ever reaches the app once it is <strong>both</strong> published <strong>and</strong> complete — publishing an incomplete one is harmless. New and imported content always starts as draft.</p>
+          <p>Currently: <span id="statusBadge" class="badge"></span></p>
+          <button id="publishBtn" class="secondary">Publish</button>
+          <button id="draftBtn" class="secondary">Move to draft</button>
+          <button id="archiveBtn" class="danger">Archive</button>
+        </div>
+
+        <div class="card">
           <h3 style="margin-top:0">Cover image</h3>
           <p class="muted">Shown in the app's home-screen category row.</p>
           <div class="row" style="align-items:center">
@@ -146,9 +159,17 @@
 
         <div class="card">
           <h3 style="margin-top:0">Import titles</h3>
-          <p class="muted">Upload a .docx, .xlsx or .pdf list of names. Only fills empty slots — never overwrites a tile that already has content. Fills the Arabic prompt only; you still need to add the English prompt and both answers per tile.</p>
+          <p class="muted">Upload a .docx, .xlsx or .pdf list of names, review exactly what would be filled, then confirm. Only fills empty slots — never overwrites a tile that already has content. Fills the Arabic prompt only; you still need to add the English prompt and both answers per tile.</p>
           <input id="importFile" type="file" accept=".docx,.xlsx,.pdf" />
-          <button id="importBtn" class="secondary">Import into empty slots</button>
+          <button id="importPreviewBtn" class="secondary">Preview import</button>
+          <div id="importPreviewResult" class="hidden" style="margin-top:12px">
+            <p id="importPreviewSummary" class="muted"></p>
+            <div id="importPreviewRows" style="max-height:260px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:8px"></div>
+            <div style="margin-top:10px">
+              <button id="importCommitBtn">Confirm and fill empty slots</button>
+              <button id="importCancelBtn" class="secondary">Cancel</button>
+            </div>
+          </div>
           <p id="importResult" class="muted"></p>
         </div>
 
@@ -348,17 +369,18 @@ async function showList() {
       <td>${c.nameEn} <span class="muted">/ ${c.nameAr}</span></td>
       <td>${c.tier}</td><td>${c.level}</td><td>${c.region}</td>
       <td><span class="badge ${complete ? 'complete' : 'incomplete'}">${c.tiles.filter((t) => !t.needsContent).length}/6</span></td>
+      <td><span class="badge ${c.status}">${c.status}</span></td>
       <td><button class="secondary" data-open="${c.id}">Open</button></td>
     </tr>`;
   }).join('');
-  $('categoryRows').innerHTML = rows || '<tr><td colspan="8" class="muted">No categories yet.</td></tr>';
+  $('categoryRows').innerHTML = rows || '<tr><td colspan="9" class="muted">No categories yet.</td></tr>';
   $('categoryRows').querySelectorAll('[data-open]').forEach((btn) => {
     btn.addEventListener('click', () => openCategory(btn.dataset.open));
   });
 }
 
 function newCategoryDraft() {
-  return { id: '', nameAr: '', nameEn: '', tier: 'free', level: 'family', region: 'global', imageUrl: null, tiles: [] };
+  return { id: '', nameAr: '', nameEn: '', tier: 'free', level: 'family', region: 'global', status: 'draft', imageUrl: null, tiles: [] };
 }
 
 async function openCategory(id) {
@@ -378,6 +400,27 @@ function renderImageSection() {
   $('imageResult').textContent = '';
 }
 
+function renderStatusSection() {
+  const c = currentCategory;
+  $('statusBadge').textContent = c.status;
+  $('statusBadge').className = 'badge ' + c.status;
+  const disabled = !currentCategoryId;
+  $('publishBtn').disabled = disabled || c.status === 'published';
+  $('draftBtn').disabled = disabled || c.status === 'draft';
+  $('archiveBtn').disabled = disabled || c.status === 'archived';
+}
+
+async function setStatus(status) {
+  try {
+    currentCategory = await api(`/admin/categories/${encodeURIComponent(currentCategoryId)}/status`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
+    });
+    renderStatusSection();
+  } catch (e) {
+    alert('Could not change status: ' + e.message);
+  }
+}
+
 function renderEdit() {
   $('listView').classList.add('hidden');
   $('editView').classList.remove('hidden');
@@ -392,6 +435,9 @@ function renderEdit() {
   $('fRegion').value = c.region;
   $('deleteCategoryBtn').classList.toggle('hidden', !currentCategoryId);
   $('importResult').textContent = '';
+  $('importPreviewResult').classList.add('hidden');
+  lastImportPreview = null;
+  renderStatusSection();
   renderImageSection();
 
   const tilesHtml = (c.tiles.length ? c.tiles : Array.from({ length: 6 }, (_, i) => ({
@@ -473,22 +519,59 @@ async function saveTile(index) {
   }
 }
 
-async function importTitles() {
+let lastImportPreview = null; // { proposed, skipped } from the most recent /import/preview call
+
+async function previewImport() {
   const file = $('importFile').files[0];
   if (!file) { alert('Choose a file first'); return; }
   const form = new FormData();
   form.append('file', file);
+  $('importResult').textContent = '';
   try {
     const result = await api(
-      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/import',
+      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/import/preview',
       { method: 'POST', body: form }
     );
-    $('importResult').textContent = `Found ${result.titlesFound} titles, filled ${result.filled} empty slot(s), ${result.skipped} left over unused.`;
+    lastImportPreview = result;
+    $('importPreviewSummary').textContent =
+      `Found ${result.titlesFound} titles. ${result.proposed.length} would fill an empty slot, ${result.skipped} left over unused. Nothing is written yet.`;
+    $('importPreviewRows').innerHTML = result.proposed.map((p) => `
+      <div class="row" style="align-items:center;padding:4px 0">
+        <span>${escapeHtml(p.title)}</span>
+        ${p.duplicates.length
+          ? `<span class="badge duplicate" title="Same title already exists in: ${p.duplicates.map((d) => escapeHtml(d.categoryNameEn)).join(', ')}">possible duplicate</span>`
+          : ''}
+      </div>
+    `).join('') || '<p class="muted">Nothing would fill — every slot is already full, or the file had no usable titles.</p>';
+    $('importPreviewResult').classList.remove('hidden');
+  } catch (e) {
+    alert('Preview failed: ' + e.message);
+  }
+}
+
+async function commitImport() {
+  if (!lastImportPreview) return;
+  const titles = lastImportPreview.proposed.map((p) => p.title);
+  try {
+    const result = await api(
+      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/import/commit',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titles }) }
+    );
+    $('importResult').textContent = `Filled ${result.filled} empty slot(s).`;
+    $('importPreviewResult').classList.add('hidden');
+    lastImportPreview = null;
+    $('importFile').value = '';
     currentCategory = result.category;
     renderEdit();
   } catch (e) {
     alert('Import failed: ' + e.message);
   }
+}
+
+function cancelImportPreview() {
+  lastImportPreview = null;
+  $('importPreviewResult').classList.add('hidden');
+  $('importFile').value = '';
 }
 
 async function uploadImage() {
@@ -677,7 +760,12 @@ $('newCategoryBtn').addEventListener('click', () => openCategory(null));
 $('backLink').addEventListener('click', showList);
 $('saveCategoryBtn').addEventListener('click', saveCategory);
 $('deleteCategoryBtn').addEventListener('click', deleteCategory);
-$('importBtn').addEventListener('click', importTitles);
+$('publishBtn').addEventListener('click', () => setStatus('published'));
+$('draftBtn').addEventListener('click', () => setStatus('draft'));
+$('archiveBtn').addEventListener('click', () => setStatus('archived'));
+$('importPreviewBtn').addEventListener('click', previewImport);
+$('importCommitBtn').addEventListener('click', commitImport);
+$('importCancelBtn').addEventListener('click', cancelImportPreview);
 $('imageFile').addEventListener('change', () => { $('uploadImageBtn').disabled = !$('imageFile').files[0] || !currentCategoryId; });
 $('uploadImageBtn').addEventListener('click', uploadImage);
 $('removeImageBtn').addEventListener('click', removeImage);

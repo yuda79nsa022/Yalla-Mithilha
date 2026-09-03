@@ -11,8 +11,10 @@ import {
   importTitlesIntoCategory,
   listAuditLog,
   listCategories,
+  previewImportForCategory,
   recordAudit,
   setCategoryImage,
+  setCategoryStatus,
   updateCategory,
   updateTile,
 } from '../db';
@@ -20,6 +22,8 @@ import { handleError } from '../errors';
 import { parseDocxTitles, parsePdfTitles, parseXlsxTitles } from '../import/parseTitles';
 import {
   parseCreateCategoryBody,
+  parseImportCommitBody,
+  parseSetCategoryStatusBody,
   parseTileIndex,
   parseUpdateCategoryBody,
   parseUpdateTileBody,
@@ -138,27 +142,67 @@ adminRouter.put('/categories/:categoryId/tiles/:index', (req, res) => {
   }
 });
 
-adminRouter.post('/categories/:categoryId/import', upload.single('file'), async (req, res) => {
+adminRouter.put('/categories/:id/status', (req, res) => {
+  try {
+    const before = getCategory(req.params.id);
+    const { status } = parseSetCategoryStatusBody(req.body);
+    const updated = setCategoryStatus(req.params.id, status);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: `category.status.${status}`,
+      target: req.params.id,
+      before: before ? { status: before.status } : undefined,
+      after: { status },
+    });
+    res.json(updated);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+async function parseTitlesFromUpload(file: Express.Multer.File): Promise<string[]> {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ext === '.docx') return parseDocxTitles(file.buffer);
+  if (ext === '.xlsx') return parseXlsxTitles(file.buffer);
+  if (ext === '.pdf') return parsePdfTitles(file.buffer);
+  throw new UnsupportedFileTypeError(`unsupported file type "${ext}" — expected .docx, .xlsx or .pdf`);
+}
+
+class UnsupportedFileTypeError extends Error {}
+
+/**
+ * Step 1 of upload → preview → confirm → commit: parses the file and
+ * returns what *would* be filled and any likely duplicates, without writing
+ * anything. The client re-submits the same title list to `/import/commit`
+ * once an admin has actually looked at it — nothing here is trusted to
+ * still be true by the time that happens (another admin could fill a slot
+ * in between), so commit recomputes empty slots itself rather than trusting
+ * this preview's tileId assignments.
+ */
+adminRouter.post('/categories/:categoryId/import/preview', upload.single('file'), async (req, res) => {
   const file = req.file;
   if (!file) {
     res.status(400).json({ error: 'no file uploaded — expected a "file" field' });
     return;
   }
-  const ext = path.extname(file.originalname).toLowerCase();
-
   try {
-    let titles: string[];
-    if (ext === '.docx') {
-      titles = parseDocxTitles(file.buffer);
-    } else if (ext === '.xlsx') {
-      titles = await parseXlsxTitles(file.buffer);
-    } else if (ext === '.pdf') {
-      titles = await parsePdfTitles(file.buffer);
-    } else {
-      res.status(400).json({ error: `unsupported file type "${ext}" — expected .docx, .xlsx or .pdf` });
+    const titles = await parseTitlesFromUpload(file);
+    const { proposed, skipped } = previewImportForCategory(req.params.categoryId, titles);
+    res.json({ titlesFound: titles.length, proposed, skipped });
+  } catch (err) {
+    if (err instanceof UnsupportedFileTypeError) {
+      res.status(400).json({ error: err.message });
       return;
     }
+    handleError(err, res);
+  }
+});
 
+/** Step 2: actually writes the titles an admin reviewed and confirmed. Never runs on its own — only ever reachable after a preview. */
+adminRouter.post('/categories/:categoryId/import/commit', (req, res) => {
+  try {
+    const { titles } = parseImportCommitBody(req.body);
     const result = importTitlesIntoCategory(req.params.categoryId, titles);
     recordAudit({
       actorId: req.admin!.sub,

@@ -4,7 +4,7 @@
  * throw away the fact-checking work already done on that content. Safe to
  * re-run — never overwrites a category that already exists.
  */
-import { createCategory, getCategory, updateTile } from './db';
+import { createCategory, getCategory, setCategoryStatus, updateTile } from './db';
 // eslint-disable-next-line import/no-relative-packages
 import { BOARD_CATALOGUE } from '../../src/content/board';
 
@@ -30,5 +30,10 @@ for (const deck of BOARD_CATALOGUE) {
       mediaType: tile.mediaType,
     });
   });
+  // A category never publishes itself on creation, even seeded ones — but
+  // this content is exactly the case the exception is for: pre-vetted,
+  // fact-checked, and complete. Running the seed script *is* the human
+  // approval a real import would otherwise wait for.
+  setCategoryStatus(deck.id, 'published');
   console.log(`seeded: ${deck.id} (${deck.tiles.length} tiles)`);
 }
