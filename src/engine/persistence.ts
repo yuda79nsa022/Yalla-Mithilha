@@ -40,7 +40,6 @@ export const KEYS = {
   recent: 'ym:recent:v1',
   reports: 'ym:reports:v1',
   entitlements: 'ym:entitlements:v1',
-  boardCredits: 'ym:boardCredits:v1',
   board: 'ym:board:v1',
   catalogueCache: 'ym:catalogueCache:v1',
   playerSession: 'ym:playerSession:v1',
@@ -164,6 +163,7 @@ export async function loadBoard(store: KeyValueStore): Promise<BoardState | null
     const raw = await store.getItem(KEYS.board);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as BoardState;
+    if (typeof parsed.id !== 'string' || !parsed.id) return null;
     if (parsed.tiles?.length !== 36 || parsed.teams?.length !== 2) return null;
     if (isBoardComplete(parsed)) return null;
     return parsed;

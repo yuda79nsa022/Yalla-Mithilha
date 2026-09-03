@@ -202,11 +202,17 @@ export const ar = {
   'board.checkout.title': 'افتحوا اللوحة',
   'board.checkout.subtitle': 'دفعة وحدة تفتح كل الستة وثلاثين سؤال لهالمباراة',
   'board.checkout.creditsAvailable': 'عندك {{count}} رصيد متاح',
-  'board.checkout.buyOne': 'اشترِ لعبة وحدة — ٦.٩٩ دولار',
-  'board.checkout.buyBundle': 'اشترِ لعبتين — ١٢.٩٩ دولار',
+  'board.checkout.buyOne': 'اشترِ لعبة وحدة — ٢.٠٠٠ د.ك',
+  'board.checkout.buyBundle': 'اشترِ لعبتين — ٣.٥٠٠ د.ك',
   'board.checkout.devNotice':
-    'دفع تجريبي مؤقت. الدفع الحقيقي (كي‌نت عن طريق ماي فاتورة أو تاب) ما ربطناه بعد — هالأزرار تحاكي عملية شراء.',
+    'دفع تجريبي مؤقت. الدفع الحقيقي (كي‌نت) ما ربطناه بعد — هالأزرار تحاكي عملية شراء على سجل أرصدة حقيقي مرتبط بحسابك على السيرفر.',
   'board.checkout.start': 'ابدأ اللعبة',
+  'board.checkout.signInTitle': 'سجّل دخولك عشان تشتري رصيد',
+  'board.checkout.signInBody':
+    'الرصيد المدفوع مرتبط بحسابك مو بهالجهاز، عشان تلقاه مرة ثانية وين ما كنت. اللعب كضيف وتجهيز اللوحة ما يحتاجون هذا.',
+  'board.checkout.signInButton': 'سجّل دخولك أو أنشئ حساب',
+  'board.checkout.simulateFailure': 'حاكِ عملية دفع فاشلة (تجريبي)',
+  'board.checkout.paymentFailed': 'فشلت عملية الدفع. ما اتحسب عليك أي مبلغ.',
 
   'board.play.turn': 'دور {{team}}',
   'board.play.award': 'أعطِ النقاط لـ {{team}}',

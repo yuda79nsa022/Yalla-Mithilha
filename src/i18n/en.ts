@@ -199,11 +199,17 @@ export const en: Record<TranslationKey, string> = {
   'board.checkout.title': 'Unlock the board',
   'board.checkout.subtitle': 'One payment unlocks all 36 questions for this game',
   'board.checkout.creditsAvailable': '{{count}} credits available',
-  'board.checkout.buyOne': 'Buy 1 game — $6.99',
-  'board.checkout.buyBundle': 'Buy 2 games — $12.99',
+  'board.checkout.buyOne': 'Buy 1 game — 2.000 KWD',
+  'board.checkout.buyBundle': 'Buy 2 games — 3.500 KWD',
   'board.checkout.devNotice':
-    'Placeholder checkout. Real payment (KNET via MyFatoorah/Tap) is not wired up yet — these buttons simulate a purchase.',
+    'Placeholder checkout. Real payment (KNET) is not wired up yet — these buttons simulate a purchase against a real, account-owned credit ledger on the server.',
   'board.checkout.start': 'Start the game',
+  'board.checkout.signInTitle': 'Sign in to buy credits',
+  'board.checkout.signInBody':
+    'Paid credits belong to your account, not this device, so you can find them again later. Guest play and drafting a board never need this.',
+  'board.checkout.signInButton': 'Sign in or create an account',
+  'board.checkout.simulateFailure': 'Simulate a failed payment (dev)',
+  'board.checkout.paymentFailed': 'Payment failed. No credits were charged.',
 
   'board.play.turn': '{{team}}’s turn',
   'board.play.award': 'Award {{team}}',

@@ -7,6 +7,7 @@ import { adminRouter } from './routes/admin';
 import { adminPlayersRouter } from './routes/adminPlayers';
 import { adminUsersRouter } from './routes/adminUsers';
 import { authRouter } from './routes/auth';
+import { boardGamesRouter } from './routes/boardGames';
 import { catalogueRouter } from './routes/catalogue';
 import { playerAuthRouter } from './routes/playerAuth';
 
@@ -30,6 +31,7 @@ export function createApp(): express.Express {
 
   app.use('/catalogue', catalogueRouter);
   app.use('/players', playerAuthRouter);
+  app.use('/board-games', boardGamesRouter);
   app.use('/admin/auth', authRouter);
   app.use('/admin/users', requireAdminSession, adminUsersRouter);
   app.use('/admin/players', requireAdminSession, adminPlayersRouter);

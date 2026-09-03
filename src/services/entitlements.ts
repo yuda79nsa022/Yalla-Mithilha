@@ -42,33 +42,9 @@ export async function grantPack(store: KeyValueStore, packId: string): Promise<s
   return next;
 }
 
-/**
- * Board-game credits: a consumable balance, unlike the permanent packs
- * above. A bundle purchase (e.g. "2 games") grants more than one at once;
- * launching a board spends exactly one.
- */
-export async function boardCredits(store: KeyValueStore): Promise<number> {
-  try {
-    const raw = await store.getItem(KEYS.boardCredits);
-    const n = raw ? Number(raw) : 0;
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-  } catch {
-    return 0;
-  }
-}
-
-/** Used by tests and, later, by a payment webhook or store purchase callback. */
-export async function grantCredits(store: KeyValueStore, count: number): Promise<number> {
-  const next = (await boardCredits(store)) + count;
-  await store.setItem(KEYS.boardCredits, String(next));
-  return next;
-}
-
-/** Spends one credit. Returns `null` — and spends nothing — when the balance is empty. */
-export async function spendCredit(store: KeyValueStore): Promise<number | null> {
-  const current = await boardCredits(store);
-  if (current <= 0) return null;
-  const next = current - 1;
-  await store.setItem(KEYS.boardCredits, String(next));
-  return next;
-}
+// Board-game credits used to live here as a local AsyncStorage counter, but
+// that made them trivially forgeable (edit local storage, play for free
+// forever). They are now server-authoritative — see
+// `src/services/boardPaymentApi.ts` and `server/src/db.ts`'s credit ledger —
+// and require a signed-in player account, unlike everything else in this
+// file.

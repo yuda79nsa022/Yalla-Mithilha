@@ -69,6 +69,39 @@ password of, and delete any player account (`/admin/players`); unlike admin
 accounts, there's no "last remaining account" guard, since deleting every
 player carries no lockout risk.
 
+## Payments and board-game credits
+
+A paid Board Game credit is owned by a player's account, never by a device —
+`payments`, `board_games` and an append-only `credit_transactions` ledger in
+`src/db.ts`. A balance is always the sum of grants minus the sum of
+consumes, never a mutable counter, so it can't drift from its own history.
+
+Checkout logic (`src/routes/boardGames.ts`) is written against a
+`PaymentProvider` interface (`src/payments/provider.ts`), not a specific
+gateway's SDK. Right now that interface is implemented by
+`MockPaymentProvider` — there is no real KNET/aggregator integration yet, by
+design, until real merchant credentials exist. Swapping in a real
+`KnetPaymentProvider` later is meant to be an isolated change: the provider
+would additionally need to return a real redirect URL from `createCheckout`,
+and a real payment confirmation would come from a signature-verified webhook
+route rather than the player's own authenticated `confirm` call (see the
+comment on `PaymentProvider` for exactly what that requires).
+
+Both the "duplicate webhook" and "resume an interrupted game" cases are
+handled explicitly, not just by convention:
+
+- `confirmPayment` grants credits via a conditional
+  `UPDATE ... WHERE status='initiated'` — it can only ever succeed once per
+  payment, so calling confirm twice (a retried callback) never double-grants.
+- `consumeCreditForBoardGame` is idempotent on `board_games.id`, which is the
+  *client's own* locally-drafted `BoardState.id`. Replaying the same id after
+  an app restart returns the existing row and spends nothing further, so
+  resuming a paid game never charges a second credit.
+
+Pricing (`PRODUCTS` in `src/types.ts`) is placeholder, same status as the
+old "$6.99/$12.99" dev-stub labels it replaced — real KWD pricing is a
+business decision for whoever owns the KNET merchant account.
+
 ## API shape
 
 - `GET /catalogue` — public, no auth, CORS-open (the app fetches this from a
@@ -113,6 +146,19 @@ player carries no lockout risk.
   path). Replaces and deletes any previous image for that category.
 - `DELETE /admin/categories/:id/image` — removes the cover image; a no-op,
   not an error, if there wasn't one.
+- `GET /board-games/credits` — bearer-token protected (player session).
+  Current credit balance for the signed-in player.
+- `POST /board-games/checkout` — player session required. `{ product: 'single' | 'bundle2' }`
+  → a `payments` row in `initiated` status. No credits exist yet.
+- `POST /board-games/checkout/:paymentId/confirm` / `.../fail` — player
+  session required, and the payment must belong to the caller (404
+  otherwise). Stand in for a real payment provider's success/failure
+  callback; confirm is idempotent (see above).
+- `POST /board-games/consume` — player session required. `{ boardGameId }`
+  spends one credit and activates that board game; idempotent on
+  `boardGameId` (see above). 402 when the balance is empty.
+- `POST /board-games/:id/complete` — player session required, and the board
+  game must belong to the caller. Marks it completed.
 
 ## App integration
 
@@ -131,10 +177,19 @@ Guest play needs none of this and keeps working exactly as before — signing
 up only saves a username/session token on-device so the player can come back
 to it later.
 
+Buying Board Game credits requires that same player session — the checkout
+screen (`app/board/checkout.tsx`) routes a guest through sign-in/sign-up
+first. Drafting a board and playing it stay fully client-side either way;
+only the credit balance and the act of spending one talk to the server
+(`src/services/boardPaymentApi.ts` in the main project).
+
 ## Known gaps
 
 - **Not deployed anywhere.** This runs locally; putting it on a real host
   with a real domain is a separate step.
+- **No real payment provider.** `MockPaymentProvider` stands in until real
+  KNET/aggregator merchant credentials exist — see "Payments and board-game
+  credits" above.
 - **`uuid` transitive vulnerability** via `exceljs` (write path only — never
   exercised, since the server only *reads* uploaded spreadsheets). Fixing it
   means downgrading `exceljs` three major versions; not worth it for an
@@ -142,3 +197,11 @@ to it later.
 - No audio/reorder tile media upload yet — only category cover images.
 - Uploaded images are stored on local disk, not object storage — fine for
   one server, won't survive a redeploy or scale past a single instance.
+- **Live catalogue fetch can overwrite a good offline fallback with an empty
+  one.** If the server is reachable but has zero published categories yet
+  (a fresh/unseeded install), `GET /catalogue` returns `200 []` — a
+  successful fetch — and the app replaces its bundled fallback catalogue
+  with that empty result instead of keeping the fallback. Found live while
+  testing the checkout flow against an unseeded dev server. Not yet fixed;
+  the real fix is catalogue versioning with an atomic fetch→validate→switch
+  update, so an empty or invalid response never displaces a good cache.

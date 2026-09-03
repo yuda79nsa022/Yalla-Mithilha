@@ -13,7 +13,7 @@ import {
   sessionPromptIdsByGame,
   type CreateSessionInput,
 } from '../engine/engine';
-import { draftBoard, unlockBoard as unlockBoardState } from '../engine/board/board';
+import { draftBoard, unlockBoard } from '../engine/board/board';
 import type { BoardState, CategoryDeck } from '../engine/board/types';
 import {
   DEFAULT_PREFERENCES,
@@ -44,10 +44,20 @@ import { BOARD_CATALOGUE } from '../content/board';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
 import { setSoundEnabled } from '../platform/audio';
-import { boardCredits, grantCredits, ownedPacks, spendCredit } from '../services/entitlements';
+import { ownedPacks } from '../services/entitlements';
 import { track } from '../services/analytics';
 import { fetchBoardCatalogue } from '../services/catalogueApi';
 import { PlayerAuthError, loginPlayer as loginPlayerApi, registerPlayer as registerPlayerApi } from '../services/playerAuthApi';
+import {
+  BoardPaymentError,
+  confirmBoardCheckout as confirmBoardCheckoutApi,
+  consumeBoardCredit,
+  failBoardCheckout as failBoardCheckoutApi,
+  getBoardCredits,
+  startBoardCheckout as startBoardCheckoutApi,
+  type CheckoutPayment,
+  type ProductId,
+} from '../services/boardPaymentApi';
 
 interface AppValue {
   ready: boolean;
@@ -80,7 +90,6 @@ interface AppValue {
    */
   catalogue: CategoryDeck[];
   board: BoardState | null;
-  boardCredits: number;
   startBoardDraft: (
     teamAName: string,
     teamBName: string,
@@ -88,11 +97,30 @@ interface AppValue {
     teamBPicks: readonly [string, string, string]
   ) => BoardState;
   updateBoard: (next: BoardState) => void;
-  /** Spends one credit and unlocks the drafted board. False when there is no credit to spend. */
+  /**
+   * Spends one server-held credit and unlocks the drafted board. Requires a
+   * signed-in player — paid credits are owned by an account, never by a
+   * device, so there is no local balance to spend without one. False when
+   * there is no player session or no credit to spend.
+   */
   unlockCurrentBoard: () => Promise<boolean>;
-  /** Stands in for a real MyFatoorah/Tap purchase callback until that integration exists. */
-  buyBoardCreditsDev: (count: number) => Promise<void>;
   quitBoard: () => void;
+
+  /**
+   * Real, server-authoritative board-game credits — owned by the signed-in
+   * player's account, never trusted to local device state. Buying credits
+   * requires a player session; drafting a board does not.
+   */
+  boardCredits: number;
+  boardCreditsBusy: boolean;
+  boardCheckoutError: string | null;
+  refreshBoardCredits: () => Promise<void>;
+  /** Starts a checkout. Returns `null` when there is no player session. */
+  startBoardCheckout: (product: ProductId) => Promise<CheckoutPayment | null>;
+  /** Stands in for a real KNET/payment-provider success callback until that integration exists. */
+  confirmBoardCheckout: (paymentId: string) => Promise<boolean>;
+  /** Stands in for a real payment-provider failure/cancellation callback. */
+  failBoardCheckout: (paymentId: string) => Promise<void>;
 
   /**
    * Optional player account, entirely separate from guest play — which never
@@ -130,11 +158,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [reports, setReports] = useState<PromptReport[]>([]);
   const [packs, setPacks] = useState<string[]>(['core']);
   const [board, setBoardState] = useState<BoardState | null>(null);
-  const [credits, setCredits] = useState(0);
   const [catalogue, setCatalogue] = useState<CategoryDeck[]>(BOARD_CATALOGUE);
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
   const [playerAuthBusy, setPlayerAuthBusy] = useState(false);
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null);
+  const [boardCredits, setBoardCredits] = useState(0);
+  const [boardCreditsBusy, setBoardCreditsBusy] = useState(false);
+  const [boardCheckoutError, setBoardCheckoutError] = useState<string | null>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -147,7 +177,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         storedPacks,
         unfinished,
         storedBoard,
-        storedCredits,
         cachedCatalogue,
         storedPlayerSession,
       ] = await Promise.all([
@@ -157,7 +186,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ownedPacks(deviceStore),
         loadSession(deviceStore),
         loadBoard(deviceStore),
-        boardCredits(deviceStore),
         loadCatalogueCache(deviceStore),
         loadPlayerSession(deviceStore),
       ]);
@@ -168,7 +196,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPacks(storedPacks);
       setSavedSession(unfinished);
       setBoardState(storedBoard);
-      setCredits(storedCredits);
       if (cachedCatalogue) setCatalogue(cachedCatalogue);
       setPlayerSession(storedPlayerSession);
       setSoundEnabled(storedPrefs.sound);
@@ -182,6 +209,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           void saveCatalogueCache(deviceStore, fresh);
         })
         .catch(() => undefined);
+
+      // Board credits live entirely on the server — nothing to show until a
+      // saved player session proves there is an account to check. A failure
+      // here just leaves the balance at 0; the checkout screen can retry.
+      if (storedPlayerSession) {
+        getBoardCredits(storedPlayerSession.token)
+          .then(setBoardCredits)
+          .catch(() => undefined);
+      }
     })();
   }, []);
 
@@ -317,7 +353,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setReports([]);
     setPacks(['core']);
     setBoardState(null);
-    setCredits(0);
+    setBoardCredits(0);
+    setBoardCheckoutError(null);
     setPlayerSession(null);
     setPlayerAuthError(null);
     setPrefsState({ ...DEFAULT_PREFERENCES, lang });
@@ -345,21 +382,80 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [catalogue, updateBoard]
   );
 
-  const unlockCurrentBoard = useCallback(async () => {
-    if (!board) return false;
-    const remaining = await spendCredit(deviceStore);
-    if (remaining === null) return false;
-    setCredits(remaining);
-    updateBoard(unlockBoardState(board));
-    track({ name: 'board_unlocked' });
-    return true;
-  }, [board, updateBoard]);
+  const refreshBoardCredits = useCallback(async () => {
+    if (!playerSession) {
+      setBoardCredits(0);
+      return;
+    }
+    try {
+      setBoardCredits(await getBoardCredits(playerSession.token));
+    } catch {
+      // Leave the last-known balance showing rather than flash it to zero on a transient network error.
+    }
+  }, [playerSession]);
 
-  const buyBoardCreditsDev = useCallback(async (count: number) => {
-    const next = await grantCredits(deviceStore, count);
-    setCredits(next);
-    track({ name: 'board_credits_granted', count });
-  }, []);
+  const unlockCurrentBoard = useCallback(async () => {
+    if (!board || !playerSession) return false;
+    try {
+      const { balance } = await consumeBoardCredit(playerSession.token, board.id);
+      setBoardCredits(balance);
+      updateBoard(unlockBoard(board));
+      track({ name: 'board_unlocked' });
+      return true;
+    } catch (err) {
+      setBoardCheckoutError(err instanceof BoardPaymentError ? err.message : 'could not reach the server');
+      return false;
+    }
+  }, [board, playerSession, updateBoard]);
+
+  const startBoardCheckout = useCallback(
+    async (product: ProductId) => {
+      if (!playerSession) return null;
+      setBoardCreditsBusy(true);
+      setBoardCheckoutError(null);
+      try {
+        return await startBoardCheckoutApi(playerSession.token, product);
+      } catch (err) {
+        setBoardCheckoutError(err instanceof BoardPaymentError ? err.message : 'could not reach the server');
+        return null;
+      } finally {
+        setBoardCreditsBusy(false);
+      }
+    },
+    [playerSession]
+  );
+
+  const confirmBoardCheckout = useCallback(
+    async (paymentId: string) => {
+      if (!playerSession) return false;
+      setBoardCreditsBusy(true);
+      setBoardCheckoutError(null);
+      try {
+        const { balance } = await confirmBoardCheckoutApi(playerSession.token, paymentId);
+        setBoardCredits(balance);
+        track({ name: 'board_credits_granted', count: balance });
+        return true;
+      } catch (err) {
+        setBoardCheckoutError(err instanceof BoardPaymentError ? err.message : 'could not reach the server');
+        return false;
+      } finally {
+        setBoardCreditsBusy(false);
+      }
+    },
+    [playerSession]
+  );
+
+  const failBoardCheckout = useCallback(
+    async (paymentId: string) => {
+      if (!playerSession) return;
+      try {
+        await failBoardCheckoutApi(playerSession.token, paymentId);
+      } catch {
+        // Nothing to reconcile client-side — the payment simply never grants credits.
+      }
+    },
+    [playerSession]
+  );
 
   const quitBoard = useCallback(() => {
     setBoardState(null);
@@ -375,6 +471,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPlayerSession(session);
       await savePlayerSession(deviceStore, session);
       track({ name: 'player_account_created' });
+      getBoardCredits(session.token).then(setBoardCredits).catch(() => undefined);
       return true;
     } catch (err) {
       setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
@@ -393,6 +490,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPlayerSession(session);
       await savePlayerSession(deviceStore, session);
       track({ name: 'player_logged_in' });
+      getBoardCredits(session.token).then(setBoardCredits).catch(() => undefined);
       return true;
     } catch (err) {
       setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
@@ -405,6 +503,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logoutPlayerAccount = useCallback(() => {
     setPlayerSession(null);
     setPlayerAuthError(null);
+    setBoardCredits(0);
+    setBoardCheckoutError(null);
     void clearPlayerSession(deviceStore);
     track({ name: 'player_logout' });
   }, []);
@@ -430,12 +530,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     wipeEverything,
     catalogue,
     board,
-    boardCredits: credits,
     startBoardDraft,
     updateBoard,
     unlockCurrentBoard,
-    buyBoardCreditsDev,
     quitBoard,
+    boardCredits,
+    boardCreditsBusy,
+    boardCheckoutError,
+    refreshBoardCredits,
+    startBoardCheckout,
+    confirmBoardCheckout,
+    failBoardCheckout,
     player: playerSession ? { id: playerSession.id, username: playerSession.username } : null,
     playerAuthBusy,
     playerAuthError,

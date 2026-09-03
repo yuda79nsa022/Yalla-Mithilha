@@ -56,6 +56,19 @@ describe('draftBoard', () => {
     );
   });
 
+  it('generates a stable, unique id when none is supplied', () => {
+    const a = draftBoard(teamA, teamB, teamAPicks, teamBPicks, catalogue);
+    const b = draftBoard(teamA, teamB, teamAPicks, teamBPicks, catalogue);
+    expect(typeof a.id).toBe('string');
+    expect(a.id.length).toBeGreaterThan(0);
+    expect(a.id).not.toBe(b.id);
+  });
+
+  it('accepts an explicit id for deterministic tests', () => {
+    const board = draftBoard(teamA, teamB, teamAPicks, teamBPicks, catalogue, 'board-fixed-id');
+    expect(board.id).toBe('board-fixed-id');
+  });
+
   it('starts pending payment, with team A active and both scores at zero', () => {
     const board = draftBoard(teamA, teamB, teamAPicks, teamBPicks, catalogue);
     expect(board.lock).toBe('pendingPayment');

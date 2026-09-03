@@ -1,9 +1,10 @@
-import type { ContentLevel, MediaType, RegionTag, Tier } from './types';
+import type { ContentLevel, MediaType, ProductId, RegionTag, Tier } from './types';
 
 const TIERS: Tier[] = ['free', 'paid'];
 const LEVELS: ContentLevel[] = ['kids', 'family', 'friends', 'adults'];
 const REGIONS: RegionTag[] = ['kw', 'gulf', 'egypt', 'global'];
 const MEDIA_TYPES: MediaType[] = ['text', 'image', 'audio', 'reorder', 'dotless'];
+const PRODUCT_IDS: ProductId[] = ['single', 'bundle2'];
 
 export class ValidationError extends Error {}
 
@@ -172,6 +173,29 @@ export function parseUpdatePlayerBody(body: unknown): UpdatePlayerBody {
   if (b.username !== undefined) out.username = requireUsername(b.username);
   if (b.password !== undefined) out.password = requirePassword(b.password);
   return out;
+}
+
+export interface CreateCheckoutBody {
+  product: ProductId;
+}
+
+export function parseCreateCheckoutBody(body: unknown): CreateCheckoutBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  return { product: requireEnum(b.product, 'product', PRODUCT_IDS) };
+}
+
+export interface ConsumeCreditBody {
+  boardGameId: string;
+}
+
+/** The client's own local BoardState.id — used verbatim as the server-side board_games row id. */
+export function parseConsumeCreditBody(body: unknown): ConsumeCreditBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const boardGameId = requireString(b.boardGameId, 'boardGameId');
+  if (boardGameId.length > 200) {
+    throw new ValidationError('"boardGameId" is too long');
+  }
+  return { boardGameId };
 }
 
 /** Tile index comes from a URL segment, e.g. /categories/:id/tiles/:index. */

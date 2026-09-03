@@ -57,6 +57,13 @@ export interface BoardCategory {
 export type BoardLock = 'pendingPayment' | 'unlocked' | 'expired';
 
 export interface BoardState {
+  /**
+   * Stable identity for this drafted board, generated once at draft time and
+   * unchanged for its whole life (including across app restarts, since it is
+   * persisted). The server uses it to make credit consumption idempotent —
+   * resuming an interrupted paid game must never spend a second credit.
+   */
+  id: string;
   lock: BoardLock;
   teams: [Team, Team];
   /** The six drafted decks, metadata only — tile content lives in `tiles`. */

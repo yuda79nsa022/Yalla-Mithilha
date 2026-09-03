@@ -17,17 +17,24 @@ function deckById(catalogue: CategoryDeck[], id: string): CategoryDeck {
   return deck;
 }
 
+/** A fresh identity for a newly drafted board. Not cryptographically strong — it only ever needs to be unique per device, never guessable. */
+function makeBoardId(): string {
+  return `board-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /**
- * Builds a fresh, unpaid board from each team's three picks. Pure — the
- * caller decides when this runs relative to payment; `draftBoard` itself
- * always returns a `pendingPayment` board.
+ * Builds a fresh, unpaid board from each team's three picks. Pure except for
+ * generating its own id when one isn't supplied — the caller decides when
+ * this runs relative to payment; `draftBoard` itself always returns a
+ * `pendingPayment` board. Pass `id` explicitly for deterministic tests.
  */
 export function draftBoard(
   teamA: Team,
   teamB: Team,
   teamAPicks: readonly [string, string, string],
   teamBPicks: readonly [string, string, string],
-  catalogue: CategoryDeck[]
+  catalogue: CategoryDeck[],
+  id: string = makeBoardId()
 ): BoardState {
   const pickedIds = [...teamAPicks, ...teamBPicks];
   if (new Set(pickedIds).size !== pickedIds.length) {
@@ -52,6 +59,7 @@ export function draftBoard(
   );
 
   return {
+    id,
     lock: 'pendingPayment',
     teams: [teamA, teamB],
     categories,

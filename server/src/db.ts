@@ -2,13 +2,16 @@ import Database from 'better-sqlite3';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
-import { POINTS_BY_INDEX } from './types';
+import { POINTS_BY_INDEX, PRODUCTS } from './types';
 import type {
   AdminUserRow,
+  BoardGameRow,
   CategoryRow,
   CategoryWithTiles,
   ContentLevel,
+  PaymentRow,
   PlayerRow,
+  ProductId,
   RegionTag,
   Tier,
   TileRow,
@@ -72,6 +75,48 @@ db.exec(`
     password_hash TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
+  );
+
+  -- A paid board-game credit is only ever real once it is owned by an
+  -- account, not a device — these three tables are the server-authoritative
+  -- source of truth. AsyncStorage never stores a credit balance again.
+
+  CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    product TEXT NOT NULL CHECK (product IN ('single','bundle2')),
+    credits INTEGER NOT NULL,
+    amount_fils INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'KWD',
+    provider TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'initiated' CHECK (status IN ('initiated','paid','failed','cancelled')),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  -- One row per drafted board that actually got paid for. Its id is the
+  -- client's own local BoardState.id, generated once at draft time — that
+  -- shared identity is what makes "consume a credit" idempotent: resuming an
+  -- interrupted game replays the same id and never spends a second credit.
+  CREATE TABLE IF NOT EXISTS board_games (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','abandoned')),
+    created_at INTEGER NOT NULL,
+    completed_at INTEGER
+  );
+
+  -- Append-only ledger. A player's balance is derived (sum of grants minus
+  -- sum of consumes), never stored as a mutable counter, so the history of
+  -- where every credit came from and went is never lost to an update.
+  CREATE TABLE IF NOT EXISTS credit_transactions (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('grant','consume')),
+    amount INTEGER NOT NULL CHECK (amount > 0),
+    payment_id TEXT REFERENCES payments(id),
+    board_game_id TEXT REFERENCES board_games(id),
+    created_at INTEGER NOT NULL
   );
 `);
 
@@ -477,6 +522,179 @@ export function deletePlayer(id: string): void {
   db.prepare('DELETE FROM players WHERE id = ?').run(id);
 }
 
+export class PaymentNotFoundError extends Error {}
+export class BoardGameNotFoundError extends Error {}
+export class InsufficientCreditsError extends Error {}
+
+function rowToPayment(r: any): PaymentRow {
+  return {
+    id: r.id,
+    playerId: r.player_id,
+    product: r.product,
+    credits: r.credits,
+    amountFils: r.amount_fils,
+    currency: r.currency,
+    provider: r.provider,
+    status: r.status,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+function rowToBoardGame(r: any): BoardGameRow {
+  return {
+    id: r.id,
+    playerId: r.player_id,
+    status: r.status,
+    createdAt: r.created_at,
+    completedAt: r.completed_at,
+  };
+}
+
+export function getPayment(id: string): PaymentRow | null {
+  const row = db.prepare('SELECT * FROM payments WHERE id = ?').get(id);
+  return row ? rowToPayment(row) : null;
+}
+
+export function listPaymentsForPlayer(playerId: string): PaymentRow[] {
+  return db
+    .prepare('SELECT * FROM payments WHERE player_id = ? ORDER BY created_at DESC')
+    .all(playerId)
+    .map(rowToPayment);
+}
+
+export function getBoardGame(id: string): BoardGameRow | null {
+  const row = db.prepare('SELECT * FROM board_games WHERE id = ?').get(id);
+  return row ? rowToBoardGame(row) : null;
+}
+
+/** Sum of grants minus sum of consumes. Never a stored counter, so it can never drift from its own history. */
+export function creditBalance(playerId: string): number {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN kind = 'grant' THEN amount WHEN kind = 'consume' THEN -amount END), 0) AS balance
+       FROM credit_transactions WHERE player_id = ?`
+    )
+    .get(playerId) as { balance: number };
+  return row.balance;
+}
+
+export interface CreatePaymentInput {
+  playerId: string;
+  product: ProductId;
+  provider: string;
+}
+
+/** Starts a checkout. No credits exist yet — those are only ever created by `confirmPayment`. */
+export function createPayment(input: CreatePaymentInput): PaymentRow {
+  const spec = PRODUCTS[input.product];
+  const now = Date.now();
+  const id = crypto.randomUUID();
+  db.prepare(
+    `INSERT INTO payments (id, player_id, product, credits, amount_fils, currency, provider, status, created_at, updated_at)
+     VALUES (@id, @playerId, @product, @credits, @amountFils, 'KWD', @provider, 'initiated', @now, @now)`
+  ).run({
+    id,
+    playerId: input.playerId,
+    product: input.product,
+    credits: spec.credits,
+    amountFils: spec.amountFils,
+    provider: input.provider,
+    now,
+  });
+  return getPayment(id)!;
+}
+
+/**
+ * Idempotent: a real payment provider's webhook can fire more than once for
+ * the same event, and this must never grant credits twice for it. The
+ * conditional `UPDATE ... WHERE status='initiated'` is the lock — it can
+ * only ever succeed once per payment, so the credit grant that follows it
+ * inside the same transaction only ever runs once too. Confirming an
+ * already-paid payment is a harmless no-op, not an error.
+ */
+export function confirmPayment(paymentId: string): { payment: PaymentRow; balance: number } {
+  const payment = getPayment(paymentId);
+  if (!payment) throw new PaymentNotFoundError(`payment "${paymentId}" not found`);
+
+  const tx = db.transaction(() => {
+    const now = Date.now();
+    const result = db
+      .prepare(`UPDATE payments SET status = 'paid', updated_at = @now WHERE id = @id AND status = 'initiated'`)
+      .run({ id: paymentId, now });
+
+    if (result.changes === 1) {
+      db.prepare(
+        `INSERT INTO credit_transactions (id, player_id, kind, amount, payment_id, created_at)
+         VALUES (@id, @playerId, 'grant', @amount, @paymentId, @now)`
+      ).run({ id: crypto.randomUUID(), playerId: payment.playerId, amount: payment.credits, paymentId, now });
+    }
+  });
+  tx();
+
+  return { payment: getPayment(paymentId)!, balance: creditBalance(payment.playerId) };
+}
+
+/** Also idempotent, via the same conditional-UPDATE lock — no credits are ever issued for a failed payment. */
+export function failPayment(paymentId: string): PaymentRow {
+  const payment = getPayment(paymentId);
+  if (!payment) throw new PaymentNotFoundError(`payment "${paymentId}" not found`);
+  db.prepare(`UPDATE payments SET status = 'failed', updated_at = @now WHERE id = @id AND status = 'initiated'`).run(
+    { id: paymentId, now: Date.now() }
+  );
+  return getPayment(paymentId)!;
+}
+
+/**
+ * Spends one credit to activate `boardGameId` — the client's own local
+ * BoardState.id. Idempotent by construction: `board_games.id` is a primary
+ * key, so calling this again with the same id (e.g. resuming an interrupted
+ * game after an app restart) returns the existing row and spends nothing
+ * further, rather than erroring or charging twice.
+ */
+export function consumeCreditForBoardGame(
+  playerId: string,
+  boardGameId: string
+): { boardGame: BoardGameRow; balance: number } {
+  const existing = getBoardGame(boardGameId);
+  if (existing) {
+    if (existing.playerId !== playerId) throw new BoardGameNotFoundError(`board game "${boardGameId}" not found`);
+    return { boardGame: existing, balance: creditBalance(playerId) };
+  }
+
+  const tx = db.transaction(() => {
+    if (creditBalance(playerId) < 1) {
+      throw new InsufficientCreditsError('not enough credits to start a paid board game');
+    }
+    const now = Date.now();
+    db.prepare('INSERT INTO board_games (id, player_id, status, created_at) VALUES (@id, @playerId, \'active\', @now)').run(
+      { id: boardGameId, playerId, now }
+    );
+    db.prepare(
+      `INSERT INTO credit_transactions (id, player_id, kind, amount, board_game_id, created_at)
+       VALUES (@id, @playerId, 'consume', 1, @boardGameId, @now)`
+    ).run({ id: crypto.randomUUID(), playerId, boardGameId, now });
+  });
+  tx();
+
+  return { boardGame: getBoardGame(boardGameId)!, balance: creditBalance(playerId) };
+}
+
+export function completeBoardGame(playerId: string, boardGameId: string): BoardGameRow {
+  const existing = getBoardGame(boardGameId);
+  if (!existing || existing.playerId !== playerId) {
+    throw new BoardGameNotFoundError(`board game "${boardGameId}" not found`);
+  }
+  db.prepare("UPDATE board_games SET status = 'completed', completed_at = @now WHERE id = @id").run({
+    id: boardGameId,
+    now: Date.now(),
+  });
+  return getBoardGame(boardGameId)!;
+}
+
 export function resetDbForTests(): void {
-  db.exec('DELETE FROM tiles; DELETE FROM categories; DELETE FROM admin_users; DELETE FROM players;');
+  db.exec(
+    `DELETE FROM credit_transactions; DELETE FROM board_games; DELETE FROM payments;
+     DELETE FROM tiles; DELETE FROM categories; DELETE FROM admin_users; DELETE FROM players;`
+  );
 }
