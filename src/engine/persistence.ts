@@ -39,6 +39,7 @@ export const KEYS = {
   session: 'ym:session:v1',
   recent: 'ym:recent:v1',
   reports: 'ym:reports:v1',
+  syncedReportIds: 'ym:syncedReportIds:v1',
   entitlements: 'ym:entitlements:v1',
   board: 'ym:board:v1',
   catalogueCache: 'ym:catalogueCache:v1',
@@ -151,6 +152,27 @@ export async function addReport(
   const next = [...all, report].slice(-200);
   await store.setItem(KEYS.reports, JSON.stringify(next));
   return next;
+}
+
+/**
+ * Which locally-saved reports have already reached the server — the rest
+ * are the offline queue. A report id moves in here only after a successful
+ * sync; nothing here is ever removed except by `resetAllLocalData`.
+ */
+export async function loadSyncedReportIds(store: KeyValueStore): Promise<string[]> {
+  try {
+    const raw = await store.getItem(KEYS.syncedReportIds);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function markReportsSynced(store: KeyValueStore, ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const current = await loadSyncedReportIds(store);
+  const next = Array.from(new Set([...current, ...ids])).slice(-200);
+  await store.setItem(KEYS.syncedReportIds, JSON.stringify(next));
 }
 
 export async function saveBoard(store: KeyValueStore, state: BoardState): Promise<void> {

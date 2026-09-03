@@ -93,8 +93,7 @@ happens. `npm test` asserts this.
 
 - Player names, scores and settings are stored on the device only, and the
   core party game (rooms, mini-games, scoring) needs no network call at all.
-- Two things do talk to a separate backend (see `server/`), both optional
-  and both off by default until used:
+- Three things do talk to a separate backend (see `server/`):
   - The board-game mode fetches its category catalogue from a server on
     startup, with no personal data in that request, and falls back to a
     bundled offline copy if the fetch fails.
@@ -102,6 +101,11 @@ happens. `npm test` asserts this.
     a username across sessions. That sends a username and password to the
     server. **Guest play needs none of this and works exactly the same
     without ever creating an account.**
+  - Reporting a card (which card, why, your language, roughly which app
+    version — never a name or account) queues on-device and syncs to the
+    server once it can reach it, whether or not you have an account. This
+    is the one thing here that is not fully optional in the sense of "never
+    happens" — it only ever fires when you actually tap "Report".
 - No camera, microphone, contacts, or location permission is declared.
 - The analytics module is typed so player names and prompt text *cannot* be put
   in an event, and it is wired to a no-op sink.

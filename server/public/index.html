@@ -51,6 +51,7 @@
   <h1>Board Catalogue Admin</h1>
   <nav id="mainNav" class="hidden">
     <button id="navCategories" class="active">Categories</button>
+    <button id="navReports">Reports</button>
     <button id="navPlayers">Players</button>
     <button id="navAdmins">Admins</button>
     <button id="navAuditLog">Audit log</button>
@@ -215,6 +216,19 @@
       </div>
     </div>
 
+    <div id="reportsSection" class="hidden">
+      <div class="card">
+        <h2 style="margin:0 0 4px">Reported content</h2>
+        <p class="muted" style="margin:0">Synced from players' offline report queues — grouped by card. Resolve once you've reviewed (and fixed, if needed) a card; dismiss if the reports don't need action.</p>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Card</th><th>Reports</th><th>Reasons</th><th>Languages</th><th>Status</th><th></th></tr></thead>
+          <tbody id="reportRows"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div id="auditLogSection" class="hidden">
       <div class="card">
         <h2 style="margin:0 0 4px">Audit log</h2>
@@ -302,52 +316,35 @@ async function enterApp() {
   showCategoriesSection();
 }
 
+const TABS = ['categories', 'reports', 'players', 'admins', 'auditLog'];
+
+function showTab(tab, onShow) {
+  TABS.forEach((t) => {
+    const isActive = t === tab;
+    $(t + 'Section').classList.toggle('hidden', !isActive);
+    $('nav' + t[0].toUpperCase() + t.slice(1)).classList.toggle('active', isActive);
+  });
+  onShow();
+}
+
 function showCategoriesSection() {
-  $('categoriesSection').classList.remove('hidden');
-  $('playersSection').classList.add('hidden');
-  $('adminsSection').classList.add('hidden');
-  $('auditLogSection').classList.add('hidden');
-  $('navCategories').classList.add('active');
-  $('navPlayers').classList.remove('active');
-  $('navAdmins').classList.remove('active');
-  $('navAuditLog').classList.remove('active');
-  showList();
+  showTab('categories', showList);
+}
+
+function showReportsSection() {
+  showTab('reports', renderReports);
 }
 
 function showPlayersSection() {
-  $('categoriesSection').classList.add('hidden');
-  $('playersSection').classList.remove('hidden');
-  $('adminsSection').classList.add('hidden');
-  $('auditLogSection').classList.add('hidden');
-  $('navCategories').classList.remove('active');
-  $('navPlayers').classList.add('active');
-  $('navAdmins').classList.remove('active');
-  $('navAuditLog').classList.remove('active');
-  renderPlayers();
+  showTab('players', renderPlayers);
 }
 
 function showAdminsSection() {
-  $('categoriesSection').classList.add('hidden');
-  $('playersSection').classList.add('hidden');
-  $('adminsSection').classList.remove('hidden');
-  $('auditLogSection').classList.add('hidden');
-  $('navCategories').classList.remove('active');
-  $('navPlayers').classList.remove('active');
-  $('navAdmins').classList.add('active');
-  $('navAuditLog').classList.remove('active');
-  renderAdmins();
+  showTab('admins', renderAdmins);
 }
 
 function showAuditLogSection() {
-  $('categoriesSection').classList.add('hidden');
-  $('playersSection').classList.add('hidden');
-  $('adminsSection').classList.add('hidden');
-  $('auditLogSection').classList.remove('hidden');
-  $('navCategories').classList.remove('active');
-  $('navPlayers').classList.remove('active');
-  $('navAdmins').classList.remove('active');
-  $('navAuditLog').classList.add('active');
-  renderAuditLog();
+  showTab('auditLog', renderAuditLog);
 }
 
 function isComplete(category) {
@@ -732,6 +729,49 @@ async function renderAuditLog() {
   $('auditRows').innerHTML = rows || '<tr><td colspan="5" class="muted">Nothing logged yet.</td></tr>';
 }
 
+async function renderReports() {
+  const reports = await api('/admin/reports');
+  const groups = {};
+  reports.forEach((r) => { (groups[r.promptId] ??= []).push(r); });
+
+  const rows = Object.entries(groups).map(([promptId, items]) => {
+    const openCount = items.filter((i) => i.status === 'open').length;
+    const anyOpen = openCount > 0;
+    const reasons = [...new Set(items.map((i) => i.reason))].join(', ');
+    const langs = [...new Set(items.map((i) => i.lang))].join(', ');
+    return `<tr>
+      <td>${escapeHtml(promptId)}</td>
+      <td>${items.length} <span class="muted">(${openCount} open)</span></td>
+      <td>${escapeHtml(reasons)}</td>
+      <td>${escapeHtml(langs)}</td>
+      <td><span class="badge ${anyOpen ? 'incomplete' : 'complete'}">${anyOpen ? 'open' : 'closed'}</span></td>
+      <td>
+        <button class="secondary" data-resolve="${escapeHtml(promptId)}" ${anyOpen ? '' : 'disabled'}>Resolve</button>
+        <button class="danger" data-dismiss="${escapeHtml(promptId)}" ${anyOpen ? '' : 'disabled'}>Dismiss</button>
+      </td>
+    </tr>`;
+  }).join('');
+  $('reportRows').innerHTML = rows || '<tr><td colspan="6" class="muted">No reports yet.</td></tr>';
+
+  $('reportRows').querySelectorAll('[data-resolve]').forEach((btn) => {
+    btn.addEventListener('click', () => setReportStatus(btn.dataset.resolve, 'resolved'));
+  });
+  $('reportRows').querySelectorAll('[data-dismiss]').forEach((btn) => {
+    btn.addEventListener('click', () => setReportStatus(btn.dataset.dismiss, 'dismissed'));
+  });
+}
+
+async function setReportStatus(promptId, status) {
+  try {
+    await api(`/admin/reports/by-prompt/${encodeURIComponent(promptId)}/status`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
+    });
+    renderReports();
+  } catch (e) {
+    alert('Could not update: ' + e.message);
+  }
+}
+
 async function addAdmin() {
   const username = $('newAdminUsername').value.trim();
   const password = $('newAdminPassword').value;
@@ -753,6 +793,7 @@ $('signInBtn').addEventListener('click', signIn);
 $('passwordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 $('logoutBtn').addEventListener('click', signOut);
 $('navCategories').addEventListener('click', showCategoriesSection);
+$('navReports').addEventListener('click', showReportsSection);
 $('navPlayers').addEventListener('click', showPlayersSection);
 $('navAdmins').addEventListener('click', showAdminsSection);
 $('navAuditLog').addEventListener('click', showAuditLogSection);

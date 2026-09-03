@@ -5,11 +5,13 @@ import { UPLOADS_DIR } from './db';
 import { requireAdminSession } from './auth';
 import { adminRouter } from './routes/admin';
 import { adminPlayersRouter } from './routes/adminPlayers';
+import { adminReportsRouter } from './routes/adminReports';
 import { adminUsersRouter } from './routes/adminUsers';
 import { authRouter } from './routes/auth';
 import { boardGamesRouter } from './routes/boardGames';
 import { catalogueRouter } from './routes/catalogue';
 import { playerAuthRouter } from './routes/playerAuth';
+import { reportsRouter } from './routes/reports';
 
 export function createApp(): express.Express {
   const app = express();
@@ -32,9 +34,11 @@ export function createApp(): express.Express {
   app.use('/catalogue', catalogueRouter);
   app.use('/players', playerAuthRouter);
   app.use('/board-games', boardGamesRouter);
+  app.use('/reports', reportsRouter);
   app.use('/admin/auth', authRouter);
   app.use('/admin/users', requireAdminSession, adminUsersRouter);
   app.use('/admin/players', requireAdminSession, adminPlayersRouter);
+  app.use('/admin/reports', requireAdminSession, adminReportsRouter);
   app.use('/admin', requireAdminSession, adminRouter);
 
   // Category thumbnails — public, same as the catalogue itself.

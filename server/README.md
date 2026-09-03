@@ -217,6 +217,35 @@ throwing.
   game must belong to the caller. Marks it completed.
 - `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit
   log" above.
+- `POST /reports` — public, CORS-open (same reasoning as `/catalogue` and
+  `/players` — reporting a card never requires an account). `{ reports: [{
+  id, promptId, reason, lang, createdAt, appVersion? }, ...] }`, capped at
+  50 per batch. Idempotent per report `id` — see "Content report sync"
+  below.
+- `GET /admin/reports` — bearer-token protected. Raw list, most-recent
+  first; the admin UI's "Reports" tab groups and counts them per card.
+- `PUT /admin/reports/by-prompt/:promptId/status` — bearer-token protected.
+  `{ status: 'open' | 'resolved' | 'dismissed' }`. Bulk-updates every
+  currently-open report for that card at once; already-resolved/dismissed
+  reports are left alone.
+
+## Content report sync
+
+The Party Game's card-report feature (`report.title` etc. in the app) used
+to be entirely local — saved on-device, never seen by anyone but the
+player. It's now an offline queue that syncs here, the same offline-first
+shape as the catalogue fetch: the app tries to sync a report right after
+it's filed, and retries whatever is still queued on next launch. Neither
+path blocks anything or requires a player session — reporting a card never
+needs an account, online or offline.
+
+`POST /reports` is idempotent per report id (`INSERT OR IGNORE` in
+`submitContentReports`, `src/db.ts`), so a retried sync after a dropped
+connection never creates a duplicate row. No player identity of any kind is
+stored — only which card, why, the language, roughly which app version, and
+when. An admin reviews and resolves/dismisses a card's reports together via
+`PUT /admin/reports/by-prompt/:promptId/status`, not one row at a time,
+since that's how the report list is actually used.
 
 ## App integration
 

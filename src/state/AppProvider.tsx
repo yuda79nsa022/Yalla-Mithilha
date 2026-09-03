@@ -28,6 +28,8 @@ import {
   loadRecent,
   loadReports,
   loadSession,
+  loadSyncedReportIds,
+  markReportsSynced,
   resetAllLocalData,
   saveBoard,
   saveCatalogueCache,
@@ -47,6 +49,7 @@ import { setSoundEnabled } from '../platform/audio';
 import { ownedPacks } from '../services/entitlements';
 import { track } from '../services/analytics';
 import { fetchBoardCatalogue } from '../services/catalogueApi';
+import { syncReports } from '../services/reportSyncApi';
 import { PlayerAuthError, loginPlayer as loginPlayerApi, registerPlayer as registerPlayerApi } from '../services/playerAuthApi';
 import {
   BoardPaymentError,
@@ -218,7 +221,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           .then(setBoardCredits)
           .catch(() => undefined);
       }
+
+      // Flushes whatever is left of the offline report queue from a
+      // previous launch — never blocks startup, no account required. If the
+      // device is still offline this just fails silently and tries again
+      // next launch (or the next time a report is filed, see `report`
+      // below), which is the offline-first pattern already used for the
+      // catalogue fetch above.
+      void syncPendingReports(storedReports);
     })();
+  }, []);
+
+  const syncPendingReports = useCallback(async (allReports: PromptReport[]) => {
+    const synced = await loadSyncedReportIds(deviceStore);
+    const syncedSet = new Set(synced);
+    const pending = allReports.filter((r) => !syncedSet.has(r.id));
+    if (!pending.length) return;
+    try {
+      await syncReports(pending);
+      await markReportsSynced(
+        deviceStore,
+        pending.map((r) => r.id)
+      );
+    } catch {
+      // Still offline, or the server is down — stays queued for next time.
+    }
   }, []);
 
   const lang: Lang = prefs.lang ?? 'en';
@@ -341,6 +368,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
       setReports(await addReport(deviceStore, entry));
       track({ name: 'prompt_reported', promptId, reason });
+
+      // Best-effort immediate sync — offline (or a down server) just leaves
+      // it queued for the next launch's `syncPendingReports` pass.
+      syncReports([entry])
+        .then(() => markReportsSynced(deviceStore, [entry.id]))
+        .catch(() => undefined);
     },
     [lang]
   );

@@ -164,7 +164,7 @@ export const en: Record<TranslationKey, string> = {
   'privacy.body':
     'Names, scores and settings are stored on your phone. The core party game runs offline and never asks for the camera, microphone or your contacts.',
   'privacy.network':
-    'The board game mode fetches its categories from a server on startup (no personal data in that request), and falls back to an offline copy if it can not reach it. If you choose to create an optional account, your username and password are sent to that same server — guest play never does this and keeps working exactly the same without an account.',
+    'The board game mode fetches its categories from a server on startup (no personal data in that request), and falls back to an offline copy if it can not reach it. If you choose to create an optional account, your username and password are sent to that same server — guest play never does this and keeps working exactly the same without an account. If you report a card, that report (which card, why, your language, roughly which app version — never your name) is queued on your device and sent to the same server once it can reach it, so it can be reviewed; it works the same whether or not you have an account.',
   'privacy.reset': 'Delete my data',
 
   'report.title': 'Report this card',

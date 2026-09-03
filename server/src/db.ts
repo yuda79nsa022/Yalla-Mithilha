@@ -11,11 +11,14 @@ import type {
   CategoryStatus,
   CategoryWithTiles,
   ContentLevel,
+  ContentReportRow,
   PaymentRow,
   PlayerRow,
   ProductId,
   ProposedImportFill,
   RegionTag,
+  ReportStatus,
+  SubmitReportInput,
   Tier,
   TileRow,
   TitleMatch,
@@ -137,6 +140,22 @@ db.exec(`
     before_json TEXT,
     after_json TEXT,
     created_at INTEGER NOT NULL
+  );
+
+  -- Party Game card reports, synced from the app's on-device offline queue.
+  -- id is the client's own report id, so a retried sync of an
+  -- already-received report is naturally a no-op (INSERT OR IGNORE) rather
+  -- than a duplicate row. No player identity of any kind is stored here —
+  -- reporting never requires an account.
+  CREATE TABLE IF NOT EXISTS content_reports (
+    id TEXT PRIMARY KEY,
+    prompt_id TEXT NOT NULL,
+    reason TEXT NOT NULL CHECK (reason IN ('unclear','translation','not_funny','inappropriate','too_hard','duplicate')),
+    lang TEXT NOT NULL,
+    app_version TEXT,
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved','dismissed')),
+    created_at INTEGER NOT NULL,
+    received_at INTEGER NOT NULL
   );
 `);
 
@@ -858,9 +877,67 @@ export function listAuditLog(limit = 200): AuditLogRow[] {
     .map(rowToAuditLog);
 }
 
+function rowToContentReport(r: any): ContentReportRow {
+  return {
+    id: r.id,
+    promptId: r.prompt_id,
+    reason: r.reason,
+    lang: r.lang,
+    appVersion: r.app_version,
+    status: r.status,
+    createdAt: r.created_at,
+    receivedAt: r.received_at,
+  };
+}
+
+/**
+ * Idempotent per report id — a retried sync of the app's offline queue
+ * (network drop mid-batch, duplicate call) never creates a second row for
+ * the same report. Returns how many of the given reports were newly
+ * received, which may be fewer than the batch size on a retry.
+ */
+export function submitContentReports(reports: SubmitReportInput[]): { received: number } {
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_reports (id, prompt_id, reason, lang, app_version, status, created_at, received_at)
+     VALUES (@id, @promptId, @reason, @lang, @appVersion, 'open', @createdAt, @receivedAt)`
+  );
+  const tx = db.transaction((items: SubmitReportInput[]) => {
+    let received = 0;
+    for (const r of items) {
+      const result = stmt.run({
+        id: r.id,
+        promptId: r.promptId,
+        reason: r.reason,
+        lang: r.lang,
+        appVersion: r.appVersion ?? null,
+        createdAt: r.createdAt,
+        receivedAt: Date.now(),
+      });
+      if (result.changes > 0) received++;
+    }
+    return received;
+  });
+  return { received: tx(reports) };
+}
+
+export function listContentReports(): ContentReportRow[] {
+  return db
+    .prepare('SELECT * FROM content_reports ORDER BY created_at DESC, rowid DESC')
+    .all()
+    .map(rowToContentReport);
+}
+
+/** Bulk action, since an admin reviews and resolves a card's reports together — only ever touches currently-open reports, never re-flips one already resolved/dismissed. */
+export function setReportStatusForPrompt(promptId: string, status: ReportStatus): { updated: number } {
+  const result = db
+    .prepare("UPDATE content_reports SET status = @status WHERE prompt_id = @promptId AND status = 'open'")
+    .run({ promptId, status });
+  return { updated: result.changes };
+}
+
 export function resetDbForTests(): void {
   db.exec(
-    `DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM board_games; DELETE FROM payments;
+    `DELETE FROM content_reports; DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM board_games; DELETE FROM payments;
      DELETE FROM tiles; DELETE FROM categories; DELETE FROM admin_users; DELETE FROM players;`
   );
 }
