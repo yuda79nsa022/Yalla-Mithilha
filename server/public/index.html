@@ -362,12 +362,12 @@ async function showList() {
       : '';
     return `<tr>
       <td>${thumb}</td>
-      <td>${c.id}</td>
-      <td>${c.nameEn} <span class="muted">/ ${c.nameAr}</span></td>
-      <td>${c.tier}</td><td>${c.level}</td><td>${c.region}</td>
+      <td>${escapeHtml(c.id)}</td>
+      <td>${escapeHtml(c.nameEn)} <span class="muted">/ ${escapeHtml(c.nameAr)}</span></td>
+      <td>${escapeHtml(c.tier)}</td><td>${escapeHtml(c.level)}</td><td>${escapeHtml(c.region)}</td>
       <td><span class="badge ${complete ? 'complete' : 'incomplete'}">${c.tiles.filter((t) => !t.needsContent).length}/6</span></td>
-      <td><span class="badge ${c.status}">${c.status}</span></td>
-      <td><button class="secondary" data-open="${c.id}">Open</button></td>
+      <td><span class="badge ${escapeHtml(c.status)}">${escapeHtml(c.status)}</span></td>
+      <td><button class="secondary" data-open="${escapeHtml(c.id)}">Open</button></td>
     </tr>`;
   }).join('');
   $('categoryRows').innerHTML = rows || '<tr><td colspan="9" class="muted">No categories yet.</td></tr>';
