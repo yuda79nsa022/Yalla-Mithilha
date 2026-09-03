@@ -19,7 +19,9 @@ should be done.
 ## Assets
 
 - [ ] Five sound effects, original or licensed (`assets/sounds/README.md`).
-- [ ] App icon, adaptive icon, and splash image.
+- [x] App icon, adaptive icon, and splash image — a simplified mark (smiling
+      mask + a pink "OK"-hand ring, echoing the studio logo) in `assets/images/`,
+      wired through `app.json`. Own vector artwork, not the literal logo file.
 - [ ] A licensed Arabic display face, plus a Latin companion.
 - [ ] Store screenshots in both languages.
 

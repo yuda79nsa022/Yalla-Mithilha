@@ -7,7 +7,9 @@
     "scheme": "yallamithilha",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F7F0DF",
+    "icon": "./assets/images/icon.png",
     "splash": {
+      "image": "./assets/images/splash-icon.png",
       "backgroundColor": "#F7F0DF",
       "resizeMode": "contain"
     },
@@ -22,9 +24,13 @@
     "android": {
       "package": "com.example.yallamithilha",
       "adaptiveIcon": {
-        "backgroundColor": "#F7F0DF"
+        "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
+        "backgroundColor": "#246E9C"
       },
       "permissions": []
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": ["expo-router", "expo-localization"],
     "extra": {
