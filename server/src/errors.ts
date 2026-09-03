@@ -3,9 +3,11 @@ import {
   AdminUserNotFoundError,
   CategoryNotFoundError,
   DuplicateCategoryError,
+  DuplicatePlayerUsernameError,
   DuplicateUsernameError,
   InvalidTileIndexError,
   LastAdminError,
+  PlayerNotFoundError,
 } from './db';
 import { ValidationError } from './validate';
 
@@ -14,7 +16,11 @@ export function handleError(err: unknown, res: Response): void {
     res.status(400).json({ error: err.message });
     return;
   }
-  if (err instanceof DuplicateCategoryError || err instanceof DuplicateUsernameError) {
+  if (
+    err instanceof DuplicateCategoryError ||
+    err instanceof DuplicateUsernameError ||
+    err instanceof DuplicatePlayerUsernameError
+  ) {
     res.status(409).json({ error: err.message });
     return;
   }
@@ -25,7 +31,8 @@ export function handleError(err: unknown, res: Response): void {
   if (
     err instanceof CategoryNotFoundError ||
     err instanceof InvalidTileIndexError ||
-    err instanceof AdminUserNotFoundError
+    err instanceof AdminUserNotFoundError ||
+    err instanceof PlayerNotFoundError
   ) {
     res.status(404).json({ error: err.message });
     return;

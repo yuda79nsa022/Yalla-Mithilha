@@ -3,7 +3,16 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { POINTS_BY_INDEX } from './types';
-import type { AdminUserRow, CategoryRow, CategoryWithTiles, ContentLevel, RegionTag, Tier, TileRow } from './types';
+import type {
+  AdminUserRow,
+  CategoryRow,
+  CategoryWithTiles,
+  ContentLevel,
+  PlayerRow,
+  RegionTag,
+  Tier,
+  TileRow,
+} from './types';
 
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -47,6 +56,17 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS admin_users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  -- Optional player accounts. Deliberately its own table, not admin_users:
+  -- different purpose (someone who plays, not someone who manages content),
+  -- different session token, no overlap in privilege.
+  CREATE TABLE IF NOT EXISTS players (
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
@@ -373,6 +393,90 @@ export function deleteAdminUser(id: string): void {
   db.prepare('DELETE FROM admin_users WHERE id = ?').run(id);
 }
 
+export class DuplicatePlayerUsernameError extends Error {}
+export class PlayerNotFoundError extends Error {}
+
+interface PlayerRowWithHash extends PlayerRow {
+  passwordHash: string;
+}
+
+function rowToPlayer(r: any): PlayerRowWithHash {
+  return {
+    id: r.id,
+    username: r.username,
+    passwordHash: r.password_hash,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+function stripPlayerHash(p: PlayerRowWithHash): PlayerRow {
+  const { passwordHash: _passwordHash, ...rest } = p;
+  return rest;
+}
+
+export function listPlayers(): PlayerRow[] {
+  return db.prepare('SELECT * FROM players ORDER BY username').all().map(rowToPlayer).map(stripPlayerHash);
+}
+
+export function getPlayerByUsernameWithHash(username: string): PlayerRowWithHash | null {
+  const row = db.prepare('SELECT * FROM players WHERE username = ?').get(username);
+  return row ? rowToPlayer(row) : null;
+}
+
+export function getPlayerById(id: string): PlayerRow | null {
+  const row = db.prepare('SELECT * FROM players WHERE id = ?').get(id);
+  return row ? stripPlayerHash(rowToPlayer(row)) : null;
+}
+
+export interface CreatePlayerInput {
+  username: string;
+  passwordHash: string;
+}
+
+export function createPlayer(input: CreatePlayerInput): PlayerRow {
+  if (getPlayerByUsernameWithHash(input.username)) {
+    throw new DuplicatePlayerUsernameError(`username "${input.username}" is already taken`);
+  }
+  const now = Date.now();
+  const id = crypto.randomUUID();
+  db.prepare(
+    `INSERT INTO players (id, username, password_hash, created_at, updated_at)
+     VALUES (@id, @username, @passwordHash, @now, @now)`
+  ).run({ id, ...input, now });
+  return getPlayerById(id)!;
+}
+
+export interface UpdatePlayerInput {
+  username?: string;
+  passwordHash?: string;
+}
+
+export function updatePlayer(id: string, input: UpdatePlayerInput): PlayerRow {
+  const existing = getPlayerById(id);
+  if (!existing) throw new PlayerNotFoundError(`player "${id}" not found`);
+  if (input.username && input.username !== existing.username && getPlayerByUsernameWithHash(input.username)) {
+    throw new DuplicatePlayerUsernameError(`username "${input.username}" is already taken`);
+  }
+
+  const current = db.prepare('SELECT * FROM players WHERE id = ?').get(id) as any;
+  const next = {
+    id,
+    username: input.username ?? current.username,
+    passwordHash: input.passwordHash ?? current.password_hash,
+    updatedAt: Date.now(),
+  };
+  db.prepare(
+    'UPDATE players SET username=@username, password_hash=@passwordHash, updated_at=@updatedAt WHERE id=@id'
+  ).run(next);
+  return getPlayerById(id)!;
+}
+
+export function deletePlayer(id: string): void {
+  if (!getPlayerById(id)) throw new PlayerNotFoundError(`player "${id}" not found`);
+  db.prepare('DELETE FROM players WHERE id = ?').run(id);
+}
+
 export function resetDbForTests(): void {
-  db.exec('DELETE FROM tiles; DELETE FROM categories; DELETE FROM admin_users;');
+  db.exec('DELETE FROM tiles; DELETE FROM categories; DELETE FROM admin_users; DELETE FROM players;');
 }

@@ -7,21 +7,28 @@ import {
   AdminUserNotFoundError,
   CategoryNotFoundError,
   DuplicateCategoryError,
+  DuplicatePlayerUsernameError,
   DuplicateUsernameError,
   LastAdminError,
+  PlayerNotFoundError,
   createAdminUser,
   createCategory,
+  createPlayer,
   deleteAdminUser,
   deleteCategory,
+  deletePlayer,
   getAdminUserById,
   getCategory,
+  getPlayerById,
   importTitlesIntoCategory,
   listAdminUsers,
   listCategories,
   listCompleteCategories,
+  listPlayers,
   resetDbForTests,
   updateAdminUser,
   updateCategory,
+  updatePlayer,
   updateTile,
 } from '../src/db';
 
@@ -193,5 +200,38 @@ describe('admin users', () => {
     createAdminUser({ username: 'b', passwordHash: 'hashed' });
     expect(() => deleteAdminUser(a.id)).not.toThrow();
     expect(listAdminUsers()).toHaveLength(1);
+  });
+});
+
+describe('players', () => {
+  it('creates a player and never exposes the password hash from a getter', () => {
+    const player = createPlayer({ username: 'jane', passwordHash: 'hashed' });
+    expect((player as any).passwordHash).toBeUndefined();
+    expect(getPlayerById(player.id)).toMatchObject({ username: 'jane' });
+  });
+
+  it('rejects a duplicate username', () => {
+    createPlayer({ username: 'jane', passwordHash: 'hashed' });
+    expect(() => createPlayer({ username: 'jane', passwordHash: 'other' })).toThrow(
+      DuplicatePlayerUsernameError
+    );
+  });
+
+  it('updates a username, rejecting a collision with another player', () => {
+    createPlayer({ username: 'jane', passwordHash: 'hashed' });
+    const bob = createPlayer({ username: 'bob', passwordHash: 'hashed' });
+    expect(() => updatePlayer(bob.id, { username: 'jane' })).toThrow(DuplicatePlayerUsernameError);
+    expect(updatePlayer(bob.id, { username: 'bobby' }).username).toBe('bobby');
+  });
+
+  it('throws for an unknown player id', () => {
+    expect(() => updatePlayer('nope', { username: 'x' })).toThrow(PlayerNotFoundError);
+    expect(() => deletePlayer('nope')).toThrow(PlayerNotFoundError);
+  });
+
+  it('allows deleting the only player — unlike admins, there is no lockout risk', () => {
+    const only = createPlayer({ username: 'solo', passwordHash: 'hashed' });
+    expect(() => deletePlayer(only.id)).not.toThrow();
+    expect(listPlayers()).toHaveLength(0);
   });
 });

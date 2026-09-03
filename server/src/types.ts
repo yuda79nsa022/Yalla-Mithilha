@@ -44,6 +44,19 @@ export interface AdminUserRow {
   updatedAt: number;
 }
 
+/**
+ * A game player's optional account — separate from AdminUserRow (a
+ * different table, a different session token, a different purpose: this is
+ * someone who plays the game, not someone who manages its content). Never
+ * carries the password hash.
+ */
+export interface PlayerRow {
+  id: string;
+  username: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** The shape the client app's CategoryDeck expects — no admin-only fields. */
 export interface PublicCategoryDeck {
   id: string;

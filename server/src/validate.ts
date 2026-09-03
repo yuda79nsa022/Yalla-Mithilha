@@ -151,6 +151,29 @@ export function parseUpdateAdminUserBody(body: unknown): UpdateAdminUserBody {
   return out;
 }
 
+export interface RegisterPlayerBody {
+  username: string;
+  password: string;
+}
+
+export function parseRegisterPlayerBody(body: unknown): RegisterPlayerBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  return { username: requireUsername(b.username), password: requirePassword(b.password) };
+}
+
+export interface UpdatePlayerBody {
+  username?: string;
+  password?: string;
+}
+
+export function parseUpdatePlayerBody(body: unknown): UpdatePlayerBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const out: UpdatePlayerBody = {};
+  if (b.username !== undefined) out.username = requireUsername(b.username);
+  if (b.password !== undefined) out.password = requirePassword(b.password);
+  return out;
+}
+
 /** Tile index comes from a URL segment, e.g. /categories/:id/tiles/:index. */
 export function parseTileIndex(value: string): number {
   const n = Number(value);
