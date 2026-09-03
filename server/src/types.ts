@@ -10,6 +10,8 @@ export interface CategoryRow {
   tier: Tier;
   level: ContentLevel;
   region: RegionTag;
+  /** Relative path under /uploads, or null. Turned into an absolute URL at the API boundary. */
+  imageUrl: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -34,6 +36,14 @@ export interface CategoryWithTiles extends CategoryRow {
   tiles: TileRow[];
 }
 
+/** Never carries the password hash — that stays inside db.ts. */
+export interface AdminUserRow {
+  id: string;
+  username: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** The shape the client app's CategoryDeck expects — no admin-only fields. */
 export interface PublicCategoryDeck {
   id: string;
@@ -42,6 +52,7 @@ export interface PublicCategoryDeck {
   tier: Tier;
   level: ContentLevel;
   region: RegionTag;
+  imageUrl?: string;
   tiles: Array<{
     id: string;
     index: number;

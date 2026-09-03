@@ -35,6 +35,8 @@ export interface CategoryDeck {
   level: ContentLevel;
   /** Where the content is targeted, same convention as `Prompt.region`. */
   region: RegionTag;
+  /** Admin-uploaded cover image, shown in the app's home-screen category row. */
+  imageUrl?: string;
   /** Exactly six tiles. */
   tiles: TileContent[];
 }

@@ -2,18 +2,22 @@ import os from 'os';
 import path from 'path';
 
 process.env.DB_PATH = path.join(os.tmpdir(), `yalla-test-import-${Date.now()}-${Math.random()}.sqlite`);
-process.env.ADMIN_TOKEN = 'test-token';
+process.env.SESSION_SECRET = 'test-secret';
 
 import AdmZip from 'adm-zip';
 import ExcelJS from 'exceljs';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { createCategory, getCategory, resetDbForTests } from '../src/db';
+import { makeAdminAuthHeader } from './helpers/testAuth';
 
 const app = createApp();
-const auth = { Authorization: 'Bearer test-token' };
+let auth: { Authorization: string };
 
-beforeEach(() => resetDbForTests());
+beforeEach(async () => {
+  resetDbForTests();
+  auth = await makeAdminAuthHeader();
+});
 
 const sample = {
   id: 'test-cat',

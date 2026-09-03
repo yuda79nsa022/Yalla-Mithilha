@@ -113,6 +113,44 @@ export function parseUpdateTileBody(body: unknown): UpdateTileBody {
   return out;
 }
 
+export interface CreateAdminUserBody {
+  username: string;
+  password: string;
+}
+
+function requireUsername(value: unknown): string {
+  const username = requireString(value, 'username');
+  if (!/^[a-zA-Z0-9._-]{3,40}$/.test(username)) {
+    throw new ValidationError('"username" must be 3-40 characters: letters, digits, ".", "_" or "-"');
+  }
+  return username;
+}
+
+function requirePassword(value: unknown): string {
+  if (typeof value !== 'string' || value.length < 8) {
+    throw new ValidationError('"password" must be a string of at least 8 characters');
+  }
+  return value;
+}
+
+export function parseCreateAdminUserBody(body: unknown): CreateAdminUserBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  return { username: requireUsername(b.username), password: requirePassword(b.password) };
+}
+
+export interface UpdateAdminUserBody {
+  username?: string;
+  password?: string;
+}
+
+export function parseUpdateAdminUserBody(body: unknown): UpdateAdminUserBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const out: UpdateAdminUserBody = {};
+  if (b.username !== undefined) out.username = requireUsername(b.username);
+  if (b.password !== undefined) out.password = requirePassword(b.password);
+  return out;
+}
+
 /** Tile index comes from a URL segment, e.g. /categories/:id/tiles/:index. */
 export function parseTileIndex(value: string): number {
   const n = Number(value);

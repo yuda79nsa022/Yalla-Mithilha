@@ -4,15 +4,23 @@ import path from 'path';
 process.env.DB_PATH = path.join(os.tmpdir(), `yalla-test-${Date.now()}-${Math.random()}.sqlite`);
 
 import {
+  AdminUserNotFoundError,
   CategoryNotFoundError,
   DuplicateCategoryError,
+  DuplicateUsernameError,
+  LastAdminError,
+  createAdminUser,
   createCategory,
+  deleteAdminUser,
   deleteCategory,
+  getAdminUserById,
   getCategory,
   importTitlesIntoCategory,
+  listAdminUsers,
   listCategories,
   listCompleteCategories,
   resetDbForTests,
+  updateAdminUser,
   updateCategory,
   updateTile,
 } from '../src/db';
@@ -146,5 +154,44 @@ describe('listCategories', () => {
     createCategory(sample);
     createCategory({ ...sample, id: 'test-cat-2' });
     expect(listCategories()).toHaveLength(2);
+  });
+});
+
+describe('admin users', () => {
+  it('creates a user and never exposes the password hash from a getter', () => {
+    const user = createAdminUser({ username: 'jane', passwordHash: 'hashed' });
+    expect((user as any).passwordHash).toBeUndefined();
+    expect(getAdminUserById(user.id)).toMatchObject({ username: 'jane' });
+  });
+
+  it('rejects a duplicate username', () => {
+    createAdminUser({ username: 'jane', passwordHash: 'hashed' });
+    expect(() => createAdminUser({ username: 'jane', passwordHash: 'other' })).toThrow(
+      DuplicateUsernameError
+    );
+  });
+
+  it('updates a username, rejecting a collision with another user', () => {
+    createAdminUser({ username: 'jane', passwordHash: 'hashed' });
+    const bob = createAdminUser({ username: 'bob', passwordHash: 'hashed' });
+    expect(() => updateAdminUser(bob.id, { username: 'jane' })).toThrow(DuplicateUsernameError);
+    expect(updateAdminUser(bob.id, { username: 'bobby' }).username).toBe('bobby');
+  });
+
+  it('throws for an unknown user id', () => {
+    expect(() => updateAdminUser('nope', { username: 'x' })).toThrow(AdminUserNotFoundError);
+    expect(() => deleteAdminUser('nope')).toThrow(AdminUserNotFoundError);
+  });
+
+  it('refuses to delete the last remaining admin', () => {
+    const only = createAdminUser({ username: 'solo', passwordHash: 'hashed' });
+    expect(() => deleteAdminUser(only.id)).toThrow(LastAdminError);
+  });
+
+  it('allows deleting an admin once a second one exists', () => {
+    const a = createAdminUser({ username: 'a', passwordHash: 'hashed' });
+    createAdminUser({ username: 'b', passwordHash: 'hashed' });
+    expect(() => deleteAdminUser(a.id)).not.toThrow();
+    expect(listAdminUsers()).toHaveLength(1);
   });
 });

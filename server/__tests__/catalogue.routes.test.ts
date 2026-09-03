@@ -2,7 +2,6 @@ import os from 'os';
 import path from 'path';
 
 process.env.DB_PATH = path.join(os.tmpdir(), `yalla-test-catalogue-${Date.now()}-${Math.random()}.sqlite`);
-process.env.ADMIN_TOKEN = 'test-token';
 
 import request from 'supertest';
 import { createApp } from '../src/app';

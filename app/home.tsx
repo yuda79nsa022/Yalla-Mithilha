@@ -1,12 +1,16 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Divider, Screen, Spacer, T } from '../src/ui/components';
-import { colors, spacing } from '../src/ui/theme';
+import { colors, radius, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
+const CATEGORY_THUMB_ACCENTS = [
+  colors.act, colors.taboo, colors.who, colors.imitate, colors.lips, colors.sound, colors.final,
+];
+
 export default function Home() {
-  const { t, savedSession, resumeSaved, discardSaved, board, quitBoard } = useApp();
+  const { t, lang, catalogue, savedSession, resumeSaved, discardSaved, board, quitBoard } = useApp();
 
   const resume = () => {
     resumeSaved();
@@ -94,6 +98,39 @@ export default function Home() {
               accent={colors.gold}
               onPress={() => router.push('/board/draft')}
             />
+            {catalogue.length ? (
+              <>
+                <Spacer size={spacing.md} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.thumbRow}>
+                    {catalogue.map((deck, i) => (
+                      <Pressable
+                        key={deck.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={lang === 'ar' ? deck.nameAr : deck.nameEn}
+                        onPress={() => router.push('/board/draft')}
+                        style={({ pressed }) => [styles.thumbCard, pressed && { opacity: 0.72 }]}
+                      >
+                        {deck.imageUrl ? (
+                          <Image source={{ uri: deck.imageUrl }} style={styles.thumbImage} />
+                        ) : (
+                          <View
+                            style={[
+                              styles.thumbImage,
+                              styles.thumbPlaceholder,
+                              { backgroundColor: CATEGORY_THUMB_ACCENTS[i % CATEGORY_THUMB_ACCENTS.length] },
+                            ]}
+                          />
+                        )}
+                        <T variant="label" numberOfLines={1} style={styles.thumbLabel}>
+                          {lang === 'ar' ? deck.nameAr : deck.nameEn}
+                        </T>
+                      </Pressable>
+                    ))}
+                  </View>
+                </ScrollView>
+              </>
+            ) : null}
           </>
         )}
       </View>
@@ -122,4 +159,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     backgroundColor: colors.bgRaised,
   },
+  thumbRow: { flexDirection: 'row', gap: spacing.sm },
+  thumbCard: { width: 92, alignItems: 'center', gap: spacing.xs },
+  thumbImage: { width: 84, height: 84, borderRadius: radius.md },
+  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  thumbLabel: { textAlign: 'center' },
 });

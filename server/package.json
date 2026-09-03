@@ -10,21 +10,26 @@
     "build": "tsc -p tsconfig.json",
     "test": "jest",
     "seed": "tsx src/seed.ts",
+    "create-admin": "tsx src/createAdmin.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^11.3.0",
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
     "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
+    "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.11",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.2.0",
     "@types/node": "^20.14.0",
     "@types/pdf-parse": "^1.1.4",

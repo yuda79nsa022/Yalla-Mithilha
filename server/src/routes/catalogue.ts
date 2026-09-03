@@ -18,7 +18,8 @@ catalogueRouter.use((_req, res, next) => {
  * import can sit in the admin UI indefinitely without risk of reaching a
  * real game.
  */
-catalogueRouter.get('/', (_req, res) => {
+catalogueRouter.get('/', (req, res) => {
+  const origin = `${req.protocol}://${req.get('host')}`;
   const decks: PublicCategoryDeck[] = listCompleteCategories().map((c) => ({
     id: c.id,
     nameAr: c.nameAr,
@@ -26,6 +27,7 @@ catalogueRouter.get('/', (_req, res) => {
     tier: c.tier,
     level: c.level,
     region: c.region,
+    ...(c.imageUrl ? { imageUrl: `${origin}${c.imageUrl}` } : {}),
     tiles: c.tiles.map((t) => ({
       id: t.id,
       index: t.index,

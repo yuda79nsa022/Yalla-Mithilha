@@ -7,8 +7,12 @@
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
   body { font-family: system-ui, sans-serif; margin: 0; background: #f6f5f8; color: #201a2e; }
-  header { background: #17102A; color: #FFF6EC; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  header { background: #17102A; color: #FFF6EC; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   header h1 { font-size: 18px; margin: 0; }
+  nav { display: flex; gap: 8px; }
+  nav button { background: transparent; border: 1px solid #4a3d66; color: #cabfe0; }
+  nav button.active { background: #2c2246; color: #fff; border-color: #2c2246; }
+  .headerRight { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #cabfe0; }
   main { max-width: 960px; margin: 24px auto; padding: 0 16px 64px; }
   .card { background: #fff; border: 1px solid #ddd6e8; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
   table { width: 100%; border-collapse: collapse; }
@@ -17,6 +21,7 @@
   button { cursor: pointer; border: 1px solid #17102A; background: #17102A; color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
   button.secondary { background: #fff; color: #17102A; }
   button.danger { background: #fff; color: #b0293f; border-color: #b0293f; }
+  button.link { background: none; border: none; color: #6b6280; padding: 0; text-decoration: underline; }
   button:disabled { opacity: 0.5; cursor: default; }
   input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid #ccc4d9; border-radius: 6px; width: 100%; }
   label { display: block; font-size: 12px; color: #6b6280; margin-bottom: 4px; }
@@ -32,96 +37,154 @@
   .muted { color: #6b6280; font-size: 13px; }
   .hidden { display: none !important; }
   a.back { color: #6b6280; text-decoration: none; font-size: 14px; cursor: pointer; }
+  .thumb { width: 96px; height: 96px; border-radius: 10px; object-fit: cover; background: #f0edf5; border: 1px solid #ddd6e8; }
+  .thumbPlaceholder { width: 96px; height: 96px; border-radius: 10px; background: #f0edf5; border: 1px dashed #ccc4d9; display: flex; align-items: center; justify-content: center; color: #b3a9c4; font-size: 12px; text-align: center; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>Board Catalogue Admin</h1>
-  <div id="authStatus" class="muted" style="color:#cabfe0"></div>
+  <nav id="mainNav" class="hidden">
+    <button id="navCategories" class="active">Categories</button>
+    <button id="navAdmins">Admins</button>
+  </nav>
+  <div class="headerRight">
+    <span id="whoami"></span>
+    <button id="logoutBtn" class="hidden secondary" style="background:transparent;color:#fff;border-color:#4a3d66">Log out</button>
+  </div>
 </header>
 
 <main>
   <div id="gate" class="card">
+    <h2 style="margin-top:0">Sign in</h2>
     <div class="field">
-      <label for="tokenInput">Admin token</label>
-      <input id="tokenInput" type="password" placeholder="Paste the ADMIN_TOKEN" />
+      <label for="usernameInput">Username</label>
+      <input id="usernameInput" type="text" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label for="passwordInput">Password</label>
+      <input id="passwordInput" type="password" autocomplete="current-password" />
     </div>
     <button id="signInBtn">Sign in</button>
     <p id="gateError" class="muted hidden" style="color:#b0293f"></p>
+    <p class="muted">No account yet? Ask another admin to add one, or run <code>npm run create-admin</code> on the server.</p>
   </div>
 
   <div id="app" class="hidden">
-    <div id="listView">
-      <div class="card">
-        <div class="row" style="align-items:flex-end">
-          <div>
-            <h2 style="margin:0 0 4px">Categories</h2>
-            <p class="muted" style="margin:0">Only categories where all six tiles are complete ever reach the app.</p>
+
+    <div id="categoriesSection">
+      <div id="listView">
+        <div class="card">
+          <div class="row" style="align-items:flex-end">
+            <div>
+              <h2 style="margin:0 0 4px">Categories</h2>
+              <p class="muted" style="margin:0">Only categories where all six tiles are complete ever reach the app.</p>
+            </div>
+            <div style="flex:0 0 auto"><button id="newCategoryBtn">+ New category</button></div>
           </div>
-          <div style="flex:0 0 auto"><button id="newCategoryBtn">+ New category</button></div>
         </div>
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th></th><th>ID</th><th>Name</th><th>Tier</th><th>Level</th><th>Region</th><th>Complete</th><th></th></tr>
+            </thead>
+            <tbody id="categoryRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="editView" class="hidden">
+        <a class="back" id="backLink">&larr; Back to categories</a>
+        <div class="card">
+          <h2 id="editTitle" style="margin-top:0"></h2>
+          <div class="row">
+            <div class="field"><label>id</label><input id="fId" disabled /></div>
+            <div class="field"><label>tier</label>
+              <select id="fTier"><option value="free">free</option><option value="paid">paid</option></select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Name (Arabic)</label><input id="fNameAr" dir="rtl" /></div>
+            <div class="field"><label>Name (English)</label><input id="fNameEn" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>level</label>
+              <select id="fLevel">
+                <option value="kids">kids</option><option value="family">family</option>
+                <option value="friends">friends</option><option value="adults">adults</option>
+              </select>
+            </div>
+            <div class="field"><label>region</label>
+              <select id="fRegion">
+                <option value="kw">kw</option><option value="gulf">gulf</option>
+                <option value="egypt">egypt</option><option value="global">global</option>
+              </select>
+            </div>
+          </div>
+          <button id="saveCategoryBtn">Save category</button>
+          <button class="danger" id="deleteCategoryBtn">Delete category</button>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Cover image</h3>
+          <p class="muted">Shown in the app's home-screen category row.</p>
+          <div class="row" style="align-items:center">
+            <div style="flex:0 0 auto" id="imagePreviewSlot"></div>
+            <div>
+              <input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+              <div style="margin-top:8px">
+                <button id="uploadImageBtn" class="secondary" disabled>Upload image</button>
+                <button id="removeImageBtn" class="danger hidden">Remove image</button>
+              </div>
+              <p id="imageResult" class="muted"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Import titles</h3>
+          <p class="muted">Upload a .docx, .xlsx or .pdf list of names. Only fills empty slots — never overwrites a tile that already has content. Fills the Arabic prompt only; you still need to add the English prompt and both answers per tile.</p>
+          <input id="importFile" type="file" accept=".docx,.xlsx,.pdf" />
+          <button id="importBtn" class="secondary">Import into empty slots</button>
+          <p id="importResult" class="muted"></p>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Tiles</h3>
+          <div id="tilesContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="adminsSection" class="hidden">
+      <div class="card">
+        <h2 style="margin:0 0 4px">Admin accounts</h2>
+        <p class="muted" style="margin:0">Everyone here can manage categories, tiles and other admins.</p>
       </div>
       <div class="card">
         <table>
-          <thead>
-            <tr><th>ID</th><th>Name</th><th>Tier</th><th>Level</th><th>Region</th><th>Complete</th><th></th></tr>
-          </thead>
-          <tbody id="categoryRows"></tbody>
+          <thead><tr><th>Username</th><th>Created</th><th></th></tr></thead>
+          <tbody id="adminRows"></tbody>
         </table>
       </div>
-    </div>
-
-    <div id="editView" class="hidden">
-      <a class="back" id="backLink">&larr; Back to categories</a>
       <div class="card">
-        <h2 id="editTitle" style="margin-top:0"></h2>
+        <h3 style="margin-top:0">Add an admin</h3>
         <div class="row">
-          <div class="field"><label>id</label><input id="fId" disabled /></div>
-          <div class="field"><label>tier</label>
-            <select id="fTier"><option value="free">free</option><option value="paid">paid</option></select>
-          </div>
+          <div class="field"><label>Username</label><input id="newAdminUsername" /></div>
+          <div class="field"><label>Password (8+ characters)</label><input id="newAdminPassword" type="password" /></div>
         </div>
-        <div class="row">
-          <div class="field"><label>Name (Arabic)</label><input id="fNameAr" dir="rtl" /></div>
-          <div class="field"><label>Name (English)</label><input id="fNameEn" /></div>
-        </div>
-        <div class="row">
-          <div class="field"><label>level</label>
-            <select id="fLevel">
-              <option value="kids">kids</option><option value="family">family</option>
-              <option value="friends">friends</option><option value="adults">adults</option>
-            </select>
-          </div>
-          <div class="field"><label>region</label>
-            <select id="fRegion">
-              <option value="kw">kw</option><option value="gulf">gulf</option>
-              <option value="egypt">egypt</option><option value="global">global</option>
-            </select>
-          </div>
-        </div>
-        <button id="saveCategoryBtn">Save category</button>
-        <button class="danger" id="deleteCategoryBtn">Delete category</button>
-      </div>
-
-      <div class="card">
-        <h3 style="margin-top:0">Import titles</h3>
-        <p class="muted">Upload a .docx, .xlsx or .pdf list of names. Only fills empty slots — never overwrites a tile that already has content. Fills the Arabic prompt only; you still need to add the English prompt and both answers per tile.</p>
-        <input id="importFile" type="file" accept=".docx,.xlsx,.pdf" />
-        <button id="importBtn" class="secondary">Import into empty slots</button>
-        <p id="importResult" class="muted"></p>
-      </div>
-
-      <div class="card">
-        <h3 style="margin-top:0">Tiles</h3>
-        <div id="tilesContainer"></div>
+        <button id="addAdminBtn">Add admin</button>
+        <p id="addAdminError" class="muted hidden" style="color:#b0293f"></p>
       </div>
     </div>
+
   </div>
 </main>
 
 <script>
-let token = localStorage.getItem('adminToken') || '';
+let token = localStorage.getItem('adminSessionToken') || '';
+let currentUsername = localStorage.getItem('adminUsername') || '';
 let currentCategoryId = null;
 let currentCategory = null;
 
@@ -142,18 +205,68 @@ function api(path, opts = {}) {
 }
 
 async function signIn() {
-  token = $('tokenInput').value.trim();
+  const username = $('usernameInput').value.trim();
+  const password = $('passwordInput').value;
   try {
-    await api('/admin/categories');
-    localStorage.setItem('adminToken', token);
-    $('gate').classList.add('hidden');
-    $('app').classList.remove('hidden');
-    $('authStatus').textContent = 'signed in';
-    showList();
+    const res = await fetch('/admin/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'sign-in failed');
+    }
+    const data = await res.json();
+    token = data.token;
+    currentUsername = data.user.username;
+    localStorage.setItem('adminSessionToken', token);
+    localStorage.setItem('adminUsername', currentUsername);
+    enterApp();
   } catch (e) {
-    $('gateError').textContent = 'Could not sign in: ' + e.message;
+    $('gateError').textContent = e.message;
     $('gateError').classList.remove('hidden');
   }
+}
+
+function signOut() {
+  token = '';
+  currentUsername = '';
+  localStorage.removeItem('adminSessionToken');
+  localStorage.removeItem('adminUsername');
+  location.reload();
+}
+
+async function enterApp() {
+  try {
+    await api('/admin/categories');
+  } catch (e) {
+    // Stored token is stale/invalid — fall back to the sign-in form.
+    signOut();
+    return;
+  }
+  $('gate').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('mainNav').classList.remove('hidden');
+  $('logoutBtn').classList.remove('hidden');
+  $('whoami').textContent = 'signed in as ' + currentUsername;
+  showCategoriesSection();
+}
+
+function showCategoriesSection() {
+  $('categoriesSection').classList.remove('hidden');
+  $('adminsSection').classList.add('hidden');
+  $('navCategories').classList.add('active');
+  $('navAdmins').classList.remove('active');
+  showList();
+}
+
+function showAdminsSection() {
+  $('categoriesSection').classList.add('hidden');
+  $('adminsSection').classList.remove('hidden');
+  $('navCategories').classList.remove('active');
+  $('navAdmins').classList.add('active');
+  renderAdmins();
 }
 
 function isComplete(category) {
@@ -166,7 +279,11 @@ async function showList() {
   const categories = await api('/admin/categories');
   const rows = categories.map((c) => {
     const complete = isComplete(c);
+    const thumb = c.imageUrl
+      ? `<img class="thumb" style="width:40px;height:40px" src="${c.imageUrl}" />`
+      : '';
     return `<tr>
+      <td>${thumb}</td>
       <td>${c.id}</td>
       <td>${c.nameEn} <span class="muted">/ ${c.nameAr}</span></td>
       <td>${c.tier}</td><td>${c.level}</td><td>${c.region}</td>
@@ -174,20 +291,31 @@ async function showList() {
       <td><button class="secondary" data-open="${c.id}">Open</button></td>
     </tr>`;
   }).join('');
-  $('categoryRows').innerHTML = rows || '<tr><td colspan="7" class="muted">No categories yet.</td></tr>';
+  $('categoryRows').innerHTML = rows || '<tr><td colspan="8" class="muted">No categories yet.</td></tr>';
   $('categoryRows').querySelectorAll('[data-open]').forEach((btn) => {
     btn.addEventListener('click', () => openCategory(btn.dataset.open));
   });
 }
 
 function newCategoryDraft() {
-  return { id: '', nameAr: '', nameEn: '', tier: 'free', level: 'family', region: 'global', tiles: [] };
+  return { id: '', nameAr: '', nameEn: '', tier: 'free', level: 'family', region: 'global', imageUrl: null, tiles: [] };
 }
 
 async function openCategory(id) {
   currentCategoryId = id;
   currentCategory = id ? await api('/admin/categories/' + encodeURIComponent(id)) : newCategoryDraft();
   renderEdit();
+}
+
+function renderImageSection() {
+  const c = currentCategory;
+  $('imagePreviewSlot').innerHTML = c.imageUrl
+    ? `<img class="thumb" src="${c.imageUrl}" />`
+    : `<div class="thumbPlaceholder">no image</div>`;
+  $('removeImageBtn').classList.toggle('hidden', !c.imageUrl);
+  $('uploadImageBtn').disabled = !currentCategoryId;
+  $('imageFile').value = '';
+  $('imageResult').textContent = '';
 }
 
 function renderEdit() {
@@ -204,6 +332,7 @@ function renderEdit() {
   $('fRegion').value = c.region;
   $('deleteCategoryBtn').classList.toggle('hidden', !currentCategoryId);
   $('importResult').textContent = '';
+  renderImageSection();
 
   const tilesHtml = (c.tiles.length ? c.tiles : Array.from({ length: 6 }, (_, i) => ({
     index: i, points: [100,200,300,400,500,600][i], promptAr: '', promptEn: '', answerAr: '', answerEn: '', mediaType: 'text', needsContent: true,
@@ -273,12 +402,11 @@ async function saveTile(index) {
   const body = {};
   card.querySelectorAll('[data-field]').forEach((el) => { body[el.dataset.field] = el.value; });
   try {
-    currentCategory = await api(
+    await api(
       '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/tiles/' + index,
       { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     );
-    const full = await api('/admin/categories/' + encodeURIComponent(currentCategoryId));
-    currentCategory = full;
+    currentCategory = await api('/admin/categories/' + encodeURIComponent(currentCategoryId));
     renderEdit();
   } catch (e) {
     alert('Could not save tile: ' + e.message);
@@ -303,18 +431,116 @@ async function importTitles() {
   }
 }
 
+async function uploadImage() {
+  const file = $('imageFile').files[0];
+  if (!file || !currentCategoryId) return;
+  const form = new FormData();
+  form.append('image', file);
+  try {
+    currentCategory = await api(
+      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/image',
+      { method: 'POST', body: form }
+    );
+    $('imageResult').textContent = 'Uploaded.';
+    renderImageSection(); // the category list re-fetches on its own next time it's shown
+  } catch (e) {
+    alert('Image upload failed: ' + e.message);
+  }
+}
+
+async function removeImage() {
+  try {
+    currentCategory = await api(
+      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/image',
+      { method: 'DELETE' }
+    );
+    renderImageSection();
+  } catch (e) {
+    alert('Could not remove image: ' + e.message);
+  }
+}
+
+async function renderAdmins() {
+  const admins = await api('/admin/users');
+  const rows = admins.map((u) => `<tr>
+      <td>${escapeHtml(u.username)}</td>
+      <td class="muted">${new Date(u.createdAt).toLocaleDateString()}</td>
+      <td>
+        <button class="secondary" data-rename="${u.id}">Rename</button>
+        <button class="secondary" data-repw="${u.id}">Change password</button>
+        <button class="danger" data-del="${u.id}">Delete</button>
+      </td>
+    </tr>`).join('');
+  $('adminRows').innerHTML = rows || '<tr><td colspan="3" class="muted">No admins yet.</td></tr>';
+
+  $('adminRows').querySelectorAll('[data-rename]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const username = prompt('New username:');
+      if (!username) return;
+      try {
+        await api('/admin/users/' + btn.dataset.rename, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }),
+        });
+        renderAdmins();
+      } catch (e) { alert('Could not rename: ' + e.message); }
+    });
+  });
+  $('adminRows').querySelectorAll('[data-repw]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const password = prompt('New password (8+ characters):');
+      if (!password) return;
+      try {
+        await api('/admin/users/' + btn.dataset.repw, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }),
+        });
+        alert('Password changed.');
+      } catch (e) { alert('Could not change password: ' + e.message); }
+    });
+  });
+  $('adminRows').querySelectorAll('[data-del]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this admin account?')) return;
+      try {
+        await api('/admin/users/' + btn.dataset.del, { method: 'DELETE' });
+        renderAdmins();
+      } catch (e) { alert('Could not delete: ' + e.message); }
+    });
+  });
+}
+
+async function addAdmin() {
+  const username = $('newAdminUsername').value.trim();
+  const password = $('newAdminPassword').value;
+  $('addAdminError').classList.add('hidden');
+  try {
+    await api('/admin/users', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }),
+    });
+    $('newAdminUsername').value = '';
+    $('newAdminPassword').value = '';
+    renderAdmins();
+  } catch (e) {
+    $('addAdminError').textContent = e.message;
+    $('addAdminError').classList.remove('hidden');
+  }
+}
+
 $('signInBtn').addEventListener('click', signIn);
-$('tokenInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
+$('passwordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
+$('logoutBtn').addEventListener('click', signOut);
+$('navCategories').addEventListener('click', showCategoriesSection);
+$('navAdmins').addEventListener('click', showAdminsSection);
 $('newCategoryBtn').addEventListener('click', () => openCategory(null));
 $('backLink').addEventListener('click', showList);
 $('saveCategoryBtn').addEventListener('click', saveCategory);
 $('deleteCategoryBtn').addEventListener('click', deleteCategory);
 $('importBtn').addEventListener('click', importTitles);
+$('imageFile').addEventListener('change', () => { $('uploadImageBtn').disabled = !$('imageFile').files[0] || !currentCategoryId; });
+$('uploadImageBtn').addEventListener('click', uploadImage);
+$('removeImageBtn').addEventListener('click', removeImage);
+$('addAdminBtn').addEventListener('click', addAdmin);
 
-if (token) {
-  $('tokenInput').value = token;
-  signIn();
-}
+if (token) enterApp();
 </script>
 </body>
 </html>

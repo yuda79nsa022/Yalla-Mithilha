@@ -1,21 +1,22 @@
+import crypto from 'crypto';
+import fs from 'fs';
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import {
-  CategoryNotFoundError,
-  DuplicateCategoryError,
-  InvalidTileIndexError,
+  UPLOADS_DIR,
   createCategory,
   deleteCategory,
   getCategory,
   importTitlesIntoCategory,
   listCategories,
+  setCategoryImage,
   updateCategory,
   updateTile,
 } from '../db';
+import { handleError } from '../errors';
 import { parseDocxTitles, parsePdfTitles, parseXlsxTitles } from '../import/parseTitles';
 import {
-  ValidationError,
   parseCreateCategoryBody,
   parseTileIndex,
   parseUpdateCategoryBody,
@@ -27,6 +28,21 @@ export const adminRouter = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — a title list, not a media library
+});
+
+const IMAGE_EXT_BY_MIMETYPE: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+};
+
+const uploadImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB — a category thumbnail, not a media library
+  fileFilter: (_req, file, cb) => {
+    cb(null, file.mimetype in IMAGE_EXT_BY_MIMETYPE);
+  },
 });
 
 adminRouter.get('/categories', (_req, res) => {
@@ -107,16 +123,55 @@ adminRouter.post('/categories/:categoryId/import', upload.single('file'), async 
   }
 });
 
-function handleError(err: unknown, res: import('express').Response): void {
-  if (err instanceof ValidationError) {
-    res.status(400).json({ error: err.message });
-  } else if (err instanceof DuplicateCategoryError) {
-    res.status(409).json({ error: err.message });
-  } else if (err instanceof CategoryNotFoundError || err instanceof InvalidTileIndexError) {
-    res.status(404).json({ error: err.message });
-  } else {
-    // eslint-disable-next-line no-console
-    console.error(err);
-    res.status(500).json({ error: 'internal error' });
+adminRouter.post('/categories/:id/image', uploadImage.single('image'), (req, res) => {
+  const file = req.file;
+  if (!file) {
+    res.status(400).json({ error: 'no image uploaded, or it was not a jpeg/png/webp/gif' });
+    return;
+  }
+
+  try {
+    const category = getCategory(req.params.id);
+    if (!category) {
+      res.status(404).json({ error: `category "${req.params.id}" not found` });
+      return;
+    }
+
+    const ext = IMAGE_EXT_BY_MIMETYPE[file.mimetype];
+    // Never trust the client's filename — it becomes part of a filesystem path.
+    const filename = `${crypto.randomUUID()}${ext}`;
+    fs.writeFileSync(path.join(UPLOADS_DIR, filename), file.buffer);
+
+    const previous = category.imageUrl;
+    const updated = setCategoryImage(req.params.id, `/uploads/${filename}`);
+    if (previous) deleteUploadedFile(previous);
+
+    res.json(updated);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+adminRouter.delete('/categories/:id/image', (req, res) => {
+  try {
+    const category = getCategory(req.params.id);
+    if (!category) {
+      res.status(404).json({ error: `category "${req.params.id}" not found` });
+      return;
+    }
+    if (category.imageUrl) deleteUploadedFile(category.imageUrl);
+    res.json(setCategoryImage(req.params.id, null));
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+/** `imageUrl` is the relative /uploads path stored in the DB. Best-effort — a missing file is not an error. */
+function deleteUploadedFile(imageUrl: string): void {
+  const filename = path.basename(imageUrl);
+  try {
+    fs.unlinkSync(path.join(UPLOADS_DIR, filename));
+  } catch {
+    // already gone — fine
   }
 }

@@ -1,7 +1,10 @@
 import express from 'express';
 import path from 'path';
-import { requireAdminToken } from './auth';
+import { UPLOADS_DIR } from './db';
+import { requireAdminSession } from './auth';
 import { adminRouter } from './routes/admin';
+import { adminUsersRouter } from './routes/adminUsers';
+import { authRouter } from './routes/auth';
 import { catalogueRouter } from './routes/catalogue';
 
 export function createApp(): express.Express {
@@ -13,10 +16,22 @@ export function createApp(): express.Express {
   });
 
   app.use('/catalogue', catalogueRouter);
-  app.use('/admin', requireAdminToken, adminRouter);
+  app.use('/admin/auth', authRouter);
+  app.use('/admin/users', requireAdminSession, adminUsersRouter);
+  app.use('/admin', requireAdminSession, adminRouter);
 
-  // The admin UI itself calls /admin/* from the browser with a token typed
-  // in at runtime — the static page has no secrets baked into it.
+  // Category thumbnails — public, same as the catalogue itself.
+  app.use(
+    '/uploads',
+    (_req, res, next) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      next();
+    },
+    express.static(UPLOADS_DIR)
+  );
+
+  // The admin UI logs in at runtime and holds the session token in the
+  // browser — the static page has no secrets baked into it.
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
   return app;

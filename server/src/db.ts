@@ -1,11 +1,15 @@
 import Database from 'better-sqlite3';
+import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { POINTS_BY_INDEX } from './types';
-import type { CategoryRow, CategoryWithTiles, ContentLevel, RegionTag, Tier, TileRow } from './types';
+import type { AdminUserRow, CategoryRow, CategoryWithTiles, ContentLevel, RegionTag, Tier, TileRow } from './types';
 
-const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
+export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const DB_PATH = process.env.DB_PATH ?? path.join(DATA_DIR, 'catalogue.sqlite');
 
@@ -41,7 +45,24 @@ db.exec(`
     updated_at INTEGER NOT NULL,
     UNIQUE (category_id, idx)
   );
+
+  CREATE TABLE IF NOT EXISTS admin_users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
 `);
+
+// Lightweight migration: SQLite has no "ADD COLUMN IF NOT EXISTS" that works
+// across the versions this might run against, so just swallow "duplicate
+// column" when this has already run once.
+try {
+  db.exec('ALTER TABLE categories ADD COLUMN image_url TEXT');
+} catch {
+  // already migrated
+}
 
 function rowToCategory(r: any): CategoryRow {
   return {
@@ -51,6 +72,7 @@ function rowToCategory(r: any): CategoryRow {
     tier: r.tier as Tier,
     level: r.level as ContentLevel,
     region: r.region as RegionTag,
+    imageUrl: r.image_url ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -155,6 +177,17 @@ export function updateCategory(id: string, input: UpdateCategoryInput): Category
   return getCategory(id)!;
 }
 
+/** `imageUrl` is the relative /uploads path; `null` clears it. Caller owns the actual file on disk. */
+export function setCategoryImage(id: string, imageUrl: string | null): CategoryWithTiles {
+  if (!getCategory(id)) throw new CategoryNotFoundError(`category "${id}" not found`);
+  db.prepare('UPDATE categories SET image_url=@imageUrl, updated_at=@updatedAt WHERE id=@id').run({
+    id,
+    imageUrl,
+    updatedAt: Date.now(),
+  });
+  return getCategory(id)!;
+}
+
 export function deleteCategory(id: string): void {
   const result = db.prepare('DELETE FROM categories WHERE id = ?').run(id);
   if (result.changes === 0) throw new CategoryNotFoundError(`category "${id}" not found`);
@@ -242,6 +275,104 @@ export function listCompleteCategories(): CategoryWithTiles[] {
   return listCategories().filter((c) => c.tiles.length === 6 && c.tiles.every((t) => !t.needsContent));
 }
 
+export class DuplicateUsernameError extends Error {}
+export class AdminUserNotFoundError extends Error {}
+export class LastAdminError extends Error {}
+
+interface AdminUserRowWithHash extends AdminUserRow {
+  passwordHash: string;
+}
+
+function rowToAdminUser(r: any): AdminUserRowWithHash {
+  return {
+    id: r.id,
+    username: r.username,
+    passwordHash: r.password_hash,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+function stripHash(u: AdminUserRowWithHash): AdminUserRow {
+  const { passwordHash: _passwordHash, ...rest } = u;
+  return rest;
+}
+
+export function listAdminUsers(): AdminUserRow[] {
+  return db
+    .prepare('SELECT * FROM admin_users ORDER BY username')
+    .all()
+    .map(rowToAdminUser)
+    .map(stripHash);
+}
+
+export function countAdminUsers(): number {
+  const row = db.prepare('SELECT COUNT(*) as n FROM admin_users').get() as { n: number };
+  return row.n;
+}
+
+export function getAdminUserByUsernameWithHash(username: string): AdminUserRowWithHash | null {
+  const row = db.prepare('SELECT * FROM admin_users WHERE username = ?').get(username);
+  return row ? rowToAdminUser(row) : null;
+}
+
+export function getAdminUserById(id: string): AdminUserRow | null {
+  const row = db.prepare('SELECT * FROM admin_users WHERE id = ?').get(id);
+  return row ? stripHash(rowToAdminUser(row)) : null;
+}
+
+export interface CreateAdminUserInput {
+  username: string;
+  passwordHash: string;
+}
+
+export function createAdminUser(input: CreateAdminUserInput): AdminUserRow {
+  if (getAdminUserByUsernameWithHash(input.username)) {
+    throw new DuplicateUsernameError(`username "${input.username}" is already taken`);
+  }
+  const now = Date.now();
+  const id = crypto.randomUUID();
+  db.prepare(
+    `INSERT INTO admin_users (id, username, password_hash, created_at, updated_at)
+     VALUES (@id, @username, @passwordHash, @now, @now)`
+  ).run({ id, ...input, now });
+  return getAdminUserById(id)!;
+}
+
+export interface UpdateAdminUserInput {
+  username?: string;
+  passwordHash?: string;
+}
+
+export function updateAdminUser(id: string, input: UpdateAdminUserInput): AdminUserRow {
+  const existing = getAdminUserById(id);
+  if (!existing) throw new AdminUserNotFoundError(`admin user "${id}" not found`);
+  if (input.username && input.username !== existing.username && getAdminUserByUsernameWithHash(input.username)) {
+    throw new DuplicateUsernameError(`username "${input.username}" is already taken`);
+  }
+
+  const current = db.prepare('SELECT * FROM admin_users WHERE id = ?').get(id) as any;
+  const next = {
+    id,
+    username: input.username ?? current.username,
+    passwordHash: input.passwordHash ?? current.password_hash,
+    updatedAt: Date.now(),
+  };
+  db.prepare(
+    'UPDATE admin_users SET username=@username, password_hash=@passwordHash, updated_at=@updatedAt WHERE id=@id'
+  ).run(next);
+  return getAdminUserById(id)!;
+}
+
+/** Refuses to delete the last remaining admin — that would lock everyone out of the dashboard. */
+export function deleteAdminUser(id: string): void {
+  if (!getAdminUserById(id)) throw new AdminUserNotFoundError(`admin user "${id}" not found`);
+  if (countAdminUsers() <= 1) {
+    throw new LastAdminError('cannot delete the last remaining admin account');
+  }
+  db.prepare('DELETE FROM admin_users WHERE id = ?').run(id);
+}
+
 export function resetDbForTests(): void {
-  db.exec('DELETE FROM tiles; DELETE FROM categories;');
+  db.exec('DELETE FROM tiles; DELETE FROM categories; DELETE FROM admin_users;');
 }

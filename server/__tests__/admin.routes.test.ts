@@ -2,16 +2,20 @@ import os from 'os';
 import path from 'path';
 
 process.env.DB_PATH = path.join(os.tmpdir(), `yalla-test-routes-${Date.now()}-${Math.random()}.sqlite`);
-process.env.ADMIN_TOKEN = 'test-token';
+process.env.SESSION_SECRET = 'test-secret';
 
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { resetDbForTests } from '../src/db';
+import { makeAdminAuthHeader } from './helpers/testAuth';
 
 const app = createApp();
-const auth = { Authorization: 'Bearer test-token' };
+let auth: { Authorization: string };
 
-beforeEach(() => resetDbForTests());
+beforeEach(async () => {
+  resetDbForTests();
+  auth = await makeAdminAuthHeader();
+});
 
 const sample = {
   id: 'test-cat',
@@ -28,14 +32,14 @@ describe('auth', () => {
     expect(res.status).toBe(401);
   });
 
-  it('rejects requests with the wrong token', async () => {
+  it('rejects requests with an invalid token', async () => {
     const res = await request(app)
       .get('/admin/categories')
-      .set('Authorization', 'Bearer wrong');
+      .set('Authorization', 'Bearer not-a-real-token');
     expect(res.status).toBe(401);
   });
 
-  it('accepts the correct token', async () => {
+  it('accepts a valid session token', async () => {
     const res = await request(app).get('/admin/categories').set(auth);
     expect(res.status).toBe(200);
   });
