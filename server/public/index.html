@@ -47,6 +47,7 @@
   <h1>Board Catalogue Admin</h1>
   <nav id="mainNav" class="hidden">
     <button id="navCategories" class="active">Categories</button>
+    <button id="navPlayers">Players</button>
     <button id="navAdmins">Admins</button>
   </nav>
   <div class="headerRight">
@@ -157,6 +158,19 @@
       </div>
     </div>
 
+    <div id="playersSection" class="hidden">
+      <div class="card">
+        <h2 style="margin:0 0 4px">Player accounts</h2>
+        <p class="muted" style="margin:0">People who created an optional account in the app. Guest play never appears here.</p>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Username</th><th>Created</th><th></th></tr></thead>
+          <tbody id="playerRows"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div id="adminsSection" class="hidden">
       <div class="card">
         <h2 style="margin:0 0 4px">Admin accounts</h2>
@@ -255,16 +269,30 @@ async function enterApp() {
 
 function showCategoriesSection() {
   $('categoriesSection').classList.remove('hidden');
+  $('playersSection').classList.add('hidden');
   $('adminsSection').classList.add('hidden');
   $('navCategories').classList.add('active');
+  $('navPlayers').classList.remove('active');
   $('navAdmins').classList.remove('active');
   showList();
 }
 
+function showPlayersSection() {
+  $('categoriesSection').classList.add('hidden');
+  $('playersSection').classList.remove('hidden');
+  $('adminsSection').classList.add('hidden');
+  $('navCategories').classList.remove('active');
+  $('navPlayers').classList.add('active');
+  $('navAdmins').classList.remove('active');
+  renderPlayers();
+}
+
 function showAdminsSection() {
   $('categoriesSection').classList.add('hidden');
+  $('playersSection').classList.add('hidden');
   $('adminsSection').classList.remove('hidden');
   $('navCategories').classList.remove('active');
+  $('navPlayers').classList.remove('active');
   $('navAdmins').classList.add('active');
   renderAdmins();
 }
@@ -460,6 +488,54 @@ async function removeImage() {
   }
 }
 
+async function renderPlayers() {
+  const players = await api('/admin/players');
+  const rows = players.map((p) => `<tr>
+      <td>${escapeHtml(p.username)}</td>
+      <td class="muted">${new Date(p.createdAt).toLocaleDateString()}</td>
+      <td>
+        <button class="secondary" data-rename="${p.id}">Rename</button>
+        <button class="secondary" data-repw="${p.id}">Change password</button>
+        <button class="danger" data-del="${p.id}">Delete</button>
+      </td>
+    </tr>`).join('');
+  $('playerRows').innerHTML = rows || '<tr><td colspan="3" class="muted">No player accounts yet.</td></tr>';
+
+  $('playerRows').querySelectorAll('[data-rename]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const username = prompt('New username:');
+      if (!username) return;
+      try {
+        await api('/admin/players/' + btn.dataset.rename, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }),
+        });
+        renderPlayers();
+      } catch (e) { alert('Could not rename: ' + e.message); }
+    });
+  });
+  $('playerRows').querySelectorAll('[data-repw]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const password = prompt('New password (8+ characters):');
+      if (!password) return;
+      try {
+        await api('/admin/players/' + btn.dataset.repw, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }),
+        });
+        alert('Password changed.');
+      } catch (e) { alert('Could not change password: ' + e.message); }
+    });
+  });
+  $('playerRows').querySelectorAll('[data-del]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this player account? This cannot be undone.')) return;
+      try {
+        await api('/admin/players/' + btn.dataset.del, { method: 'DELETE' });
+        renderPlayers();
+      } catch (e) { alert('Could not delete: ' + e.message); }
+    });
+  });
+}
+
 async function renderAdmins() {
   const admins = await api('/admin/users');
   const rows = admins.map((u) => `<tr>
@@ -529,6 +605,7 @@ $('signInBtn').addEventListener('click', signIn);
 $('passwordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 $('logoutBtn').addEventListener('click', signOut);
 $('navCategories').addEventListener('click', showCategoriesSection);
+$('navPlayers').addEventListener('click', showPlayersSection);
 $('navAdmins').addEventListener('click', showAdminsSection);
 $('newCategoryBtn').addEventListener('click', () => openCategory(null));
 $('backLink').addEventListener('click', showList);
