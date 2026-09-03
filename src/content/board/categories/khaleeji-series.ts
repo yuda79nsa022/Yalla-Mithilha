@@ -3,10 +3,14 @@ import { makeTiles } from '../helpers';
 
 /**
  * Confidence: moderate. طاش ما طاش and its two leads are a well-known,
- * long-running Saudi Ramadan staple I'm fairly sure of. Tiles 5-6 are safe,
- * true, but generic filler rather than specific trivia about an Omani,
- * Qatari, Bahraini or Emirati show — I don't have confident material there.
- * Replace with real titles from those countries when available.
+ * long-running Saudi Ramadan staple I'm fairly sure of — and notably absent
+ * from the 500-title Khaleeji series list the user later provided, whose
+ * Saudi portion is entirely 2024-2026 with no older titles at all (a real
+ * gap, not just narrowness — it also excludes العاصوف, one of the most
+ * acclaimed recent Saudi series). Tiles 5-6 replace generic filler with two
+ * entries from that list's older Omani/Qatari tail that I can corroborate
+ * independently: أحمد بن ماجد (a real 15th-century Arab navigator) and
+ * ذي قار (a real pre-Islamic Arab battle) — not just "found in the list."
  */
 export const KHALEEJI_SERIES: CategoryDeck = {
   id: 'khaleeji-series',
@@ -20,7 +24,7 @@ export const KHALEEJI_SERIES: CategoryDeck = {
     ['أحد الفنانين الكوميديين المرتبطين ببرنامج "طاش ما طاش"', 'One of the comedians most associated with "Tash Ma Tash"', 'ناصر القصبي', 'Nasser Al-Qasabi'],
     ['الفنان الكوميدي الثاني اللي شارك ناصر القصبي بطولة "طاش ما طاش"', 'The other comedian who starred alongside Nasser Al-Qasabi in "Tash Ma Tash"', 'عبدالله السدحان', 'Abdullah Al-Sadhan'],
     ['شكل "طاش ما طاش" الأساسي: مقاطع كوميدية قصيرة ومستقلة داخل كل حلقة', 'The format "Tash Ma Tash" was built on: short, self-contained comedic pieces within each episode', 'سكتشات كوميدية', 'Comedy sketches'],
-    ['دول مجلس التعاون الخليجي الست اللي تشترك في إنتاج الدراما "الخليجية"', "The six Gulf Cooperation Council countries whose industries co-produce what's called 'Khaleeji' drama", 'الكويت والسعودية والإمارات وقطر والبحرين وعُمان', 'Kuwait, Saudi Arabia, the UAE, Qatar, Bahrain and Oman'],
-    ['الشهر اللي تتنافس فيه القنوات الخليجية عادةً بأقوى مواسمها الدرامية الجديدة', 'The month Gulf channels typically compete with their strongest new drama seasons', 'رمضان', 'Ramadan'],
+    ['مسلسل عُماني تاريخي قديم يحمل اسم ملاح عربي شهير من القرن الخامس عشر اشتهر بمعرفته بطرق الملاحة البحرية', 'An old Omani historical series named after a famous 15th-century Arab navigator known for his knowledge of sea routes', 'أحمد بن ماجد', 'Ahmad Ibn Majid'],
+    ['مسلسل قطري تاريخي بعنوان "ذي قار: يوم من أيام العرب" — عن أي معركة عربية قديمة قبل الإسلام؟', 'A Qatari historical series titled "Dhi Qar: A Day Among the Days of the Arabs" — about which ancient pre-Islamic Arab battle?', 'معركة ذي قار', 'The Battle of Dhi Qar'],
   ]),
 };
