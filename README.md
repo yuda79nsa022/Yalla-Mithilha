@@ -17,7 +17,7 @@ device. The game works fully offline once installed — no account, no network
 call, no permissions requested.
 
 ```bash
-npm test                # 94 unit and interaction tests
+npm test                # 162 unit and interaction tests
 npm run typecheck       # whole project, screens included
 npm run typecheck:core  # engine, content and i18n only (no React Native needed)
 ```
@@ -125,6 +125,7 @@ happens. `npm test` asserts this.
 - `docs/CONTENT_GUIDE.md` — how to write and add cards
 - `docs/ASSUMPTIONS.md` — decisions made where the brief left room
 - `docs/PRODUCTION_CHECKLIST.md` — what still stands between this and the store
+- `docs/GAP_ANALYSIS.md` — honest area-by-area status, including the full security review
 
 ## Licensing note
 
