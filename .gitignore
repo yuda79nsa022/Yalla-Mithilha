@@ -9,3 +9,6 @@ npm-debug.*
 *.key
 *.mobileprovision
 *.orig.*
+.env
+.env.local
+*.pem

@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { getAdminUserByUsernameWithHash } from '../db';
 import { signSessionToken, verifyPassword } from '../auth';
+import { loginLimiter } from '../rateLimit';
 
 export const authRouter = Router();
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', loginLimiter, async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const { username, password } = body;
   if (typeof username !== 'string' || typeof password !== 'string') {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { createPlayer, getPlayerByUsernameWithHash } from '../db';
 import { hashPassword, signPlayerSessionToken, verifyPassword } from '../auth';
 import { handleError } from '../errors';
+import { loginLimiter, registerLimiter } from '../rateLimit';
 import { parseRegisterPlayerBody } from '../validate';
 
 export const playerAuthRouter = Router();
@@ -23,7 +24,7 @@ playerAuthRouter.use((req, res, next) => {
 });
 
 /** Optional — guest play never touches this route. Only players who choose to create an account do. */
-playerAuthRouter.post('/register', async (req, res) => {
+playerAuthRouter.post('/register', registerLimiter, async (req, res) => {
   try {
     const { username, password } = parseRegisterPlayerBody(req.body);
     const passwordHash = await hashPassword(password);
@@ -35,7 +36,7 @@ playerAuthRouter.post('/register', async (req, res) => {
   }
 });
 
-playerAuthRouter.post('/login', async (req, res) => {
+playerAuthRouter.post('/login', loginLimiter, async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const { username, password } = body;
   if (typeof username !== 'string' || typeof password !== 'string') {
