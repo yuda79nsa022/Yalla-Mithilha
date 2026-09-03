@@ -55,5 +55,23 @@ export function createApp(): express.Express {
   // browser — the static page has no secrets baked into it.
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
+  // Catches anything that reaches Express before a route handler — chiefly
+  // express.json() rejecting a malformed body. Without this, Express's own
+  // default error handler replies with an HTML page containing the full
+  // stack trace and absolute file paths, whenever NODE_ENV isn't exactly
+  // "production" (true for local dev and for any deployment that forgets to
+  // set it). Route handlers themselves already report errors cleanly via
+  // errors.ts#handleError; this is the equivalent floor for everything else.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    if (err instanceof SyntaxError && (err as { status?: number }).status === 400 && 'body' in err) {
+      res.status(400).json({ error: 'invalid JSON body' });
+      return;
+    }
+    // eslint-disable-next-line no-console
+    console.error(err);
+    res.status(500).json({ error: 'internal error' });
+  });
+
   return app;
 }
