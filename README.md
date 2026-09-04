@@ -115,7 +115,11 @@ happens. `npm test` asserts this.
     server once it can reach it, whether or not you have an account. This
     is the one thing here that is not fully optional in the sense of "never
     happens" — it only ever fires when you actually tap "Report".
-- No camera, microphone, contacts, or location permission is declared.
+- No camera, microphone, contacts, or location permission is declared —
+  including for Charades' reveal step: the shared screen shows a QR code
+  linking to this app's own `/charades/reveal` page, and any phone's stock
+  camera app opens it as a normal link. Nothing inside this app ever
+  touches a camera.
 - The analytics module is typed so player names and prompt text *cannot* be put
   in an event, and it is wired to a no-op sink.
 - Settings has a one-tap wipe of everything stored locally, including any

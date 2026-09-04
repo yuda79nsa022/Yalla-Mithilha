@@ -220,8 +220,9 @@ export const ar = {
 
   'charades.play.round': 'الجولة {{round}} من {{total}}',
   'charades.play.turn': 'دور {{team}}',
-  'charades.play.actorNotice': 'وريّ الجوال بس للي بيمثّل — الباقي يسوّون له عد تنازلي وما يشوفون الشاشة',
-  'charades.play.reveal': 'وضّح العنوان',
+  'charades.play.scanInstruction': 'خلّي اللي بيمثّل من {{team}} يصوّر هذا الرمز بكاميرا جواله عشان يوضّح له العنوان — ما بيظهر هنا',
+  'charades.play.scanUnavailable':
+    'ما نقدر نسوي رمز الاستجابة السريعة على هذا الجهاز. لازم تحدد رابط الأساس (EXPO_PUBLIC_REVEAL_BASE_URL) عشان يشتغل هذا على شاشة مو متصفح.',
   'charades.play.award': 'أعطِ النقطة لـ {{team}}',
   'charades.play.skip': 'ما حد عرفها',
   'charades.play.next': 'التالي',
@@ -231,6 +232,9 @@ export const ar = {
   'charades.play.quit': 'إنهاء اللعبة',
   'charades.play.quitConfirm': 'تبي تنهي اللعبة؟ راح تضيع النتيجة.',
   'charades.play.home': 'الرئيسية',
+
+  'charades.reveal.warning': 'وريّ هذا لك بس — لا تخلي فريقك يشوف الشاشة',
+  'charades.reveal.missing': 'ما فيه شي نوضّحه هنا. صوّر الرمز من شاشة اللعبة عشان تشوف العنوان.',
 
   'charades.resume.title': 'عندك لعبة ما خلصت',
   'charades.resume.body': 'تبي تكمّل من وين وقفتوا؟',

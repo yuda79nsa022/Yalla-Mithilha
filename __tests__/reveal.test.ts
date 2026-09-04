@@ -1,0 +1,41 @@
+import { buildRevealUrl, resolveRevealBaseUrl } from '../src/engine/reveal';
+
+describe('resolveRevealBaseUrl', () => {
+  it('prefers an explicitly configured base URL over the page origin', () => {
+    expect(resolveRevealBaseUrl('https://configured.example', 'https://page.example')).toBe(
+      'https://configured.example'
+    );
+  });
+
+  it('falls back to the page origin when nothing is configured', () => {
+    expect(resolveRevealBaseUrl(null, 'https://page.example')).toBe('https://page.example');
+  });
+
+  it('strips a trailing slash from either source', () => {
+    expect(resolveRevealBaseUrl('https://configured.example/', null)).toBe('https://configured.example');
+    expect(resolveRevealBaseUrl(null, 'https://page.example/')).toBe('https://page.example');
+  });
+
+  it('returns null when neither source is available (native host, unconfigured)', () => {
+    expect(resolveRevealBaseUrl(null, null)).toBeNull();
+  });
+
+  it('treats an empty/whitespace-only configured value as unset', () => {
+    expect(resolveRevealBaseUrl('  ', 'https://page.example')).toBe('https://page.example');
+  });
+});
+
+describe('buildRevealUrl', () => {
+  it('builds a link to the reveal route with the title URL-encoded', () => {
+    expect(buildRevealUrl('https://example.com', 'The Lion King')).toBe(
+      'https://example.com/charades/reveal?t=The%20Lion%20King'
+    );
+  });
+
+  it('round-trips Arabic titles and special characters', () => {
+    const title = 'أحلام الشوارع & أصدقاء؟';
+    const url = buildRevealUrl('https://example.com', title);
+    const decoded = decodeURIComponent(url.split('?t=')[1]);
+    expect(decoded).toBe(title);
+  });
+});

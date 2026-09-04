@@ -244,6 +244,17 @@ then shows the wallet balance and the current price, tops up via the mock
 payment flow, and spends one credit to deal a session
 (`src/services/walletApi.ts`).
 
+During play, the round's title never appears on the shared screen (a TV, a
+tablet propped up, whatever device is showing `app/charades/play.tsx`) —
+that screen only ever renders a QR code (`src/engine/reveal.ts`,
+`react-native-qrcode-svg`). It links to this same app's own
+`/charades/reveal` page with the title in the query string, so any phone's
+stock camera app recognises it and offers to open it — no app install, no
+camera permission inside this app at all. The link's base URL is whatever
+the shared screen's own page is served from when that screen is a browser
+(`window.location.origin`), or `EXPO_PUBLIC_REVEAL_BASE_URL` when it isn't
+(e.g. a native app mirrored to the TV, where there's no page origin to read).
+
 ## Known gaps
 
 - **Not deployed anywhere.** This runs locally; putting it on a real host

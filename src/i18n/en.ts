@@ -217,8 +217,9 @@ export const en: Record<TranslationKey, string> = {
 
   'charades.play.round': 'Round {{round}} of {{total}}',
   'charades.play.turn': '{{team}}’s turn',
-  'charades.play.actorNotice': 'Only show the phone to whoever is acting — everyone else looks away and counts down',
-  'charades.play.reveal': 'Reveal the title',
+  'charades.play.scanInstruction': 'Have {{team}}’s actor scan this with their phone’s camera to see the title — it never shows here',
+  'charades.play.scanUnavailable':
+    'Can’t generate a QR code on this device. Set EXPO_PUBLIC_REVEAL_BASE_URL for this to work on a non-browser screen.',
   'charades.play.award': 'Award {{team}}',
   'charades.play.skip': 'No one guessed it',
   'charades.play.next': 'Next',
@@ -228,6 +229,9 @@ export const en: Record<TranslationKey, string> = {
   'charades.play.quit': 'End game',
   'charades.play.quitConfirm': 'End this game? Progress will be lost.',
   'charades.play.home': 'Home',
+
+  'charades.reveal.warning': 'Show this to yourself only — don’t let your team see the screen',
+  'charades.reveal.missing': 'Nothing to reveal here. Scan the code on the game screen to see the title.',
 
   'charades.resume.title': 'You have a game in progress',
   'charades.resume.body': 'Pick up where you stopped?',

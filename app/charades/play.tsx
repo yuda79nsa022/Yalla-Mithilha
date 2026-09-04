@@ -1,11 +1,20 @@
 import { Redirect, router } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
-import React, { useEffect, useState } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Platform, StyleSheet, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { Button, Screen, Spacer, T } from '../../src/ui/components';
 import { colors, radius, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
+import { buildRevealUrl, resolveRevealBaseUrl } from '../../src/engine/reveal';
+import { REVEAL_BASE_URL } from '../../src/config';
+
+function webOrigin(): string | null {
+  if (Platform.OS !== 'web') return null;
+  const g = globalThis as { location?: { origin?: string } };
+  return g.location?.origin ?? null;
+}
 
 function ScoreChip({ name, score, color }: { name: string; score: number; color: string }) {
   return (
@@ -23,12 +32,7 @@ function ScoreChip({ name, score, color }: { name: string; score: number; color:
 export default function CharadesPlay() {
   useKeepAwake();
   const { t, charades, updateCharades, quitCharades } = useApp();
-  const [revealed, setRevealed] = useState(false);
   const [confirmQuit, setConfirmQuit] = useState(false);
-
-  useEffect(() => {
-    setRevealed(false);
-  }, [charades?.index]);
 
   if (!charades) return <Redirect href="/charades/draft" />;
   if (charades.lock !== 'unlocked') return <Redirect href="/charades/checkout" />;
@@ -73,6 +77,9 @@ export default function CharadesPlay() {
   const award = () => updateCharades(awardRound(charades, teamIndex));
   const skip = () => updateCharades(skipRound(charades));
 
+  const baseUrl = resolveRevealBaseUrl(REVEAL_BASE_URL, webOrigin());
+  const revealUrl = baseUrl ? buildRevealUrl(baseUrl, currentTitle.text) : null;
+
   return (
     <Screen>
       <Spacer size={spacing.sm} />
@@ -91,24 +98,20 @@ export default function CharadesPlay() {
 
       <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
         <T variant="label" align="center" color={colors.textMuted}>
-          {t('charades.play.actorNotice')}
+          {t('charades.play.scanInstruction', { team: teamName })}
         </T>
         <View style={[styles.card, { borderColor: teamColor }]}>
-          {revealed ? (
-            <T variant="card" align="center">
-              {currentTitle.text}
-            </T>
+          {revealUrl ? (
+            <QRCode value={revealUrl} size={200} />
           ) : (
-            <Button label={t('charades.play.reveal')} accent={teamColor} onPress={() => setRevealed(true)} />
+            <T variant="label" align="center" color={colors.textMuted}>
+              {t('charades.play.scanUnavailable')}
+            </T>
           )}
         </View>
 
-        {revealed ? (
-          <>
-            <Button label={t('charades.play.award', { team: teamName })} accent={teamColor} onPress={award} />
-            <Button label={t('charades.play.skip')} tone="ghost" onPress={skip} />
-          </>
-        ) : null}
+        <Button label={t('charades.play.award', { team: teamName })} accent={teamColor} onPress={award} />
+        <Button label={t('charades.play.skip')} tone="ghost" onPress={skip} />
       </View>
 
       <Button label={t('charades.play.quit')} tone="danger" onPress={() => setConfirmQuit(true)} />
