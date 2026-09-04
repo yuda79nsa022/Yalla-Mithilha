@@ -1,11 +1,5 @@
-import type { CategoryStatus, ContentLevel, MediaType, ProductId, RegionTag, ReportReason, Tier } from './types';
+import type { ReportReason } from './types';
 
-const TIERS: Tier[] = ['free', 'paid'];
-const LEVELS: ContentLevel[] = ['kids', 'family', 'friends', 'adults'];
-const REGIONS: RegionTag[] = ['kw', 'gulf', 'egypt', 'global'];
-const MEDIA_TYPES: MediaType[] = ['text', 'image', 'audio', 'reorder', 'dotless'];
-const PRODUCT_IDS: ProductId[] = ['single', 'bundle2'];
-const CATEGORY_STATUSES: CategoryStatus[] = ['draft', 'published', 'archived'];
 const REPORT_REASONS: ReportReason[] = ['unclear', 'translation', 'not_funny', 'inappropriate', 'too_hard', 'duplicate'];
 
 export class ValidationError extends Error {}
@@ -17,8 +11,8 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
-/** A category id used as a URL segment and a SQLite primary key: lowercase, digits, hyphens only. */
-function requireCategoryId(value: unknown): string {
+/** A deck id used as a URL segment and a SQLite primary key: lowercase, digits, hyphens only. */
+function requireDeckId(value: unknown): string {
   const id = requireString(value, 'id');
   if (!/^[a-z0-9-]+$/.test(id)) {
     throw new ValidationError('"id" may only contain lowercase letters, digits and hyphens');
@@ -33,61 +27,40 @@ function requireEnum<T extends string>(value: unknown, field: string, allowed: r
   return value as T;
 }
 
-export interface CreateCategoryBody {
+export interface CreateDeckBody {
   id: string;
   nameAr: string;
   nameEn: string;
-  tier: Tier;
-  level: ContentLevel;
-  region: RegionTag;
 }
 
-export function parseCreateCategoryBody(body: unknown): CreateCategoryBody {
+export function parseCreateDeckBody(body: unknown): CreateDeckBody {
   const b = (body ?? {}) as Record<string, unknown>;
   return {
-    id: requireCategoryId(b.id),
+    id: requireDeckId(b.id),
     nameAr: requireString(b.nameAr, 'nameAr'),
     nameEn: requireString(b.nameEn, 'nameEn'),
-    tier: requireEnum(b.tier, 'tier', TIERS),
-    level: requireEnum(b.level, 'level', LEVELS),
-    region: requireEnum(b.region, 'region', REGIONS),
   };
 }
 
-export interface UpdateCategoryBody {
+export interface UpdateDeckBody {
   nameAr?: string;
   nameEn?: string;
-  tier?: Tier;
-  level?: ContentLevel;
-  region?: RegionTag;
 }
 
-export function parseUpdateCategoryBody(body: unknown): UpdateCategoryBody {
+export function parseUpdateDeckBody(body: unknown): UpdateDeckBody {
   const b = (body ?? {}) as Record<string, unknown>;
-  const out: UpdateCategoryBody = {};
+  const out: UpdateDeckBody = {};
   if (b.nameAr !== undefined) out.nameAr = requireString(b.nameAr, 'nameAr');
   if (b.nameEn !== undefined) out.nameEn = requireString(b.nameEn, 'nameEn');
-  if (b.tier !== undefined) out.tier = requireEnum(b.tier, 'tier', TIERS);
-  if (b.level !== undefined) out.level = requireEnum(b.level, 'level', LEVELS);
-  if (b.region !== undefined) out.region = requireEnum(b.region, 'region', REGIONS);
   return out;
 }
 
-export interface SetCategoryStatusBody {
-  status: CategoryStatus;
-}
-
-export function parseSetCategoryStatusBody(body: unknown): SetCategoryStatusBody {
-  const b = (body ?? {}) as Record<string, unknown>;
-  return { status: requireEnum(b.status, 'status', CATEGORY_STATUSES) };
-}
-
-export interface ImportCommitBody {
+export interface ImportTitlesBody {
   titles: string[];
 }
 
-/** The exact title list a prior /import/preview call proposed, sent back once an admin confirms it. */
-export function parseImportCommitBody(body: unknown): ImportCommitBody {
+/** A parsed docx/xlsx/pdf title list, added to a deck directly — no fixed slot count to stage against, unlike the old board-game import. */
+export function parseImportTitlesBody(body: unknown): ImportTitlesBody {
   const b = (body ?? {}) as Record<string, unknown>;
   if (!Array.isArray(b.titles) || !b.titles.every((t) => typeof t === 'string')) {
     throw new ValidationError('"titles" must be an array of strings');
@@ -98,47 +71,17 @@ export function parseImportCommitBody(body: unknown): ImportCommitBody {
   return { titles: b.titles };
 }
 
-export interface UpdateTileBody {
-  promptAr?: string;
-  promptEn?: string;
-  answerAr?: string;
-  answerEn?: string;
-  mediaType?: MediaType;
-  mediaUrl?: string | null;
-  reorderItems?: string[] | null;
+export interface SetGamePriceBody {
+  fils: number;
 }
 
-function optionalString(value: unknown, field: string): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string') throw new ValidationError(`"${field}" must be a string`);
-  return value;
-}
-
-export function parseUpdateTileBody(body: unknown): UpdateTileBody {
+/** 1000 fils = 1 KD. Capped well above any plausible real price, just to reject fat-fingered input like accidentally adding an extra zero. */
+export function parseSetGamePriceBody(body: unknown): SetGamePriceBody {
   const b = (body ?? {}) as Record<string, unknown>;
-  const out: UpdateTileBody = {};
-  const promptAr = optionalString(b.promptAr, 'promptAr');
-  if (promptAr !== undefined) out.promptAr = promptAr;
-  const promptEn = optionalString(b.promptEn, 'promptEn');
-  if (promptEn !== undefined) out.promptEn = promptEn;
-  const answerAr = optionalString(b.answerAr, 'answerAr');
-  if (answerAr !== undefined) out.answerAr = answerAr;
-  const answerEn = optionalString(b.answerEn, 'answerEn');
-  if (answerEn !== undefined) out.answerEn = answerEn;
-  if (b.mediaType !== undefined) out.mediaType = requireEnum(b.mediaType, 'mediaType', MEDIA_TYPES);
-  if (b.mediaUrl !== undefined) {
-    if (b.mediaUrl !== null && typeof b.mediaUrl !== 'string') {
-      throw new ValidationError('"mediaUrl" must be a string or null');
-    }
-    out.mediaUrl = b.mediaUrl as string | null;
+  if (typeof b.fils !== 'number' || !Number.isInteger(b.fils) || b.fils <= 0 || b.fils > 100_000) {
+    throw new ValidationError('"fils" must be a positive integer, at most 100000 (100 KD)');
   }
-  if (b.reorderItems !== undefined) {
-    if (b.reorderItems !== null && !Array.isArray(b.reorderItems)) {
-      throw new ValidationError('"reorderItems" must be an array or null');
-    }
-    out.reorderItems = b.reorderItems as string[] | null;
-  }
-  return out;
+  return { fils: b.fils };
 }
 
 export interface CreateAdminUserBody {
@@ -202,36 +145,19 @@ export function parseUpdatePlayerBody(body: unknown): UpdatePlayerBody {
   return out;
 }
 
-export interface CreateCheckoutBody {
-  product: ProductId;
+export interface StartSessionBody {
+  sessionId: string;
+  deckId: string;
 }
 
-export function parseCreateCheckoutBody(body: unknown): CreateCheckoutBody {
+/** `sessionId` is the client's own locally generated id — used verbatim as the server-side game_sessions row id. */
+export function parseStartSessionBody(body: unknown): StartSessionBody {
   const b = (body ?? {}) as Record<string, unknown>;
-  return { product: requireEnum(b.product, 'product', PRODUCT_IDS) };
-}
-
-export interface ConsumeCreditBody {
-  boardGameId: string;
-}
-
-/** The client's own local BoardState.id — used verbatim as the server-side board_games row id. */
-export function parseConsumeCreditBody(body: unknown): ConsumeCreditBody {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const boardGameId = requireString(b.boardGameId, 'boardGameId');
-  if (boardGameId.length > 200) {
-    throw new ValidationError('"boardGameId" is too long');
-  }
-  return { boardGameId };
-}
-
-/** Tile index comes from a URL segment, e.g. /categories/:id/tiles/:index. */
-export function parseTileIndex(value: string): number {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0 || n > 5) {
-    throw new ValidationError('tile index must be an integer between 0 and 5');
-  }
-  return n;
+  const sessionId = requireString(b.sessionId, 'sessionId');
+  if (sessionId.length > 200) throw new ValidationError('"sessionId" is too long');
+  const deckId = requireString(b.deckId, 'deckId');
+  if (deckId.length > 200) throw new ValidationError('"deckId" is too long');
+  return { sessionId, deckId };
 }
 
 export interface SubmitReportItem {

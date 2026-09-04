@@ -1,11 +1,9 @@
-import type { ProductId } from '../types';
-
 /**
- * What the rest of the app knows about a payment provider. Board-game
- * checkout logic (routes, credit issuance) is written against this
- * interface only — never against a specific provider's SDK — so swapping
- * `MockPaymentProvider` for a real `KnetPaymentProvider` later is an
- * isolated change, not a rearchitecture.
+ * What the rest of the app knows about a payment provider. Wallet checkout
+ * logic (routes, credit issuance) is written against this interface only —
+ * never against a specific provider's SDK — so swapping `MockPaymentProvider`
+ * for a real `KnetPaymentProvider` later is an isolated change, not a
+ * rearchitecture.
  *
  * A real provider (KNET direct, or an aggregator like MyFatoorah/Tap) would
  * additionally need to:
@@ -17,12 +15,7 @@ import type { ProductId } from '../types';
  */
 export interface PaymentProvider {
   readonly name: string;
-  createCheckout(input: {
-    paymentId: string;
-    product: ProductId;
-    amountFils: number;
-    currency: string;
-  }): Promise<{ redirectUrl?: string }>;
+  createCheckout(input: { paymentId: string; amountFils: number; currency: string }): Promise<{ redirectUrl?: string }>;
 }
 
 /**

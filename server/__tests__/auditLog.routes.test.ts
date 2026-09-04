@@ -19,12 +19,9 @@ beforeEach(async () => {
 });
 
 const sample = {
-  id: 'audit-test-cat',
-  nameAr: 'فئة',
-  nameEn: 'Audit Test Category',
-  tier: 'free',
-  level: 'family',
-  region: 'global',
+  id: 'audit-test-deck',
+  nameAr: 'مجموعة',
+  nameEn: 'Audit Test Deck',
 };
 
 describe('GET /admin/audit-log', () => {
@@ -40,31 +37,26 @@ describe('GET /admin/audit-log', () => {
   });
 });
 
-describe('category actions are audited', () => {
+describe('deck actions are audited', () => {
   it('logs create, update and delete with the acting admin identified', async () => {
-    await request(app).post('/admin/categories').set(auth).send(sample);
-    await request(app).put(`/admin/categories/${sample.id}`).set(auth).send({ nameEn: 'Renamed' });
-    await request(app).delete(`/admin/categories/${sample.id}`).set(auth);
+    await request(app).post('/admin/decks').set(auth).send(sample);
+    await request(app).put(`/admin/decks/${sample.id}`).set(auth).send({ nameEn: 'Renamed' });
+    await request(app).delete(`/admin/decks/${sample.id}`).set(auth);
 
     const res = await request(app).get('/admin/audit-log').set(auth);
     const actions = res.body.map((e: any) => e.action);
     // Most-recent-first.
-    expect(actions).toEqual(['category.delete', 'category.update', 'category.create']);
+    expect(actions).toEqual(['deck.delete', 'deck.update', 'deck.create']);
     expect(res.body[0].target).toBe(sample.id);
     expect(res.body[0].actorUsername).toBeTruthy();
   });
 
-  it('logs a tile update with before/after content', async () => {
-    await request(app).post('/admin/categories').set(auth).send(sample);
-    await request(app)
-      .put(`/admin/categories/${sample.id}/tiles/0`)
-      .set(auth)
-      .send({ promptAr: 'س', promptEn: 'q', answerAr: 'ج', answerEn: 'a' });
+  it('logs a game-price change with before/after', async () => {
+    await request(app).put('/admin/settings/game-price').set(auth).send({ fils: 2500 });
 
     const res = await request(app).get('/admin/audit-log').set(auth);
-    const entry = res.body.find((e: any) => e.action === 'tile.update');
-    expect(entry.target).toBe(`${sample.id}#0`);
-    expect(entry.after.promptEn).toBe('q');
+    const entry = res.body.find((e: any) => e.action === 'settings.game-price.update');
+    expect(entry.after.fils).toBe(2500);
   });
 });
 

@@ -5,221 +5,155 @@ process.env.DB_PATH = path.join(os.tmpdir(), `yalla-test-${Date.now()}-${Math.ra
 
 import {
   AdminUserNotFoundError,
-  CategoryNotFoundError,
-  DuplicateCategoryError,
+  DeckNotFoundError,
+  DuplicateDeckError,
   DuplicatePlayerUsernameError,
   DuplicateUsernameError,
   LastAdminError,
   PlayerNotFoundError,
+  addTitlesToDeck,
   createAdminUser,
-  createCategory,
+  createDeck,
   createPlayer,
   deleteAdminUser,
-  deleteCategory,
+  deleteDeck,
   deletePlayer,
-  findTitleMatches,
+  deleteTitle,
   getAdminUserById,
-  getCategory,
+  getDeck,
+  getGamePriceFils,
   getPlayerById,
-  importTitlesIntoCategory,
   listAdminUsers,
-  listCategories,
-  listCompleteCategories,
+  listDecks,
+  listPlayableDecks,
   listPlayers,
-  previewImportForCategory,
   resetDbForTests,
-  setCategoryStatus,
+  setGamePriceFils,
   updateAdminUser,
-  updateCategory,
+  updateDeck,
   updatePlayer,
-  updateTile,
 } from '../src/db';
 
 beforeEach(() => resetDbForTests());
 
 const sample = {
-  id: 'test-cat',
-  nameAr: 'فئة',
-  nameEn: 'Test Category',
-  tier: 'free' as const,
-  level: 'family' as const,
-  region: 'global' as const,
+  id: 'test-deck',
+  nameAr: 'مجموعة',
+  nameEn: 'Test Deck',
 };
 
-describe('createCategory', () => {
-  it('creates a category with six empty, needs-content tile slots', () => {
-    const cat = createCategory(sample);
-    expect(cat.tiles).toHaveLength(6);
-    expect(cat.tiles.map((t) => t.points)).toEqual([100, 200, 300, 400, 500, 600]);
-    expect(cat.tiles.every((t) => t.needsContent)).toBe(true);
+describe('createDeck', () => {
+  it('creates a deck with no titles yet', () => {
+    const deck = createDeck(sample);
+    expect(deck.titles).toEqual([]);
   });
 
   it('rejects a duplicate id', () => {
-    createCategory(sample);
-    expect(() => createCategory(sample)).toThrow(DuplicateCategoryError);
+    createDeck(sample);
+    expect(() => createDeck(sample)).toThrow(DuplicateDeckError);
   });
 });
 
-describe('updateCategory', () => {
-  it('updates metadata without touching tiles', () => {
-    createCategory(sample);
-    const updated = updateCategory(sample.id, { nameEn: 'Renamed' });
+describe('updateDeck', () => {
+  it('updates metadata without touching titles', () => {
+    createDeck(sample);
+    addTitlesToDeck(sample.id, ['a']);
+    const updated = updateDeck(sample.id, { nameEn: 'Renamed' });
     expect(updated.nameEn).toBe('Renamed');
-    expect(updated.tiles).toHaveLength(6);
+    expect(updated.titles).toHaveLength(1);
   });
 
-  it('throws for an unknown category', () => {
-    expect(() => updateCategory('nope', { nameEn: 'x' })).toThrow(CategoryNotFoundError);
-  });
-});
-
-describe('deleteCategory', () => {
-  it('removes the category and its tiles', () => {
-    createCategory(sample);
-    deleteCategory(sample.id);
-    expect(getCategory(sample.id)).toBeNull();
-  });
-
-  it('throws for an unknown category', () => {
-    expect(() => deleteCategory('nope')).toThrow(CategoryNotFoundError);
+  it('throws for an unknown deck', () => {
+    expect(() => updateDeck('nope', { nameEn: 'x' })).toThrow(DeckNotFoundError);
   });
 });
 
-describe('updateTile', () => {
-  it('fills a tile and clears needsContent once all four fields are set', () => {
-    createCategory(sample);
-    const tile = updateTile(sample.id, 0, {
-      promptAr: 'سؤال',
-      promptEn: 'question',
-      answerAr: 'جواب',
-      answerEn: 'answer',
-    });
-    expect(tile.needsContent).toBe(false);
+describe('deleteDeck', () => {
+  it('removes the deck and its titles', () => {
+    createDeck(sample);
+    deleteDeck(sample.id);
+    expect(getDeck(sample.id)).toBeNull();
   });
 
-  it('leaves needsContent true if any field is still empty', () => {
-    createCategory(sample);
-    const tile = updateTile(sample.id, 0, { promptAr: 'سؤال', promptEn: 'question' });
-    expect(tile.needsContent).toBe(true);
+  it('throws for an unknown deck', () => {
+    expect(() => deleteDeck('nope')).toThrow(DeckNotFoundError);
   });
 });
 
-describe('importTitlesIntoCategory', () => {
-  it('fills only empty slots, up to how many titles are given', () => {
-    createCategory(sample);
-    const { filled, skipped } = importTitlesIntoCategory(sample.id, ['a', 'b', 'c']);
-    expect(filled).toBe(3);
+describe('addTitlesToDeck', () => {
+  it('adds every non-empty title — no fixed slot count, unlike the old board-game import', () => {
+    createDeck(sample);
+    const { added, skipped } = addTitlesToDeck(sample.id, ['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+    expect(added).toBe(7);
     expect(skipped).toBe(0);
-    const cat = getCategory(sample.id)!;
-    expect(cat.tiles.filter((t) => t.promptAr === 'a' || t.promptAr === 'b' || t.promptAr === 'c')).toHaveLength(3);
-    expect(cat.tiles.every((t) => t.needsContent)).toBe(true); // titles alone are not complete content
+    expect(getDeck(sample.id)!.titles).toHaveLength(7);
   });
 
-  it('never overwrites a slot that already has content', () => {
-    createCategory(sample);
-    updateTile(sample.id, 0, {
-      promptAr: 'موجود',
-      promptEn: 'existing',
-      answerAr: 'ج',
-      answerEn: 'a',
-    });
-    importTitlesIntoCategory(sample.id, ['new title']);
-    const cat = getCategory(sample.id)!;
-    expect(cat.tiles[0].promptAr).toBe('موجود');
-    expect(cat.tiles[1].promptAr).toBe('new title');
-  });
-
-  it('reports skipped titles once every slot is full', () => {
-    createCategory(sample);
-    const { filled, skipped } = importTitlesIntoCategory(sample.id, ['a', 'b', 'c', 'd', 'e', 'f', 'g']);
-    expect(filled).toBe(6);
+  it('skips exact duplicates already in the deck, including across two calls', () => {
+    createDeck(sample);
+    addTitlesToDeck(sample.id, ['a', 'b']);
+    const { added, skipped } = addTitlesToDeck(sample.id, ['b', 'c']);
+    expect(added).toBe(1);
     expect(skipped).toBe(1);
+    expect(getDeck(sample.id)!.titles.map((t) => t.text).sort()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('skips blank lines', () => {
+    createDeck(sample);
+    const { added, skipped } = addTitlesToDeck(sample.id, ['a', '  ', '']);
+    expect(added).toBe(1);
+    expect(skipped).toBe(2);
+  });
+
+  it('throws for an unknown deck', () => {
+    expect(() => addTitlesToDeck('nope', ['a'])).toThrow(DeckNotFoundError);
   });
 });
 
-describe('listCompleteCategories', () => {
-  it('excludes a category with any empty tile', () => {
-    createCategory(sample);
-    expect(listCompleteCategories()).toEqual([]);
+describe('deleteTitle', () => {
+  it('removes one title, leaving the rest', () => {
+    createDeck(sample);
+    addTitlesToDeck(sample.id, ['a', 'b']);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+    deleteTitle(sample.id, titleId);
+    expect(getDeck(sample.id)!.titles).toHaveLength(1);
   });
 
-  it('includes a category once every tile has real content AND it is published', () => {
-    createCategory(sample);
-    for (let i = 0; i < 6; i++) {
-      updateTile(sample.id, i, {
-        promptAr: `س${i}`,
-        promptEn: `q${i}`,
-        answerAr: `ج${i}`,
-        answerEn: `a${i}`,
-      });
-    }
-    // Complete but still draft — a new category never publishes itself.
-    expect(listCompleteCategories()).toEqual([]);
-
-    setCategoryStatus(sample.id, 'published');
-    const complete = listCompleteCategories();
-    expect(complete).toHaveLength(1);
-    expect(complete[0].id).toBe(sample.id);
-  });
-
-  it('excludes a published category that is archived again', () => {
-    createCategory(sample);
-    for (let i = 0; i < 6; i++) {
-      updateTile(sample.id, i, { promptAr: `س${i}`, promptEn: `q${i}`, answerAr: `ج${i}`, answerEn: `a${i}` });
-    }
-    setCategoryStatus(sample.id, 'published');
-    expect(listCompleteCategories()).toHaveLength(1);
-
-    setCategoryStatus(sample.id, 'archived');
-    expect(listCompleteCategories()).toEqual([]);
+  it('throws for an unknown title', () => {
+    createDeck(sample);
+    expect(() => deleteTitle(sample.id, 'nope')).toThrow();
   });
 });
 
-describe('setCategoryStatus', () => {
-  it('new categories start as draft', () => {
-    const created = createCategory(sample);
-    expect(created.status).toBe('draft');
+describe('listPlayableDecks', () => {
+  it('excludes a deck with no titles', () => {
+    createDeck(sample);
+    expect(listPlayableDecks()).toEqual([]);
   });
 
-  it('throws for an unknown category', () => {
-    expect(() => setCategoryStatus('nope', 'published')).toThrow(CategoryNotFoundError);
-  });
-});
-
-describe('findTitleMatches / previewImportForCategory', () => {
-  it('flags an existing tile with the same Arabic prompt as a duplicate', () => {
-    createCategory(sample);
-    updateTile(sample.id, 0, { promptAr: 'موجود', promptEn: 'q', answerAr: 'ج', answerEn: 'a' });
-
-    const matches = findTitleMatches(['موجود', 'جديد']);
-    expect(matches['موجود']).toEqual([{ categoryId: sample.id, categoryNameEn: sample.nameEn, tileIndex: 0 }]);
-    expect(matches['جديد']).toBeUndefined();
-  });
-
-  it('preview never writes to the database', () => {
-    createCategory(sample);
-    const { proposed, skipped } = previewImportForCategory(sample.id, ['a', 'b', 'c', 'd', 'e', 'f', 'g']);
-    expect(proposed).toHaveLength(6);
-    expect(skipped).toBe(1);
-    // Nothing was actually filled — still all six empty slots.
-    expect(listCategories().find((c) => c.id === sample.id)?.tiles.every((t) => t.needsContent)).toBe(true);
-  });
-
-  it('preview surfaces duplicates without excluding them from the proposed fills', () => {
-    createCategory(sample);
-    createCategory({ ...sample, id: 'other-cat' });
-    updateTile('other-cat', 0, { promptAr: 'مكرر', promptEn: 'q', answerAr: 'ج', answerEn: 'a' });
-
-    const { proposed } = previewImportForCategory(sample.id, ['مكرر']);
-    expect(proposed[0].duplicates).toEqual([{ categoryId: 'other-cat', categoryNameEn: sample.nameEn, tileIndex: 0 }]);
+  it('includes a deck once it has at least one title', () => {
+    createDeck(sample);
+    addTitlesToDeck(sample.id, ['a']);
+    expect(listPlayableDecks().map((d) => d.id)).toEqual([sample.id]);
   });
 });
 
-describe('listCategories', () => {
-  it('returns every category regardless of completeness', () => {
-    createCategory(sample);
-    createCategory({ ...sample, id: 'test-cat-2' });
-    expect(listCategories()).toHaveLength(2);
+describe('listDecks', () => {
+  it('returns every deck regardless of title count', () => {
+    createDeck(sample);
+    createDeck({ ...sample, id: 'test-deck-2' });
+    expect(listDecks()).toHaveLength(2);
+  });
+});
+
+describe('game price setting', () => {
+  it('has a sane default', () => {
+    expect(getGamePriceFils()).toBeGreaterThan(0);
+  });
+
+  it('is admin-editable and persists', () => {
+    setGamePriceFils(2000);
+    expect(getGamePriceFils()).toBe(2000);
   });
 });
 

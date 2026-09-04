@@ -53,7 +53,7 @@ describe('POST /admin/auth/login', () => {
       .send({ username: 'jane', password: 'correct-horse-battery' });
 
     const res = await request(app)
-      .get('/admin/categories')
+      .get('/admin/decks')
       .set('Authorization', `Bearer ${login.body.token}`);
     expect(res.status).toBe(200);
   });

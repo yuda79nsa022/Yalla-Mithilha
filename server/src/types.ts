@@ -1,52 +1,3 @@
-export type Tier = 'free' | 'paid';
-export type ContentLevel = 'kids' | 'family' | 'friends' | 'adults';
-export type RegionTag = 'kw' | 'gulf' | 'egypt' | 'global';
-export type MediaType = 'text' | 'image' | 'audio' | 'reorder' | 'dotless';
-
-/**
- * Editorial state, independent of content completeness. A category only
- * ever reaches `GET /catalogue` when it is BOTH `published` AND complete
- * (every tile filled) — the two gates are enforced separately, so an admin
- * publishing an incomplete category by mistake still can't leak it. New
- * categories always start `draft`, imported or not, so nothing publishes
- * itself.
- */
-export type CategoryStatus = 'draft' | 'published' | 'archived';
-
-export interface CategoryRow {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-  tier: Tier;
-  level: ContentLevel;
-  region: RegionTag;
-  status: CategoryStatus;
-  /** Relative path under /uploads, or null. Turned into an absolute URL at the API boundary. */
-  imageUrl: string | null;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface TileRow {
-  id: string;
-  categoryId: string;
-  index: number;
-  points: number;
-  mediaType: MediaType;
-  promptAr: string;
-  promptEn: string;
-  mediaUrl: string | null;
-  reorderItems: string[] | null;
-  answerAr: string;
-  answerEn: string;
-  needsContent: boolean;
-  updatedAt: number;
-}
-
-export interface CategoryWithTiles extends CategoryRow {
-  tiles: TileRow[];
-}
-
 /** Never carries the password hash — that stays inside db.ts. */
 export interface AdminUserRow {
   id: string;
@@ -68,62 +19,50 @@ export interface PlayerRow {
   updatedAt: number;
 }
 
-/** The shape the client app's CategoryDeck expects — no admin-only fields. */
-export interface PublicCategoryDeck {
+/**
+ * A charades deck: a named, unlimited-size pool of titles (movies, series,
+ * plays, songs — whatever an admin imports). Unlike the old board-game
+ * category, a deck has no fixed slot count and no per-tile prompt/answer
+ * pair — a title is acted out silently, so the title itself is both what
+ * the actor privately reads and what confirms the answer once guessed.
+ */
+export interface DeckRow {
   id: string;
   nameAr: string;
   nameEn: string;
-  tier: Tier;
-  level: ContentLevel;
-  region: RegionTag;
-  imageUrl?: string;
-  tiles: Array<{
-    id: string;
-    index: number;
-    points: number;
-    mediaType: MediaType;
-    promptAr: string;
-    promptEn: string;
-    mediaUrl?: string;
-    reorderItems?: string[];
-    answerAr: string;
-    answerEn: string;
-  }>;
+  createdAt: number;
+  updatedAt: number;
 }
 
-export const POINTS_BY_INDEX = [100, 200, 300, 400, 500, 600];
-
-/** One existing tile whose Arabic prompt exactly matches a title an import is about to add — surfaced so an admin can review it, never deleted automatically. */
-export interface TitleMatch {
-  categoryId: string;
-  categoryNameEn: string;
-  tileIndex: number;
+export interface TitleRow {
+  id: string;
+  deckId: string;
+  text: string;
+  createdAt: number;
 }
 
-export interface ProposedImportFill {
-  tileId: string;
-  index: number;
-  title: string;
-  duplicates: TitleMatch[];
+export interface DeckWithTitles extends DeckRow {
+  titles: TitleRow[];
 }
 
-/**
- * Placeholder pricing, same status as the checkout screen's existing
- * "$6.99 / $12.99" dev-stub labels — real KWD pricing is a business decision
- * for whoever owns the KNET merchant account, not something to infer here.
- */
-export const PRODUCTS = {
-  single: { credits: 1, amountFils: 2000 },
-  bundle2: { credits: 2, amountFils: 3500 },
-} as const;
-export type ProductId = keyof typeof PRODUCTS;
+/** The shape the client app needs to draft/play a session — no admin-only fields. */
+export interface PublicDeck {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  titleCount: number;
+}
 
 export type PaymentStatus = 'initiated' | 'paid' | 'failed' | 'cancelled';
 
+/**
+ * A wallet top-up. Always exactly one game's worth of credit, at whatever
+ * `game_price_fils` was set to at the moment of checkout — the price can
+ * change later without altering the record of what was actually charged.
+ */
 export interface PaymentRow {
   id: string;
   playerId: string;
-  product: ProductId;
   credits: number;
   amountFils: number;
   currency: string;
@@ -133,20 +72,18 @@ export interface PaymentRow {
   updatedAt: number;
 }
 
-export type BoardGameStatus = 'active' | 'completed' | 'abandoned';
-
 /**
- * A drafted board that was actually paid for. Its id is the client's own
- * local BoardState.id (generated once at draft time) — reusing that shared
- * identity is what makes credit consumption idempotent: resuming an
- * interrupted game never spends a second credit.
+ * One purchased charades session: 10 titles dealt from a single deck at the
+ * moment a wallet credit was spent. Its id is client-generated (the same
+ * pattern the old board game used) so resuming after an app restart replays
+ * the same id and never spends a second credit — see `startGameSession`.
  */
-export interface BoardGameRow {
+export interface GameSessionRow {
   id: string;
   playerId: string;
-  status: BoardGameStatus;
+  deckId: string;
+  titles: TitleRow[];
   createdAt: number;
-  completedAt: number | null;
 }
 
 export type ReportReason = 'unclear' | 'translation' | 'not_funny' | 'inappropriate' | 'too_hard' | 'duplicate';

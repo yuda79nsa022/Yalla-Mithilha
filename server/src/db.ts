@@ -2,33 +2,22 @@ import Database from 'better-sqlite3';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
-import { POINTS_BY_INDEX, PRODUCTS } from './types';
 import type {
   AdminUserRow,
   AuditLogRow,
-  BoardGameRow,
-  CategoryRow,
-  CategoryStatus,
-  CategoryWithTiles,
-  ContentLevel,
   ContentReportRow,
+  DeckRow,
+  DeckWithTitles,
+  GameSessionRow,
   PaymentRow,
   PlayerRow,
-  ProductId,
-  ProposedImportFill,
-  RegionTag,
   ReportStatus,
   SubmitReportInput,
-  Tier,
-  TileRow,
-  TitleMatch,
+  TitleRow,
 } from './types';
 
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
-export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const DB_PATH = process.env.DB_PATH ?? path.join(DATA_DIR, 'catalogue.sqlite');
 
@@ -36,35 +25,9 @@ export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+const DEFAULT_GAME_PRICE_FILS = 1500; // 1.500 KD, the admin's own starting price
+
 db.exec(`
-  CREATE TABLE IF NOT EXISTS categories (
-    id TEXT PRIMARY KEY,
-    name_ar TEXT NOT NULL,
-    name_en TEXT NOT NULL,
-    tier TEXT NOT NULL CHECK (tier IN ('free','paid')),
-    level TEXT NOT NULL CHECK (level IN ('kids','family','friends','adults')),
-    region TEXT NOT NULL CHECK (region IN ('kw','gulf','egypt','global')),
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS tiles (
-    id TEXT PRIMARY KEY,
-    category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-    idx INTEGER NOT NULL,
-    points INTEGER NOT NULL,
-    media_type TEXT NOT NULL DEFAULT 'text' CHECK (media_type IN ('text','image','audio','reorder','dotless')),
-    prompt_ar TEXT NOT NULL DEFAULT '',
-    prompt_en TEXT NOT NULL DEFAULT '',
-    media_url TEXT,
-    reorder_items TEXT,
-    answer_ar TEXT NOT NULL DEFAULT '',
-    answer_en TEXT NOT NULL DEFAULT '',
-    needs_content INTEGER NOT NULL DEFAULT 1,
-    updated_at INTEGER NOT NULL,
-    UNIQUE (category_id, idx)
-  );
-
   CREATE TABLE IF NOT EXISTS admin_users (
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
@@ -84,14 +47,43 @@ db.exec(`
     updated_at INTEGER NOT NULL
   );
 
-  -- A paid board-game credit is only ever real once it is owned by an
-  -- account, not a device — these three tables are the server-authoritative
-  -- source of truth. AsyncStorage never stores a credit balance again.
+  -- Single-row settings table. Only ever has id=1. The admin-editable price
+  -- of one charades game, in fils (1000 fils = 1 KD) — a wallet top-up is
+  -- always exactly one game's worth of credit, at whatever this is set to
+  -- the moment checkout starts.
+  CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    game_price_fils INTEGER NOT NULL
+  );
 
+  -- A charades deck: a named pool of titles an admin imports (a movie,
+  -- series, play or song list). Unlike the old board-game category, a deck
+  -- has no fixed size — titles is CASCADE-deleted with it.
+  CREATE TABLE IF NOT EXISTS decks (
+    id TEXT PRIMARY KEY,
+    name_ar TEXT NOT NULL,
+    name_en TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  -- One title = one thing to act out. No separate prompt/answer pair: the
+  -- title itself is privately shown to the actor, then re-shown as the
+  -- "answer" once the team has guessed (or given up), per the actual game
+  -- (silent charades, not a written trivia question).
+  CREATE TABLE IF NOT EXISTS titles (
+    id TEXT PRIMARY KEY,
+    deck_id TEXT NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
+  -- A wallet top-up is only ever real once it is owned by an account, not a
+  -- device — these two tables are the server-authoritative source of truth.
+  -- AsyncStorage never stores a wallet balance itself.
   CREATE TABLE IF NOT EXISTS payments (
     id TEXT PRIMARY KEY,
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-    product TEXT NOT NULL CHECK (product IN ('single','bundle2')),
     credits INTEGER NOT NULL,
     amount_fils INTEGER NOT NULL,
     currency TEXT NOT NULL DEFAULT 'KWD',
@@ -101,16 +93,17 @@ db.exec(`
     updated_at INTEGER NOT NULL
   );
 
-  -- One row per drafted board that actually got paid for. Its id is the
-  -- client's own local BoardState.id, generated once at draft time — that
-  -- shared identity is what makes "consume a credit" idempotent: resuming an
-  -- interrupted game replays the same id and never spends a second credit.
-  CREATE TABLE IF NOT EXISTS board_games (
+  -- One row per purchased charades session — 10 titles dealt from one deck
+  -- the moment a wallet credit was spent. Its id is the client's own
+  -- locally-generated session id, generated once at "start game" time — that
+  -- shared identity is what makes spending idempotent: resuming an
+  -- interrupted session replays the same id and never spends a second credit.
+  CREATE TABLE IF NOT EXISTS game_sessions (
     id TEXT PRIMARY KEY,
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','abandoned')),
-    created_at INTEGER NOT NULL,
-    completed_at INTEGER
+    deck_id TEXT NOT NULL REFERENCES decks(id),
+    titles_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL
   );
 
   -- Append-only ledger. A player's balance is derived (sum of grants minus
@@ -122,7 +115,7 @@ db.exec(`
     kind TEXT NOT NULL CHECK (kind IN ('grant','consume')),
     amount INTEGER NOT NULL CHECK (amount > 0),
     payment_id TEXT REFERENCES payments(id),
-    board_game_id TEXT REFERENCES board_games(id),
+    game_session_id TEXT REFERENCES game_sessions(id),
     created_at INTEGER NOT NULL
   );
 
@@ -159,319 +152,135 @@ db.exec(`
   );
 `);
 
-// Lightweight migration: SQLite has no "ADD COLUMN IF NOT EXISTS" that works
-// across the versions this might run against, so just swallow "duplicate
-// column" when this has already run once.
-try {
-  db.exec('ALTER TABLE categories ADD COLUMN image_url TEXT');
-} catch {
-  // already migrated
+db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
+
+/* --------------------------------------------------------------- settings */
+
+export function getGamePriceFils(): number {
+  const row = db.prepare('SELECT game_price_fils FROM settings WHERE id = 1').get() as { game_price_fils: number };
+  return row.game_price_fils;
 }
 
-try {
-  db.exec("ALTER TABLE categories ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'");
-  // One-time backfill, inside the same try block so it only ever runs the
-  // moment this migration first applies: a category that was already
-  // complete (and therefore already public under the old completeness-only
-  // rule) stays public, rather than silently vanishing from the catalogue
-  // until an admin manually republishes everything that already existed.
-  // Content created after this point always starts 'draft' regardless of
-  // completeness — this backfill is a one-time grandfather clause, not an
-  // ongoing rule, and a later admin choice to draft/archive something is
-  // never overwritten on a subsequent server start.
-  db.exec(`
-    UPDATE categories SET status = 'published'
-    WHERE id NOT IN (SELECT DISTINCT category_id FROM tiles WHERE needs_content = 1)
-  `);
-} catch {
-  // already migrated
+export function setGamePriceFils(fils: number): number {
+  db.prepare('UPDATE settings SET game_price_fils = ? WHERE id = 1').run(fils);
+  return getGamePriceFils();
 }
 
-function rowToCategory(r: any): CategoryRow {
+/* ------------------------------------------------------------------ decks */
+
+export class DuplicateDeckError extends Error {}
+export class DeckNotFoundError extends Error {}
+export class TitleNotFoundError extends Error {}
+
+function rowToDeck(r: any): DeckRow {
   return {
     id: r.id,
     nameAr: r.name_ar,
     nameEn: r.name_en,
-    tier: r.tier as Tier,
-    level: r.level as ContentLevel,
-    region: r.region as RegionTag,
-    status: r.status as CategoryStatus,
-    imageUrl: r.image_url ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
 }
 
-function rowToTile(r: any): TileRow {
+function rowToTitle(r: any): TitleRow {
   return {
     id: r.id,
-    categoryId: r.category_id,
-    index: r.idx,
-    points: r.points,
-    mediaType: r.media_type,
-    promptAr: r.prompt_ar,
-    promptEn: r.prompt_en,
-    mediaUrl: r.media_url,
-    reorderItems: r.reorder_items ? JSON.parse(r.reorder_items) : null,
-    answerAr: r.answer_ar,
-    answerEn: r.answer_en,
-    needsContent: Boolean(r.needs_content),
-    updatedAt: r.updated_at,
+    deckId: r.deck_id,
+    text: r.text,
+    createdAt: r.created_at,
   };
 }
 
-export function listCategories(): CategoryWithTiles[] {
-  const cats = db.prepare('SELECT * FROM categories ORDER BY id').all().map(rowToCategory);
-  return cats.map((c) => ({ ...c, tiles: listTiles(c.id) }));
-}
-
-export function getCategory(id: string): CategoryWithTiles | null {
-  const row = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
-  if (!row) return null;
-  const c = rowToCategory(row);
-  return { ...c, tiles: listTiles(c.id) };
-}
-
-export function listTiles(categoryId: string): TileRow[] {
+export function listTitles(deckId: string): TitleRow[] {
   return db
-    .prepare('SELECT * FROM tiles WHERE category_id = ? ORDER BY idx')
-    .all(categoryId)
-    .map(rowToTile);
+    .prepare('SELECT * FROM titles WHERE deck_id = ? ORDER BY created_at, rowid')
+    .all(deckId)
+    .map(rowToTitle);
 }
 
-export class DuplicateCategoryError extends Error {}
-export class CategoryNotFoundError extends Error {}
-export class InvalidTileIndexError extends Error {}
+export function listDecks(): DeckWithTitles[] {
+  const decks = db.prepare('SELECT * FROM decks ORDER BY id').all().map(rowToDeck);
+  return decks.map((d) => ({ ...d, titles: listTitles(d.id) }));
+}
 
-export interface CreateCategoryInput {
+export function getDeck(id: string): DeckWithTitles | null {
+  const row = db.prepare('SELECT * FROM decks WHERE id = ?').get(id);
+  if (!row) return null;
+  const d = rowToDeck(row);
+  return { ...d, titles: listTitles(d.id) };
+}
+
+export interface CreateDeckInput {
   id: string;
   nameAr: string;
   nameEn: string;
-  tier: Tier;
-  level: ContentLevel;
-  region: RegionTag;
 }
 
-/** Creates a category with six empty, `needsContent` tile slots. */
-export function createCategory(input: CreateCategoryInput): CategoryWithTiles {
-  if (getCategory(input.id)) throw new DuplicateCategoryError(`category "${input.id}" already exists`);
+export function createDeck(input: CreateDeckInput): DeckWithTitles {
+  if (getDeck(input.id)) throw new DuplicateDeckError(`deck "${input.id}" already exists`);
   const now = Date.now();
-  const insertCategory = db.prepare(
-    `INSERT INTO categories (id, name_ar, name_en, tier, level, region, created_at, updated_at)
-     VALUES (@id, @nameAr, @nameEn, @tier, @level, @region, @now, @now)`
-  );
-  const insertTile = db.prepare(
-    `INSERT INTO tiles (id, category_id, idx, points, media_type, needs_content, updated_at)
-     VALUES (@id, @categoryId, @idx, @points, 'text', 1, @now)`
-  );
-
-  const tx = db.transaction(() => {
-    insertCategory.run({ ...input, now });
-    for (let idx = 0; idx < 6; idx++) {
-      insertTile.run({
-        id: `${input.id}-${idx + 1}`,
-        categoryId: input.id,
-        idx,
-        points: POINTS_BY_INDEX[idx],
-        now,
-      });
-    }
-  });
-  tx();
-
-  return getCategory(input.id)!;
+  db.prepare(
+    `INSERT INTO decks (id, name_ar, name_en, created_at, updated_at) VALUES (@id, @nameAr, @nameEn, @now, @now)`
+  ).run({ ...input, now });
+  return getDeck(input.id)!;
 }
 
-export interface UpdateCategoryInput {
+export interface UpdateDeckInput {
   nameAr?: string;
   nameEn?: string;
-  tier?: Tier;
-  level?: ContentLevel;
-  region?: RegionTag;
 }
 
-export function updateCategory(id: string, input: UpdateCategoryInput): CategoryWithTiles {
-  const existing = getCategory(id);
-  if (!existing) throw new CategoryNotFoundError(`category "${id}" not found`);
+export function updateDeck(id: string, input: UpdateDeckInput): DeckWithTitles {
+  const existing = getDeck(id);
+  if (!existing) throw new DeckNotFoundError(`deck "${id}" not found`);
   const next = { ...existing, ...input, updatedAt: Date.now() };
-  db.prepare(
-    `UPDATE categories SET name_ar=@nameAr, name_en=@nameEn, tier=@tier, level=@level, region=@region, updated_at=@updatedAt
-     WHERE id=@id`
-  ).run(next);
-  return getCategory(id)!;
+  db.prepare('UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, updated_at=@updatedAt WHERE id=@id').run(next);
+  return getDeck(id)!;
 }
 
-/** `imageUrl` is the relative /uploads path; `null` clears it. Caller owns the actual file on disk. */
-export function setCategoryImage(id: string, imageUrl: string | null): CategoryWithTiles {
-  if (!getCategory(id)) throw new CategoryNotFoundError(`category "${id}" not found`);
-  db.prepare('UPDATE categories SET image_url=@imageUrl, updated_at=@updatedAt WHERE id=@id').run({
-    id,
-    imageUrl,
-    updatedAt: Date.now(),
-  });
-  return getCategory(id)!;
-}
-
-export function deleteCategory(id: string): void {
-  const result = db.prepare('DELETE FROM categories WHERE id = ?').run(id);
-  if (result.changes === 0) throw new CategoryNotFoundError(`category "${id}" not found`);
+export function deleteDeck(id: string): void {
+  const result = db.prepare('DELETE FROM decks WHERE id = ?').run(id);
+  if (result.changes === 0) throw new DeckNotFoundError(`deck "${id}" not found`);
 }
 
 /**
- * Independent of completeness — see `listCompleteCategories`, which is the
- * function that actually decides what `GET /catalogue` returns. Publishing
- * an incomplete category is allowed here; it still won't reach the app.
+ * Appends titles to a deck, skipping exact (trimmed) duplicates already in
+ * it — no fixed slot count to fill, unlike the old board-game import, so
+ * every non-duplicate, non-empty line just gets added.
  */
-export function setCategoryStatus(id: string, status: CategoryStatus): CategoryWithTiles {
-  if (!getCategory(id)) throw new CategoryNotFoundError(`category "${id}" not found`);
-  db.prepare('UPDATE categories SET status=@status, updated_at=@updatedAt WHERE id=@id').run({
-    id,
-    status,
-    updatedAt: Date.now(),
-  });
-  return getCategory(id)!;
-}
+export function addTitlesToDeck(deckId: string, titles: string[]): { added: number; skipped: number } {
+  const deck = getDeck(deckId);
+  if (!deck) throw new DeckNotFoundError(`deck "${deckId}" not found`);
 
-export interface UpdateTileInput {
-  promptAr?: string;
-  promptEn?: string;
-  answerAr?: string;
-  answerEn?: string;
-  mediaType?: TileRow['mediaType'];
-  mediaUrl?: string | null;
-  reorderItems?: string[] | null;
-}
-
-function tileNeedsContent(t: {
-  promptAr: string;
-  promptEn: string;
-  answerAr: string;
-  answerEn: string;
-}): boolean {
-  return !t.promptAr.trim() || !t.promptEn.trim() || !t.answerAr.trim() || !t.answerEn.trim();
-}
-
-/** Tile index is 0-5, addressed within its category. */
-export function updateTile(categoryId: string, index: number, input: UpdateTileInput): TileRow {
-  const category = getCategory(categoryId);
-  if (!category) throw new CategoryNotFoundError(`category "${categoryId}" not found`);
-  const existing = category.tiles.find((t) => t.index === index);
-  if (!existing) throw new InvalidTileIndexError(`tile index ${index} not found in "${categoryId}"`);
-
-  const next = { ...existing, ...input };
-  const needsContent = tileNeedsContent(next);
-  db.prepare(
-    `UPDATE tiles SET prompt_ar=@promptAr, prompt_en=@promptEn, answer_ar=@answerAr, answer_en=@answerEn,
-       media_type=@mediaType, media_url=@mediaUrl, reorder_items=@reorderItemsJson, needs_content=@needsContent,
-       updated_at=@updatedAt
-     WHERE id=@id`
-  ).run({
-    id: next.id,
-    promptAr: next.promptAr,
-    promptEn: next.promptEn,
-    answerAr: next.answerAr,
-    answerEn: next.answerEn,
-    mediaType: next.mediaType,
-    mediaUrl: next.mediaUrl,
-    reorderItemsJson: next.reorderItems ? JSON.stringify(next.reorderItems) : null,
-    needsContent: needsContent ? 1 : 0,
-    updatedAt: Date.now(),
-  });
-
-  return listTiles(categoryId)[index];
-}
-
-/** Only fills empty (needsContent) slots, in order, up to how many titles are given. */
-export function importTitlesIntoCategory(
-  categoryId: string,
-  titles: string[]
-): { filled: number; skipped: number } {
-  const category = getCategory(categoryId);
-  if (!category) throw new CategoryNotFoundError(`category "${categoryId}" not found`);
-
-  const emptySlots = category.tiles.filter((t) => t.needsContent);
-  const toFill = titles.slice(0, emptySlots.length);
-
-  // Imported lists have been Arabic titles in every case seen so far; the
-  // title lands in promptAr, leaving promptEn (and both answers) for the
-  // admin to fill in — needs_content stays true either way.
-  const stmt = db.prepare(
-    `UPDATE tiles SET prompt_ar=@title, needs_content=1, updated_at=@now WHERE id=@id`
-  );
+  const existing = new Set(deck.titles.map((t) => t.text.trim()));
+  const stmt = db.prepare('INSERT INTO titles (id, deck_id, text, created_at) VALUES (@id, @deckId, @text, @now)');
+  let added = 0;
   const tx = db.transaction(() => {
-    toFill.forEach((title, i) => {
-      const slot = emptySlots[i];
-      stmt.run({ id: slot.id, title, now: Date.now() });
-    });
+    for (const raw of titles) {
+      const text = raw.trim();
+      if (!text || existing.has(text)) continue;
+      existing.add(text);
+      stmt.run({ id: crypto.randomUUID(), deckId, text, now: Date.now() });
+      added++;
+    }
+    db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
   });
   tx();
 
-  return { filled: toFill.length, skipped: titles.length - toFill.length };
+  return { added, skipped: titles.length - added };
 }
 
-/**
- * Exact-match (trimmed) search across every existing tile's Arabic prompt —
- * used to flag likely duplicates before an import commits. Never used to
- * delete or skip anything automatically; the caller decides what to do with
- * a match.
- */
-export function findTitleMatches(titles: string[]): Record<string, TitleMatch[]> {
-  const trimmed = Array.from(new Set(titles.map((t) => t.trim()).filter(Boolean)));
-  const out: Record<string, TitleMatch[]> = {};
-  if (!trimmed.length) return out;
-
-  const placeholders = trimmed.map(() => '?').join(',');
-  const rows = db
-    .prepare(
-      `SELECT t.prompt_ar as promptAr, t.idx as tileIndex, c.id as categoryId, c.name_en as categoryNameEn
-       FROM tiles t JOIN categories c ON c.id = t.category_id
-       WHERE t.prompt_ar IN (${placeholders})`
-    )
-    .all(...trimmed) as Array<{ promptAr: string; tileIndex: number; categoryId: string; categoryNameEn: string }>;
-
-  for (const r of rows) {
-    (out[r.promptAr] ??= []).push({
-      categoryId: r.categoryId,
-      categoryNameEn: r.categoryNameEn,
-      tileIndex: r.tileIndex,
-    });
-  }
-  return out;
+export function deleteTitle(deckId: string, titleId: string): void {
+  const result = db.prepare('DELETE FROM titles WHERE id = ? AND deck_id = ?').run(titleId, deckId);
+  if (result.changes === 0) throw new TitleNotFoundError(`title "${titleId}" not found in deck "${deckId}"`);
 }
 
-/**
- * Computes what `importTitlesIntoCategory` *would* do, without writing
- * anything — the "preview" half of upload → preview → confirm → commit.
- * Slots are recomputed again at commit time rather than trusted from this
- * preview, since another admin could fill one in between the two calls.
- */
-export function previewImportForCategory(
-  categoryId: string,
-  titles: string[]
-): { proposed: ProposedImportFill[]; skipped: number } {
-  const category = getCategory(categoryId);
-  if (!category) throw new CategoryNotFoundError(`category "${categoryId}" not found`);
-
-  const emptySlots = category.tiles.filter((t) => t.needsContent);
-  const toFill = titles.slice(0, emptySlots.length);
-  const matches = findTitleMatches(toFill);
-
-  const proposed: ProposedImportFill[] = toFill.map((title, i) => ({
-    tileId: emptySlots[i].id,
-    index: emptySlots[i].index,
-    title,
-    duplicates: matches[title.trim()] ?? [],
-  }));
-
-  return { proposed, skipped: titles.length - toFill.length };
+/** Decks the app is ever allowed to draft from — nothing to publish/complete separately, a deck with at least one title is playable. */
+export function listPlayableDecks(): DeckWithTitles[] {
+  return listDecks().filter((d) => d.titles.length > 0);
 }
 
-/** Categories where every tile has real content AND the admin has explicitly published them — the only ones the app ever sees. */
-export function listCompleteCategories(): CategoryWithTiles[] {
-  return listCategories().filter(
-    (c) => c.status === 'published' && c.tiles.length === 6 && c.tiles.every((t) => !t.needsContent)
-  );
-}
+/* --------------------------------------------------------------- players */
 
 export class DuplicateUsernameError extends Error {}
 export class AdminUserNotFoundError extends Error {}
@@ -655,15 +464,17 @@ export function deletePlayer(id: string): void {
   db.prepare('DELETE FROM players WHERE id = ?').run(id);
 }
 
+/* ------------------------------------------------------- wallet + sessions */
+
 export class PaymentNotFoundError extends Error {}
-export class BoardGameNotFoundError extends Error {}
+export class GameSessionNotFoundError extends Error {}
 export class InsufficientCreditsError extends Error {}
+export class EmptyDeckError extends Error {}
 
 function rowToPayment(r: any): PaymentRow {
   return {
     id: r.id,
     playerId: r.player_id,
-    product: r.product,
     credits: r.credits,
     amountFils: r.amount_fils,
     currency: r.currency,
@@ -674,13 +485,13 @@ function rowToPayment(r: any): PaymentRow {
   };
 }
 
-function rowToBoardGame(r: any): BoardGameRow {
+function rowToGameSession(r: any): GameSessionRow {
   return {
     id: r.id,
     playerId: r.player_id,
-    status: r.status,
+    deckId: r.deck_id,
+    titles: JSON.parse(r.titles_json),
     createdAt: r.created_at,
-    completedAt: r.completed_at,
   };
 }
 
@@ -696,9 +507,9 @@ export function listPaymentsForPlayer(playerId: string): PaymentRow[] {
     .map(rowToPayment);
 }
 
-export function getBoardGame(id: string): BoardGameRow | null {
-  const row = db.prepare('SELECT * FROM board_games WHERE id = ?').get(id);
-  return row ? rowToBoardGame(row) : null;
+export function getGameSession(id: string): GameSessionRow | null {
+  const row = db.prepare('SELECT * FROM game_sessions WHERE id = ?').get(id);
+  return row ? rowToGameSession(row) : null;
 }
 
 /** Sum of grants minus sum of consumes. Never a stored counter, so it can never drift from its own history. */
@@ -714,24 +525,20 @@ export function creditBalance(playerId: string): number {
 
 export interface CreatePaymentInput {
   playerId: string;
-  product: ProductId;
   provider: string;
 }
 
-/** Starts a checkout. No credits exist yet — those are only ever created by `confirmPayment`. */
+/** Starts a checkout for exactly one game's worth of credit, at the current price. No credits exist yet — those are only ever created by `confirmPayment`. */
 export function createPayment(input: CreatePaymentInput): PaymentRow {
-  const spec = PRODUCTS[input.product];
   const now = Date.now();
   const id = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO payments (id, player_id, product, credits, amount_fils, currency, provider, status, created_at, updated_at)
-     VALUES (@id, @playerId, @product, @credits, @amountFils, 'KWD', @provider, 'initiated', @now, @now)`
+    `INSERT INTO payments (id, player_id, credits, amount_fils, currency, provider, status, created_at, updated_at)
+     VALUES (@id, @playerId, 1, @amountFils, 'KWD', @provider, 'initiated', @now, @now)`
   ).run({
     id,
     playerId: input.playerId,
-    product: input.product,
-    credits: spec.credits,
-    amountFils: spec.amountFils,
+    amountFils: getGamePriceFils(),
     provider: input.provider,
     now,
   });
@@ -778,52 +585,63 @@ export function failPayment(paymentId: string): PaymentRow {
   return getPayment(paymentId)!;
 }
 
-/**
- * Spends one credit to activate `boardGameId` — the client's own local
- * BoardState.id. Idempotent by construction: `board_games.id` is a primary
- * key, so calling this again with the same id (e.g. resuming an interrupted
- * game after an app restart) returns the existing row and spends nothing
- * further, rather than erroring or charging twice.
- */
-export function consumeCreditForBoardGame(
-  playerId: string,
-  boardGameId: string
-): { boardGame: BoardGameRow; balance: number } {
-  const existing = getBoardGame(boardGameId);
-  if (existing) {
-    if (existing.playerId !== playerId) throw new BoardGameNotFoundError(`board game "${boardGameId}" not found`);
-    return { boardGame: existing, balance: creditBalance(playerId) };
+/** Fisher-Yates, in place on a copy — used to deal a session's titles. */
+function shuffled<T>(items: T[]): T[] {
+  const arr = items.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
+  return arr;
+}
+
+const TITLES_PER_SESSION = 10;
+
+/**
+ * Spends one wallet credit to deal `sessionId` — the client's own locally
+ * generated id, created once at "start game" time. Idempotent by
+ * construction: `game_sessions.id` is a primary key, so calling this again
+ * with the same id (e.g. resuming after an app restart) returns the same
+ * dealt titles and spends nothing further, rather than erroring or charging
+ * twice. Titles are drawn without replacement from the deck; a deck with
+ * fewer than 10 titles just deals all of it.
+ */
+export function startGameSession(
+  playerId: string,
+  sessionId: string,
+  deckId: string
+): { session: GameSessionRow; balance: number } {
+  const existing = getGameSession(sessionId);
+  if (existing) {
+    if (existing.playerId !== playerId) throw new GameSessionNotFoundError(`session "${sessionId}" not found`);
+    return { session: existing, balance: creditBalance(playerId) };
+  }
+
+  const deck = getDeck(deckId);
+  if (!deck) throw new DeckNotFoundError(`deck "${deckId}" not found`);
+  if (deck.titles.length === 0) throw new EmptyDeckError(`deck "${deckId}" has no titles yet`);
 
   const tx = db.transaction(() => {
     if (creditBalance(playerId) < 1) {
-      throw new InsufficientCreditsError('not enough credits to start a paid board game');
+      throw new InsufficientCreditsError('not enough credits to start a game — top up your wallet first');
     }
+    const dealt = shuffled(deck.titles).slice(0, TITLES_PER_SESSION);
     const now = Date.now();
-    db.prepare('INSERT INTO board_games (id, player_id, status, created_at) VALUES (@id, @playerId, \'active\', @now)').run(
-      { id: boardGameId, playerId, now }
-    );
     db.prepare(
-      `INSERT INTO credit_transactions (id, player_id, kind, amount, board_game_id, created_at)
-       VALUES (@id, @playerId, 'consume', 1, @boardGameId, @now)`
-    ).run({ id: crypto.randomUUID(), playerId, boardGameId, now });
+      `INSERT INTO game_sessions (id, player_id, deck_id, titles_json, created_at)
+       VALUES (@id, @playerId, @deckId, @titlesJson, @now)`
+    ).run({ id: sessionId, playerId, deckId, titlesJson: JSON.stringify(dealt), now });
+    db.prepare(
+      `INSERT INTO credit_transactions (id, player_id, kind, amount, game_session_id, created_at)
+       VALUES (@id, @playerId, 'consume', 1, @sessionId, @now)`
+    ).run({ id: crypto.randomUUID(), playerId, sessionId, now });
   });
   tx();
 
-  return { boardGame: getBoardGame(boardGameId)!, balance: creditBalance(playerId) };
+  return { session: getGameSession(sessionId)!, balance: creditBalance(playerId) };
 }
 
-export function completeBoardGame(playerId: string, boardGameId: string): BoardGameRow {
-  const existing = getBoardGame(boardGameId);
-  if (!existing || existing.playerId !== playerId) {
-    throw new BoardGameNotFoundError(`board game "${boardGameId}" not found`);
-  }
-  db.prepare("UPDATE board_games SET status = 'completed', completed_at = @now WHERE id = @id").run({
-    id: boardGameId,
-    now: Date.now(),
-  });
-  return getBoardGame(boardGameId)!;
-}
+/* --------------------------------------------------------------- audit log */
 
 export interface RecordAuditInput {
   actorId: string;
@@ -937,7 +755,8 @@ export function setReportStatusForPrompt(promptId: string, status: ReportStatus)
 
 export function resetDbForTests(): void {
   db.exec(
-    `DELETE FROM content_reports; DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM board_games; DELETE FROM payments;
-     DELETE FROM tiles; DELETE FROM categories; DELETE FROM admin_users; DELETE FROM players;`
+    `DELETE FROM content_reports; DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM game_sessions;
+     DELETE FROM payments; DELETE FROM titles; DELETE FROM decks; DELETE FROM admin_users; DELETE FROM players;
+     UPDATE settings SET game_price_fils = ${DEFAULT_GAME_PRICE_FILS} WHERE id = 1;`
   );
 }

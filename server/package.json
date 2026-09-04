@@ -2,14 +2,13 @@
   "name": "yalla-mithilha-admin-server",
   "version": "0.1.0",
   "private": true,
-  "description": "Admin CMS backend for the board-game catalogue. Separate Node project — not part of the Expo app's dependency graph.",
+  "description": "Admin CMS backend for the charades deck catalogue and wallet. Separate Node project — not part of the Expo app's dependency graph.",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.json",
     "test": "jest",
-    "seed": "tsx src/seed.ts",
     "create-admin": "tsx src/createAdmin.ts",
     "typecheck": "tsc --noEmit"
   },

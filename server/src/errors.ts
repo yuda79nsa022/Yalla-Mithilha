@@ -1,16 +1,17 @@
 import type { Response } from 'express';
 import {
   AdminUserNotFoundError,
-  BoardGameNotFoundError,
-  CategoryNotFoundError,
-  DuplicateCategoryError,
+  DeckNotFoundError,
+  DuplicateDeckError,
   DuplicatePlayerUsernameError,
   DuplicateUsernameError,
+  EmptyDeckError,
+  GameSessionNotFoundError,
   InsufficientCreditsError,
-  InvalidTileIndexError,
   LastAdminError,
   PaymentNotFoundError,
   PlayerNotFoundError,
+  TitleNotFoundError,
 } from './db';
 import { ValidationError } from './validate';
 
@@ -20,14 +21,12 @@ export function handleError(err: unknown, res: Response): void {
     return;
   }
   if (
-    err instanceof DuplicateCategoryError ||
+    err instanceof DuplicateDeckError ||
     err instanceof DuplicateUsernameError ||
-    err instanceof DuplicatePlayerUsernameError
+    err instanceof DuplicatePlayerUsernameError ||
+    err instanceof LastAdminError ||
+    err instanceof EmptyDeckError
   ) {
-    res.status(409).json({ error: err.message });
-    return;
-  }
-  if (err instanceof LastAdminError) {
     res.status(409).json({ error: err.message });
     return;
   }
@@ -36,12 +35,12 @@ export function handleError(err: unknown, res: Response): void {
     return;
   }
   if (
-    err instanceof CategoryNotFoundError ||
-    err instanceof InvalidTileIndexError ||
+    err instanceof DeckNotFoundError ||
+    err instanceof TitleNotFoundError ||
     err instanceof AdminUserNotFoundError ||
     err instanceof PlayerNotFoundError ||
     err instanceof PaymentNotFoundError ||
-    err instanceof BoardGameNotFoundError
+    err instanceof GameSessionNotFoundError
   ) {
     res.status(404).json({ error: err.message });
     return;

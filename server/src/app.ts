@@ -1,15 +1,14 @@
 import express from 'express';
 import helmet from 'helmet';
 import path from 'path';
-import { UPLOADS_DIR } from './db';
 import { requireAdminSession } from './auth';
-import { adminRouter } from './routes/admin';
+import { adminDecksRouter } from './routes/adminDecks';
 import { adminPlayersRouter } from './routes/adminPlayers';
 import { adminReportsRouter } from './routes/adminReports';
 import { adminUsersRouter } from './routes/adminUsers';
+import { auditLogRouter } from './routes/auditLog';
 import { authRouter } from './routes/auth';
-import { boardGamesRouter } from './routes/boardGames';
-import { catalogueRouter } from './routes/catalogue';
+import { charadesRouter } from './routes/charades';
 import { playerAuthRouter } from './routes/playerAuth';
 import { reportsRouter } from './routes/reports';
 
@@ -17,7 +16,7 @@ export function createApp(): express.Express {
   const app = express();
   // contentSecurityPolicy is off for now: the admin UI (public/index.html) is
   // a single inline <script>, which a default CSP would block outright.
-  // crossOriginResourcePolicy is off because /catalogue and /uploads are
+  // crossOriginResourcePolicy is off because /charades and /players are
   // deliberately fetched from a different origin (the app running as a web
   // page) — helmet's default same-origin CORP would silently block that,
   // separately from and in addition to the CORS headers those routes already
@@ -31,25 +30,15 @@ export function createApp(): express.Express {
     res.json({ ok: true });
   });
 
-  app.use('/catalogue', catalogueRouter);
   app.use('/players', playerAuthRouter);
-  app.use('/board-games', boardGamesRouter);
+  app.use('/charades', charadesRouter);
   app.use('/reports', reportsRouter);
   app.use('/admin/auth', authRouter);
   app.use('/admin/users', requireAdminSession, adminUsersRouter);
   app.use('/admin/players', requireAdminSession, adminPlayersRouter);
   app.use('/admin/reports', requireAdminSession, adminReportsRouter);
-  app.use('/admin', requireAdminSession, adminRouter);
-
-  // Category thumbnails — public, same as the catalogue itself.
-  app.use(
-    '/uploads',
-    (_req, res, next) => {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      next();
-    },
-    express.static(UPLOADS_DIR)
-  );
+  app.use('/admin', requireAdminSession, auditLogRouter);
+  app.use('/admin', requireAdminSession, adminDecksRouter);
 
   // The admin UI logs in at runtime and holds the session token in the
   // browser — the static page has no secrets baked into it.
