@@ -4,6 +4,7 @@
  * throw away the fact-checking work already done on that content. Safe to
  * re-run — never overwrites a category that already exists.
  */
+import './loadEnv';
 import { createCategory, getCategory, setCategoryStatus, updateTile } from './db';
 // eslint-disable-next-line import/no-relative-packages
 import { BOARD_CATALOGUE } from '../../src/content/board';

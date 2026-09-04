@@ -1,3 +1,4 @@
+import './loadEnv';
 import { createApp } from './app';
 
 const PORT = Number(process.env.PORT ?? 4000);

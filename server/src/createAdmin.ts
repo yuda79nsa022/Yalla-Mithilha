@@ -5,6 +5,7 @@
  *
  *   npm run create-admin -- --username=jane --password=supersecret123
  */
+import './loadEnv';
 import { createAdminUser, DuplicateUsernameError } from './db';
 import { hashPassword } from './auth';
 import { parseCreateAdminUserBody, ValidationError } from './validate';
