@@ -1,76 +1,40 @@
-# Board catalogue admin server
+# Charades admin server
 
-A small, separate Node/Express/TypeScript backend for managing the board-game
-category catalogue — add/edit/delete categories and tiles, upload a cover
-image per category, bulk-import title lists from .docx/.xlsx/.pdf, manage
-admin accounts, manage optional player accounts, and serve the finished
-content live to the app. Not part of the Expo app's dependency graph;
-nothing here is bundled into the mobile/web build.
+A small, separate Node/Express/TypeScript backend for Charades — the paid
+game in Yalla Mithilha. Manages decks (named pools of titles to act out),
+the admin-set price of one game, admin accounts, optional player accounts
+and their wallets, and content reports from the free party game. Not part
+of the Expo app's dependency graph; nothing here is bundled into the
+mobile/web build.
 
 ## The one rule that matters
 
-**A category is only ever returned by `GET /catalogue` once it is BOTH
-`published` AND complete** (all six tiles have real, non-empty Arabic/English
-prompt and answer). These are two independent gates, both enforced in
-`listCompleteCategories()` (`src/db.ts`), not just by convention — an admin
-publishing an incomplete category by mistake still can't leak it, and a
-complete-but-still-draft category (the default for anything new or imported)
-can sit in the admin UI indefinitely with zero risk of reaching a real game.
-
-## Content states
-
-Every category has a `status`: `draft` (default — nothing publishes itself,
-imported or not), `published` (eligible for `GET /catalogue`, subject to the
-completeness gate above), or `archived` (pulled back out, without deleting
-it). Change it with `PUT /admin/categories/:id/status`. There is no separate
-version-history table — the audit log (below) already records every
-`category.update`/`tile.update`/`category.status.*` with a before/after
-snapshot, which is the same information a dedicated versions table would
-hold, without a second source of truth to keep in sync.
-
-## Staged import review
-
-`POST /admin/categories/:id/import` used to parse a file and commit straight
-to the database in one request — nothing stood between an admin's upload and
-possibly thousands of new tile prompts landing live. It's now two steps:
-
-1. `POST /admin/categories/:id/import/preview` (multipart, field `file`) —
-   parses the file and returns what *would* be filled (`proposed`, in
-   drafted order) and how many titles are left over (`skipped`). Writes
-   nothing. Each proposed title is checked against every existing tile's
-   Arabic prompt (`findTitleMatches` in `src/db.ts`) and flagged with
-   `duplicates: [{ categoryId, categoryNameEn, tileIndex }, ...]` when one
-   matches — surfaced for review, never deleted or skipped automatically.
-2. `POST /admin/categories/:id/import/commit` — `{ titles: string[] }`, the
-   same list the preview proposed, sent back once an admin has actually
-   looked at it. Recomputes empty slots itself rather than trusting the
-   preview's tile assignments, since another admin could have filled one in
-   the time between the two calls.
-
-The admin UI's "Import titles" card walks through both steps: preview,
-review (duplicates shown inline), confirm or cancel.
+**A deck is playable the moment it has at least one title** — there is no
+separate publish step and no fixed size to fill. `listPlayableDecks()`
+(`src/db.ts`) is the single gate `GET /charades/decks` goes through. Unlike
+the old board-game category (which needed six complete tiles *and* an
+explicit publish), a deck an admin just created and imported into is
+immediately live.
 
 ## Running it
 
 ```bash
 npm install
 export SESSION_SECRET=some-long-random-string
+export PLAYER_SESSION_SECRET=a-different-long-random-string
 npm run create-admin -- --username=you --password=at-least-8-chars   # first account
 npm run dev   # starts on :4000 by default
 ```
 
-Open `http://localhost:4000/` for the admin UI and sign in with that account.
-Once signed in, an admin can add more admin accounts from the "Admins" tab —
-the CLI bootstrap is only needed for the very first one, since there's no API
-route for "create an admin" without already being logged in as one.
+Open `http://localhost:4000/` for the admin UI and sign in with that
+account. Once signed in, an admin can add more admin accounts from the
+"Admins" tab — the CLI bootstrap is only needed for the very first one,
+since there's no API route for "create an admin" without already being
+logged in as one.
 
-To load the app's existing 7 hand-authored categories in (so switching to
-the live backend doesn't throw away the fact-checking work already done on
-that content):
-
-```bash
-npm run seed   # idempotent — skips any category id that already exists
-```
+From the "Decks" tab: create a deck, upload a `.docx`/`.xlsx`/`.pdf` list of
+titles (every non-duplicate line gets added — no size limit), and set the
+price of one game (shown/entered in KD, stored as fils; 1000 fils = 1 KD).
 
 ## Environment variables
 
@@ -78,9 +42,13 @@ npm run seed   # idempotent — skips any category id that already exists
 |---|---|---|
 | `PORT` | `4000` | |
 | `SESSION_SECRET` | — | Signs admin login sessions (JWT). Required for any `/admin/*` route — the server 500s on those routes if unset, rather than silently running unauthenticated. |
-| `PLAYER_SESSION_SECRET` | — | Signs player-account session tokens (JWT), entirely separate from `SESSION_SECRET` — a player token can never verify as an admin session or vice versa. Required for `/players/*` and any player-only route. |
-| `DATA_DIR` | `./data` | Where the SQLite file and uploaded images live. |
+| `PLAYER_SESSION_SECRET` | — | Signs player-account session tokens (JWT), entirely separate from `SESSION_SECRET` — a player token can never verify as an admin session or vice versa. Required for `/players/*`, `/charades/*` and any player-only route. |
+| `DATA_DIR` | `./data` | Where the SQLite file lives. |
 | `DB_PATH` | `<DATA_DIR>/catalogue.sqlite` | Override the exact file — tests set this to an isolated temp path. |
+
+`.env` in this directory is loaded automatically (`src/loadEnv.ts`, the
+first import of every entry point) — copy `.env.example` to `.env` and fill
+it in rather than exporting these by hand every time.
 
 ## Auth model
 
@@ -93,24 +61,28 @@ no roles, appropriate for a small trusted content team. The one guard rail:
 deleting the last remaining admin account is refused, so nobody can lock
 everyone out of the dashboard by mistake.
 
-Player accounts are a separate, optional system for people actually playing
-the game — not the CMS. `src/auth.ts` + the `players` table, signed with
-their own `PLAYER_SESSION_SECRET`. `POST /players/register` and
-`POST /players/login` are public and exchange a username/password for a
-12-hour JWT. Guest play in the app never touches this — it only exists for
-someone who chooses to create an account. Admins can list, rename, reset the
-password of, and delete any player account (`/admin/players`); unlike admin
-accounts, there's no "last remaining account" guard, since deleting every
-player carries no lockout risk.
+Player accounts are a separate, optional-for-the-free-game system for
+people actually playing — not the CMS, and not optional once real money is
+involved. `src/auth.ts` + the `players` table, signed with their own
+`PLAYER_SESSION_SECRET`. `POST /players/register` and `POST /players/login`
+are public and exchange a username/password for a 12-hour JWT. The free
+party game never touches this at all. Charades does require it — there is
+no way to hold a wallet balance without an account. Admins can list,
+rename, reset the password of, and delete any player account
+(`/admin/players`); unlike admin accounts, there's no "last remaining
+account" guard, since deleting every player carries no lockout risk.
 
-## Payments and board-game credits
+## The wallet
 
-A paid Board Game credit is owned by a player's account, never by a device —
-`payments`, `board_games` and an append-only `credit_transactions` ledger in
-`src/db.ts`. A balance is always the sum of grants minus the sum of
-consumes, never a mutable counter, so it can't drift from its own history.
+A Charades credit is owned by a player's account, never by a device —
+`payments` and an append-only `credit_transactions` ledger in `src/db.ts`.
+A balance is always the sum of grants minus the sum of consumes, never a
+mutable counter, so it can't drift from its own history. There is exactly
+one product: one game, priced at whatever `settings.game_price_fils` is set
+to *at the moment checkout starts* — the price an admin sets later never
+changes what an already-initiated payment charges.
 
-Checkout logic (`src/routes/boardGames.ts`) is written against a
+Checkout logic (`src/routes/charades.ts`) is written against a
 `PaymentProvider` interface (`src/payments/provider.ts`), not a specific
 gateway's SDK. Right now that interface is implemented by
 `MockPaymentProvider` — there is no real KNET/aggregator integration yet, by
@@ -121,107 +93,103 @@ and a real payment confirmation would come from a signature-verified webhook
 route rather than the player's own authenticated `confirm` call (see the
 comment on `PaymentProvider` for exactly what that requires).
 
-Both the "duplicate webhook" and "resume an interrupted game" cases are
+Both the "duplicate webhook" and "resume an interrupted session" cases are
 handled explicitly, not just by convention:
 
-- `confirmPayment` grants credits via a conditional
+- `confirmPayment` grants a credit via a conditional
   `UPDATE ... WHERE status='initiated'` — it can only ever succeed once per
   payment, so calling confirm twice (a retried callback) never double-grants.
-- `consumeCreditForBoardGame` is idempotent on `board_games.id`, which is the
-  *client's own* locally-drafted `BoardState.id`. Replaying the same id after
-  an app restart returns the existing row and spends nothing further, so
-  resuming a paid game never charges a second credit.
+- `startGameSession` is idempotent on `game_sessions.id`, which is the
+  *client's own* locally-generated session id (made once when the player
+  taps "Start the game"). Replaying the same id after an app restart
+  returns the same 10 already-dealt titles and spends nothing further.
 
-Pricing (`PRODUCTS` in `src/types.ts`) is placeholder, same status as the
-old "$6.99/$12.99" dev-stub labels it replaced — real KWD pricing is a
-business decision for whoever owns the KNET merchant account.
+## Decks and titles
+
+A deck (`decks` table) is just an id and a bilingual name. Its titles
+(`titles` table) are a flat, unlimited-size list — no fixed slot count like
+the old board-game category's six tiles, and no separate written
+prompt/answer pair per title: charades is silent acting, so the title
+itself is both what the actor privately reads and what confirms the guess
+once revealed. `POST /admin/decks/:id/import` (multipart, field `file`)
+parses a `.docx`/`.xlsx`/`.pdf` and appends every non-duplicate,
+non-empty title directly — no staged preview step, since there's no fixed
+slot count an import could accidentally overrun or need to protect.
+`src/import/parseTitles.ts` has the exact table-parsing heuristic (the
+title is the one cell per row that's neither numeric nor a highly-repeated
+label like a year or category column).
+
+`startGameSession` deals 10 titles (`TITLES_PER_SESSION` in `src/db.ts`)
+at random from the chosen deck, without replacement within that session,
+the moment a wallet credit is spent. A deck with fewer than 10 titles
+just deals all of it.
 
 ## Audit log
 
-Every sensitive admin action — category/tile create, update, delete, image
-upload/remove, bulk import, admin and player account create/rename/delete —
-is recorded in an append-only `audit_log` table (`recordAudit` in
-`src/db.ts`): who (actor id and a *snapshotted* username, so a later rename
-or deletion never rewrites history), what action, what target, and a
-before/after JSON snapshot where one is meaningful. It is deliberately
-read-only from the API and the admin UI's new "Audit log" tab — there is no
-edit or delete route for it, on purpose. A password is never written to it,
-only whether one changed (`passwordChanged: true/false`); this is asserted
-by a test, not just a convention. Logging itself can never fail the action
-it's logging — `recordAudit` catches and logs its own errors rather than
-throwing.
+Every sensitive admin action — deck create/update/delete, title import/
+remove, the game price changing, admin and player account
+create/rename/delete — is recorded in an append-only `audit_log` table
+(`recordAudit` in `src/db.ts`): who (actor id and a *snapshotted* username,
+so a later rename or deletion never rewrites history), what action, what
+target, and a before/after JSON snapshot where one is meaningful. It is
+deliberately read-only from the API and the admin UI's "Audit log" tab —
+there is no edit or delete route for it, on purpose. A password is never
+written to it, only whether one changed (`passwordChanged: true/false`);
+this is asserted by a test, not just a convention. Logging itself can
+never fail the action it's logging — `recordAudit` catches and logs its
+own errors rather than throwing.
 
 ## API shape
 
-- `GET /catalogue` — public, no auth, CORS-open (the app fetches this from a
-  different origin when running as a web page). Returns only complete
-  categories, in the same shape the client's `CategoryDeck[]` expects, with
-  `imageUrl` as an absolute URL when a category has a cover image.
+- `GET /charades/decks` — public, no auth, CORS-open (the app fetches this
+  from a different origin when running as a web page). Every playable deck
+  (`{ id, nameAr, nameEn, titleCount }`) — a guest can see what's on offer
+  before signing up.
+- `GET /charades/price` — public. `{ fils, currency }`, the current price of
+  one game.
 - `POST /admin/auth/login` — public. `{ username, password }` →
   `{ token, user }`.
 - `GET/POST/PUT/DELETE /admin/users[/:id]` — bearer-token protected. Manage
   admin accounts. Never returns a password hash.
 - `POST /players/register` / `POST /players/login` — public, CORS-open (same
-  reasoning as `/catalogue` — called cross-origin from the app running as a
-  web page; a JSON POST also triggers a CORS preflight, so `OPTIONS` gets an
-  explicit response too). `{ username, password }` → `{ token, player }`.
-  Never returns a password hash.
+  reasoning as `/charades/decks` — called cross-origin from the app running
+  as a web page; a JSON POST also triggers a CORS preflight, so `OPTIONS`
+  gets an explicit response too). `{ username, password }` →
+  `{ token, player }`. Never returns a password hash.
 - `GET/PUT/DELETE /admin/players[/:id]` — bearer-token protected (admin
   session, not a player session). List, rename, reset the password of, or
   delete a player account. No route to create one here — accounts are
   created by the player themselves via `/players/register`.
-- `GET/POST/PUT/DELETE /admin/categories[/:id]` — bearer-token protected.
-  Creating a category makes six empty, `needsContent` tile slots (points
-  100-600) automatically.
-- `PUT /admin/categories/:id/tiles/:index` — edit one tile (index 0-5).
-  `needsContent` flips to `false` automatically once all four text fields
-  (promptAr/En, answerAr/En) are non-empty — you never set that flag by hand.
-- `PUT /admin/categories/:id/status` — bearer-token protected.
-  `{ status: 'draft' | 'published' | 'archived' }`. See "Content states"
-  above.
-- `POST /admin/categories/:id/import/preview` — multipart upload, field name
-  `file`, `.docx`/`.xlsx`/`.pdf`. Parses out a list of titles and returns
-  what would fill empty slots, plus likely duplicates — writes nothing. See
-  `src/import/parseTitles.ts` for exactly how titles are picked out of a
-  table — the short version: the title is the only cell per row that's both
-  non-numeric and not a highly-repeated value (row numbers, years, and
-  category/type labels all get filtered out this way, computed globally
-  *before* picking a title per row — a long repeated label can outrank and
-  displace a short real title otherwise). One known artifact: a table's own
-  header row usually survives as a stray "title" too — harmless, an admin
-  recognizes and discards it on sight.
-- `POST /admin/categories/:id/import/commit` — `{ titles: string[] }`, JSON
-  body (no file — the file was already parsed by `/preview`). Actually fills
-  empty slots, in order — **never** overwrites a tile that already has
-  content. Fills the Arabic prompt only; English prompt and both answers
-  still need a human (or an LLM doing real fact-checking) afterward. See
-  "Staged import review" above.
-- `POST /admin/categories/:id/image` — multipart upload, field name `image`,
-  jpeg/png/webp/gif up to 5MB. Stored under `<DATA_DIR>/uploads` with a
-  generated filename (the client's filename is never trusted as part of a
-  path). Replaces and deletes any previous image for that category.
-- `DELETE /admin/categories/:id/image` — removes the cover image; a no-op,
-  not an error, if there wasn't one.
-- `GET /board-games/credits` — bearer-token protected (player session).
-  Current credit balance for the signed-in player.
-- `POST /board-games/checkout` — player session required. `{ product: 'single' | 'bundle2' }`
-  → a `payments` row in `initiated` status. No credits exist yet.
-- `POST /board-games/checkout/:paymentId/confirm` / `.../fail` — player
+- `GET/POST/PUT/DELETE /admin/decks[/:id]` — bearer-token protected. A new
+  deck starts with zero titles.
+- `POST /admin/decks/:id/import` — multipart upload, field name `file`,
+  `.docx`/`.xlsx`/`.pdf`. Adds every non-duplicate title straight to the
+  deck; `{ titlesFound, added, skipped, deck }`.
+- `DELETE /admin/decks/:deckId/titles/:titleId` — removes one title.
+- `GET/PUT /admin/settings/game-price` — bearer-token protected.
+  `{ fils }`, a positive integer, at most 100000 (100 KD).
+- `GET /charades/wallet` — bearer-token protected (player session). Current
+  credit balance for the signed-in player.
+- `POST /charades/checkout` — player session required. Starts a top-up for
+  exactly one game's worth of credit at the current price → a `payments`
+  row in `initiated` status. No credit exists yet.
+- `POST /charades/checkout/:paymentId/confirm` / `.../fail` — player
   session required, and the payment must belong to the caller (404
   otherwise). Stand in for a real payment provider's success/failure
   callback; confirm is idempotent (see above).
-- `POST /board-games/consume` — player session required. `{ boardGameId }`
-  spends one credit and activates that board game; idempotent on
-  `boardGameId` (see above). 402 when the balance is empty.
-- `POST /board-games/:id/complete` — player session required, and the board
-  game must belong to the caller. Marks it completed.
+- `POST /charades/sessions` — player session required. `{ sessionId, deckId }`
+  spends one credit and deals 10 titles from that deck; idempotent on
+  `sessionId` (see above). 402 when the balance is empty, 409 when the deck
+  has no titles.
+- `GET /charades/sessions/:id` — player session required, and the session
+  must belong to the caller. Re-fetches a previously dealt session.
 - `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit
   log" above.
-- `POST /reports` — public, CORS-open (same reasoning as `/catalogue` and
-  `/players` — reporting a card never requires an account). `{ reports: [{
-  id, promptId, reason, lang, createdAt, appVersion? }, ...] }`, capped at
-  50 per batch. Idempotent per report `id` — see "Content report sync"
-  below.
+- `POST /reports` — public, CORS-open (same reasoning as the public
+  `/charades` routes and `/players` — reporting a card never requires an
+  account). `{ reports: [{ id, promptId, reason, lang, createdAt,
+  appVersion? }, ...] }`, capped at 50 per batch. Idempotent per report
+  `id` — see "Content report sync" below.
 - `GET /admin/reports` — bearer-token protected. Raw list, most-recent
   first; the admin UI's "Reports" tab groups and counts them per card.
 - `PUT /admin/reports/by-prompt/:promptId/status` — bearer-token protected.
@@ -233,11 +201,11 @@ throwing.
 
 The Party Game's card-report feature (`report.title` etc. in the app) used
 to be entirely local — saved on-device, never seen by anyone but the
-player. It's now an offline queue that syncs here, the same offline-first
-shape as the catalogue fetch: the app tries to sync a report right after
-it's filed, and retries whatever is still queued on next launch. Neither
-path blocks anything or requires a player session — reporting a card never
-needs an account, online or offline.
+player. It's now an offline queue that syncs here: the app tries to sync a
+report right after it's filed, and retries whatever is still queued on next
+launch. Neither path blocks anything or requires a player session —
+reporting a card never needs an account, online or offline, and this is
+unrelated to Charades' own account requirement.
 
 `POST /reports` is idempotent per report id (`INSERT OR IGNORE` in
 `submitContentReports`, `src/db.ts`), so a retried sync after a dropped
@@ -249,54 +217,37 @@ since that's how the report list is actually used.
 
 ## App integration
 
-The app fetches `GET /catalogue` on startup (`src/services/catalogueApi.ts`
-in the main project), caches the result in `AsyncStorage`, and falls back to
-the bundled static catalogue (`src/content/board` in the main project) if
-the fetch fails or there's no cache yet — so a fresh offline install still
-has a working board mode. Point the app at a non-default server with
-`EXPO_PUBLIC_CATALOGUE_API_URL` (`src/config.ts`). The home screen renders a
-scrollable row of category thumbnails from the live catalogue — a themed
-color block stands in for any category without an uploaded image yet.
+The app fetches `GET /charades/decks` and `GET /charades/price` on startup
+(`src/services/walletApi.ts` in the main project) — there is no offline
+fallback the way the free party game has, since Charades already requires a
+live connection for its wallet. Point the app at a non-default server with
+`EXPO_PUBLIC_CATALOGUE_API_URL` (`src/config.ts`).
 
-Reachable from Settings, an optional Account screen lets a player create an
-account or sign in (`src/services/playerAuthApi.ts` in the main project).
-Guest play needs none of this and keeps working exactly as before — signing
-up only saves a username/session token on-device so the player can come back
-to it later.
-
-Buying Board Game credits requires that same player session — the checkout
-screen (`app/board/checkout.tsx`) routes a guest through sign-in/sign-up
-first. Drafting a board and playing it stay fully client-side either way;
-only the credit balance and the act of spending one talk to the server
-(`src/services/boardPaymentApi.ts` in the main project).
+An Account screen, reachable from Settings or from the Charades checkout
+screen itself, lets a player create an account or sign in
+(`src/services/playerAuthApi.ts`). Guest play (the free party game) never
+touches this. Playing Charades does require it — the checkout screen
+(`app/charades/checkout.tsx`) routes a guest through sign-in/sign-up first,
+then shows the wallet balance and the current price, tops up via the mock
+payment flow, and spends one credit to deal a session
+(`src/services/walletApi.ts`).
 
 ## Known gaps
 
 - **Not deployed anywhere.** This runs locally; putting it on a real host
   with a real domain is a separate step.
-- **The `status` column migration backfills existing installs once.** The
-  first time a server with an older database starts after this change, any
-  category that was already complete (and therefore already public under
-  the old completeness-only rule) is automatically set to `published`, so
-  existing content doesn't silently vanish from the catalogue. This runs
-  exactly once, guarded by the same migration check as the `ALTER TABLE`
-  itself — a later admin choice to draft or archive something is never
-  overwritten on a subsequent restart.
 - **No real payment provider.** `MockPaymentProvider` stands in until real
-  KNET/aggregator merchant credentials exist — see "Payments and board-game
-  credits" above.
+  KNET/aggregator merchant credentials exist — see "The wallet" above.
+- **No repetition avoidance across sessions.** `startGameSession` draws 10
+  random titles from the deck each time, with no memory of what a player
+  already saw in an earlier session against the same deck — unlike the free
+  party game's rolling-window repeat avoidance. Low priority while decks
+  are large (hundreds of titles) relative to a 10-title session, but worth
+  revisiting if a deck ever shrinks close to that size.
 - **`uuid` transitive vulnerability** via `exceljs` (write path only — never
   exercised, since the server only *reads* uploaded spreadsheets). Fixing it
   means downgrading `exceljs` three major versions; not worth it for an
   unreachable code path. Re-check next time `exceljs` cuts a release.
-- No audio/reorder tile media upload yet — only category cover images.
-- Uploaded images are stored on local disk, not object storage — fine for
-  one server, won't survive a redeploy or scale past a single instance.
-- **Live catalogue fetch can overwrite a good offline fallback with an empty
-  one.** If the server is reachable but has zero published categories yet
-  (a fresh/unseeded install), `GET /catalogue` returns `200 []` — a
-  successful fetch — and the app replaces its bundled fallback catalogue
-  with that empty result instead of keeping the fallback. Found live while
-  testing the checkout flow against an unseeded dev server. Not yet fixed;
-  the real fix is catalogue versioning with an atomic fetch→validate→switch
-  update, so an empty or invalid response never displaces a good cache.
+- **A crafted docx/xlsx could be a zip bomb.** Neither the import parser nor
+  multer caps decompressed size, only the upload size (10 MB). Low priority
+  because deck import is admin-only, not public attack surface.

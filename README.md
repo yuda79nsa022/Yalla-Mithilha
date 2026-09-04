@@ -60,7 +60,7 @@ and the winner screen all work unchanged.
 `Platform.OS === 'web'` — a website visitor may not know what the game even
 is yet, unlike someone who just installed it. Native installs skip straight
 to `/home` as before. The landing page explains both game modes and links
-into the same routes `/home` does (`/rooms`, `/board/draft`, `/privacy`,
+into the same routes `/home` does (`/rooms`, `/charades/draft`, `/privacy`,
 `/how-to-play`), fully bilingual and RTL-aware like everything else in `app/`.
 
 ### The session lifecycle
@@ -102,12 +102,13 @@ happens. `npm test` asserts this.
 - Player names, scores and settings are stored on the device only, and the
   core party game (rooms, mini-games, scoring) needs no network call at all.
 - Three things do talk to a separate backend (see `server/`):
-  - The board-game mode fetches its category catalogue from a server on
-    startup, with no personal data in that request, and falls back to a
-    bundled offline copy if the fetch fails.
-  - A player can optionally create an account (Settings → Account) to save
-    a username across sessions. That sends a username and password to the
-    server. **Guest play needs none of this and works exactly the same
+  - Charades (the paid game) needs an account and a connection — there is
+    no offline fallback, since it involves a real wallet. Signing up sends
+    a username and password to the server; topping up and playing move
+    money through it. **The free party game needs none of this.**
+  - A player can optionally create the same account from Settings → Account
+    without ever touching Charades — it just saves a username across
+    sessions. **Guest play needs none of this and works exactly the same
     without ever creating an account.**
   - Reporting a card (which card, why, your language, roughly which app
     version — never a name or account) queues on-device and syncs to the
