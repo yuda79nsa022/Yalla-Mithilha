@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "jest",
     "create-admin": "tsx src/createAdmin.ts",
+    "seed-decks": "tsx src/seedDecks.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

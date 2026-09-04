@@ -36,6 +36,18 @@ From the "Decks" tab: create a deck, upload a `.docx`/`.xlsx`/`.pdf` list of
 titles (every non-duplicate line gets added — no size limit), and set the
 price of one game (shown/entered in KD, stored as fils; 1000 fils = 1 KD).
 
+### Starter decks
+
+```bash
+npm run seed-decks
+```
+
+Loads four real decks bundled in `seed-data/decks/*.json` — Kuwaiti Plays,
+Egyptian Plays, Egyptian TV Series, and Gulf Series, ~500 titles each —
+straight into the database. Safe to re-run: an existing deck is left alone,
+and `addTitlesToDeck` itself skips any title already present, so re-running
+only tops up whatever's missing rather than duplicating anything.
+
 ## Environment variables
 
 | Var | Default | Notes |
