@@ -56,7 +56,7 @@ export default function Landing() {
           {t('landing.charadesBody')}
         </T>
         <Spacer size={spacing.sm} />
-        <Button label={t('landing.charadesCta')} accent={colors.accent} onPress={() => router.push('/charades/draft')} />
+        <Button label={t('landing.charadesCta')} accent={colors.accent} onPress={() => router.push('/charades/home')} />
       </View>
 
       <Spacer size={spacing.xl} />

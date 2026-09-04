@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -304,6 +305,58 @@ export function RoundProgress({ round, total }: { round: number; total: number }
   );
 }
 
+/**
+ * `Alert.alert` is a silent no-op on the web build (react-native-web ships
+ * it as an empty function) — a confirmation built on it never appears in a
+ * browser, so a destructive action either does nothing there or, worse,
+ * needs a second path just for web. A real `Modal` works on every
+ * platform, so every yes/no confirmation in this app goes through this
+ * instead of `Alert.alert`.
+ */
+export function ConfirmModal({
+  visible,
+  title,
+  body,
+  confirmLabel,
+  cancelLabel,
+  onConfirm,
+  onCancel,
+  destructive = false,
+}: {
+  visible: boolean;
+  title: string;
+  body?: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.confirmBackdrop}>
+        <View style={styles.confirmCard}>
+          <T variant="heading" align="center">
+            {title}
+          </T>
+          {body ? (
+            <>
+              <Spacer size={spacing.sm} />
+              <T variant="body" align="center" color={colors.textMuted}>
+                {body}
+              </T>
+            </>
+          ) : null}
+          <Spacer size={spacing.lg} />
+          <Button label={confirmLabel} tone={destructive ? 'danger' : 'primary'} onPress={onConfirm} />
+          <Spacer size={spacing.sm} />
+          <Button label={cancelLabel} tone="ghost" onPress={onCancel} />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   screenInner: { flex: 1, padding: spacing.lg, gap: spacing.md },
@@ -381,4 +434,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: colors.border,
   },
+  confirmBackdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', padding: spacing.lg },
+  confirmCard: { backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: spacing.lg },
 });

@@ -60,7 +60,7 @@ and the winner screen all work unchanged.
 `Platform.OS === 'web'` — a website visitor may not know what the game even
 is yet, unlike someone who just installed it. Native installs skip straight
 to `/home` as before. The landing page explains both game modes and links
-into the same routes `/home` does (`/rooms`, `/charades/draft`, `/privacy`,
+into the same routes `/home` does (`/rooms`, `/charades/home`, `/privacy`,
 `/how-to-play`), fully bilingual and RTL-aware like everything else in `app/`.
 
 ### The session lifecycle

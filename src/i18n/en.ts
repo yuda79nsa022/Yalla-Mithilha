@@ -189,6 +189,8 @@ export const en: Record<TranslationKey, string> = {
 
   'charades.home.play': 'Charades',
   'charades.home.subtitle': 'Pick a deck, pay for one game, act it out with no words',
+  'charades.home.guestNotice': 'Sign in to keep your wallet and find it again later',
+  'charades.home.startNew': 'Start a new game',
 
   'charades.draft.title': 'Set up your game',
   'charades.draft.subtitle': 'Two teams, one deck, ten rounds between them',

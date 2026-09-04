@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, TextInput } from 'react-native';
-import { Button, Screen, Spacer, T } from '../src/ui/components';
+import { StyleSheet, TextInput } from 'react-native';
+import { Button, ConfirmModal, Screen, Spacer, T } from '../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
@@ -11,12 +11,12 @@ export default function Account() {
   const [mode, setMode] = useState<'signIn' | 'create'>('signIn');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
 
-  const confirmLogout = () => {
-    Alert.alert(t('account.logout'), t('account.logoutConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.yes'), style: 'destructive', onPress: logoutPlayerAccount },
-    ]);
+  const logout = () => {
+    setConfirmingLogout(false);
+    logoutPlayerAccount();
+    router.replace('/home');
   };
 
   const submit = async () => {
@@ -35,9 +35,20 @@ export default function Account() {
         <Spacer size={spacing.xl} />
         <T variant="body">{t('account.loggedInAs', { username: player.username })}</T>
         <Spacer size={spacing.xl} />
-        <Button label={t('account.logout')} tone="danger" onPress={confirmLogout} />
+        <Button label={t('account.logout')} tone="danger" onPress={() => setConfirmingLogout(true)} />
         <Spacer />
         <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
+
+        <ConfirmModal
+          visible={confirmingLogout}
+          title={t('account.logout')}
+          body={t('account.logoutConfirm')}
+          confirmLabel={t('common.yes')}
+          cancelLabel={t('common.cancel')}
+          destructive
+          onConfirm={logout}
+          onCancel={() => setConfirmingLogout(false)}
+        />
       </Screen>
     );
   }

@@ -192,6 +192,8 @@ export const ar = {
 
   'charades.home.play': 'مثّلها',
   'charades.home.subtitle': 'اختاروا فئة، ادفعوا للعبة، ومثّلوها بالإشارة بدون كلام',
+  'charades.home.guestNotice': 'سجّل دخولك عشان محفظتك تنحفظ وتلقاها بعدين',
+  'charades.home.startNew': 'ابدأ لعبة جديدة',
 
   'charades.draft.title': 'جهّزوا لعبتكم',
   'charades.draft.subtitle': 'فريقين، فئة وحدة، عشر جولات بينهم',

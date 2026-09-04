@@ -1,26 +1,19 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
-import { Button, Divider, Screen, Spacer, T, Toggle } from '../src/ui/components';
+import { View } from 'react-native';
+import { Button, ConfirmModal, Divider, Screen, Spacer, T, Toggle } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
 export default function Settings() {
   const { t, prefs, setPrefs, reports, wipeEverything, player } = useApp();
   const [wiped, setWiped] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
-  const confirmReset = () => {
-    Alert.alert(t('settings.reset'), t('settings.resetConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.yes'),
-        style: 'destructive',
-        onPress: async () => {
-          await wipeEverything();
-          setWiped(true);
-        },
-      },
-    ]);
+  const reset = async () => {
+    setConfirmingReset(false);
+    await wipeEverything();
+    setWiped(true);
   };
 
   return (
@@ -75,7 +68,7 @@ export default function Settings() {
       <Spacer />
       <Button label={t('home.about')} tone="secondary" onPress={() => router.push('/privacy')} />
       <Spacer size={spacing.sm} />
-      <Button label={t('settings.reset')} tone="danger" onPress={confirmReset} />
+      <Button label={t('settings.reset')} tone="danger" onPress={() => setConfirmingReset(true)} />
       {wiped ? (
         <>
           <Spacer size={spacing.sm} />
@@ -89,6 +82,17 @@ export default function Settings() {
       <Spacer />
       <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
       <Spacer />
+
+      <ConfirmModal
+        visible={confirmingReset}
+        title={t('settings.reset')}
+        body={t('settings.resetConfirm')}
+        confirmLabel={t('common.yes')}
+        cancelLabel={t('common.cancel')}
+        destructive
+        onConfirm={reset}
+        onCancel={() => setConfirmingReset(false)}
+      />
     </Screen>
   );
 }

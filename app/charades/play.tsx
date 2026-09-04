@@ -1,9 +1,9 @@
 import { Redirect, router } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
 import React, { useState } from 'react';
-import { Modal, Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { Button, Screen, Spacer, T } from '../../src/ui/components';
+import { Button, ConfirmModal, Screen, Spacer, T } from '../../src/ui/components';
 import { colors, radius, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
@@ -116,27 +116,19 @@ export default function CharadesPlay() {
 
       <Button label={t('charades.play.quit')} tone="danger" onPress={() => setConfirmQuit(true)} />
 
-      <Modal visible={confirmQuit} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modal}>
-            <T variant="heading" align="center">
-              {t('charades.play.quitConfirm')}
-            </T>
-            <Spacer />
-            <Button
-              label={t('charades.play.quit')}
-              tone="danger"
-              onPress={() => {
-                setConfirmQuit(false);
-                quitCharades();
-                router.replace('/home');
-              }}
-            />
-            <Spacer size={spacing.sm} />
-            <Button label={t('common.back')} tone="ghost" onPress={() => setConfirmQuit(false)} />
-          </View>
-        </View>
-      </Modal>
+      <ConfirmModal
+        visible={confirmQuit}
+        title={t('charades.play.quitConfirm')}
+        confirmLabel={t('charades.play.quit')}
+        cancelLabel={t('common.back')}
+        destructive
+        onConfirm={() => {
+          setConfirmQuit(false);
+          quitCharades();
+          router.replace('/home');
+        }}
+        onCancel={() => setConfirmQuit(false)}
+      />
     </Screen>
   );
 }
@@ -161,6 +153,4 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     backgroundColor: colors.bgRaised,
   },
-  modalBackdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', padding: spacing.lg },
-  modal: { backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: spacing.lg },
 });
