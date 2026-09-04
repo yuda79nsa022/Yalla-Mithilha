@@ -1,6 +1,6 @@
 import { STATE_VERSION } from './config';
-import { isBoardComplete } from './board/board';
-import type { BoardState, CategoryDeck } from './board/types';
+import { isCharadesComplete } from './charades';
+import type { CharadesState } from './charades';
 import type {
   ContentLevel,
   Lang,
@@ -41,8 +41,7 @@ export const KEYS = {
   reports: 'ym:reports:v1',
   syncedReportIds: 'ym:syncedReportIds:v1',
   entitlements: 'ym:entitlements:v1',
-  board: 'ym:board:v1',
-  catalogueCache: 'ym:catalogueCache:v1',
+  charades: 'ym:charades:v1',
   playerSession: 'ym:playerSession:v1',
 } as const;
 
@@ -175,44 +174,26 @@ export async function markReportsSynced(store: KeyValueStore, ids: string[]): Pr
   await store.setItem(KEYS.syncedReportIds, JSON.stringify(next));
 }
 
-export async function saveBoard(store: KeyValueStore, state: BoardState): Promise<void> {
-  await store.setItem(KEYS.board, JSON.stringify(state));
+export async function saveCharades(store: KeyValueStore, state: CharadesState): Promise<void> {
+  await store.setItem(KEYS.charades, JSON.stringify(state));
 }
 
-/** Returns `null` for a missing, corrupt or malformed saved board. */
-export async function loadBoard(store: KeyValueStore): Promise<BoardState | null> {
+/** Returns `null` for a missing, corrupt or already-finished saved session. */
+export async function loadCharades(store: KeyValueStore): Promise<CharadesState | null> {
   try {
-    const raw = await store.getItem(KEYS.board);
+    const raw = await store.getItem(KEYS.charades);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as BoardState;
+    const parsed = JSON.parse(raw) as CharadesState;
     if (typeof parsed.id !== 'string' || !parsed.id) return null;
-    if (parsed.tiles?.length !== 36 || parsed.teams?.length !== 2) return null;
-    if (isBoardComplete(parsed)) return null;
+    if (isCharadesComplete(parsed)) return null;
     return parsed;
   } catch {
     return null;
   }
 }
 
-export async function clearBoard(store: KeyValueStore): Promise<void> {
-  await store.removeItem(KEYS.board);
-}
-
-export async function saveCatalogueCache(store: KeyValueStore, decks: CategoryDeck[]): Promise<void> {
-  await store.setItem(KEYS.catalogueCache, JSON.stringify(decks));
-}
-
-/** Returns `null` for a missing or corrupt cache — the caller falls back to the bundled catalogue. */
-export async function loadCatalogueCache(store: KeyValueStore): Promise<CategoryDeck[] | null> {
-  try {
-    const raw = await store.getItem(KEYS.catalogueCache);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as CategoryDeck[];
-    if (!Array.isArray(parsed) || !parsed.length) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+export async function clearCharades(store: KeyValueStore): Promise<void> {
+  await store.removeItem(KEYS.charades);
 }
 
 /** An optional, real account — separate from guest play, which never creates one of these. */

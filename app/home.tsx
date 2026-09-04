@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Divider, Screen, Spacer, T } from '../src/ui/components';
 import { colors, radius, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
@@ -10,7 +10,7 @@ const CATEGORY_THUMB_ACCENTS = [
 ];
 
 export default function Home() {
-  const { t, lang, catalogue, savedSession, resumeSaved, discardSaved, board, quitBoard } = useApp();
+  const { t, lang, decks, savedSession, resumeSaved, discardSaved, charades, quitCharades } = useApp();
 
   const resume = () => {
     resumeSaved();
@@ -61,18 +61,18 @@ export default function Home() {
 
       <Spacer size={spacing.lg} />
       <View style={styles.boardCard}>
-        {board ? (
+        {charades ? (
           <>
-            <T variant="heading">{t('board.resume.title')}</T>
+            <T variant="heading">{t('charades.resume.title')}</T>
             <T variant="label" color={colors.textMuted}>
-              {t('board.resume.body')}
+              {t('charades.resume.body')}
             </T>
             <Spacer size={spacing.sm} />
             <Button
               label={t('resume.continue')}
               accent={colors.accent}
               onPress={() =>
-                router.push(board.lock === 'unlocked' ? '/board/play' : '/board/checkout')
+                router.push(charades.lock === 'unlocked' ? '/charades/play' : '/charades/checkout')
               }
             />
             <Spacer size={spacing.sm} />
@@ -80,48 +80,44 @@ export default function Home() {
               label={t('resume.discard')}
               tone="ghost"
               onPress={() => {
-                quitBoard();
-                router.push('/board/draft');
+                quitCharades();
+                router.push('/charades/draft');
               }}
             />
           </>
         ) : (
           <>
-            <T variant="heading">{t('board.home.play')}</T>
+            <T variant="heading">{t('charades.home.play')}</T>
             <T variant="label" color={colors.textMuted}>
-              {t('board.home.subtitle')}
+              {t('charades.home.subtitle')}
             </T>
             <Spacer size={spacing.sm} />
             <Button
-              label={t('board.home.play')}
+              label={t('charades.home.play')}
               tone="secondary"
               accent={colors.accent}
-              onPress={() => router.push('/board/draft')}
+              onPress={() => router.push('/charades/draft')}
             />
-            {catalogue.length ? (
+            {decks.length ? (
               <>
                 <Spacer size={spacing.md} />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.thumbRow}>
-                    {catalogue.map((deck, i) => (
+                    {decks.map((deck, i) => (
                       <Pressable
                         key={deck.id}
                         accessibilityRole="button"
                         accessibilityLabel={lang === 'ar' ? deck.nameAr : deck.nameEn}
-                        onPress={() => router.push('/board/draft')}
+                        onPress={() => router.push('/charades/draft')}
                         style={({ pressed }) => [styles.thumbCard, pressed && { opacity: 0.72 }]}
                       >
-                        {deck.imageUrl ? (
-                          <Image source={{ uri: deck.imageUrl }} style={styles.thumbImage} />
-                        ) : (
-                          <View
-                            style={[
-                              styles.thumbImage,
-                              styles.thumbPlaceholder,
-                              { backgroundColor: CATEGORY_THUMB_ACCENTS[i % CATEGORY_THUMB_ACCENTS.length] },
-                            ]}
-                          />
-                        )}
+                        <View
+                          style={[
+                            styles.thumbImage,
+                            styles.thumbPlaceholder,
+                            { backgroundColor: CATEGORY_THUMB_ACCENTS[i % CATEGORY_THUMB_ACCENTS.length] },
+                          ]}
+                        />
                         <T variant="label" numberOfLines={1} style={styles.thumbLabel}>
                           {lang === 'ar' ? deck.nameAr : deck.nameEn}
                         </T>

@@ -13,16 +13,15 @@ import {
   sessionPromptIdsByGame,
   type CreateSessionInput,
 } from '../engine/engine';
-import { draftBoard, unlockBoard } from '../engine/board/board';
-import type { BoardState, CategoryDeck } from '../engine/board/types';
+import { draftCharades, unlockCharades as unlockCharadesState } from '../engine/charades';
+import type { CharadesState } from '../engine/charades';
 import {
   DEFAULT_PREFERENCES,
   addReport,
-  clearBoard,
+  clearCharades,
   clearPlayerSession,
   clearSession,
-  loadBoard,
-  loadCatalogueCache,
+  loadCharades,
   loadPlayerSession,
   loadPreferences,
   loadRecent,
@@ -31,8 +30,7 @@ import {
   loadSyncedReportIds,
   markReportsSynced,
   resetAllLocalData,
-  saveBoard,
-  saveCatalogueCache,
+  saveCharades,
   savePlayerSession,
   saveRecent,
   savePreferences,
@@ -41,26 +39,26 @@ import {
   type PlayerSession,
 } from '../engine/persistence';
 import { rememberPrompts } from '../engine/selector';
-import type { Lang, MiniGameId, PromptReport, SessionState, Team } from '../engine/types';
-import { BOARD_CATALOGUE } from '../content/board';
+import type { Lang, MiniGameId, PromptReport, SessionState } from '../engine/types';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
 import { setSoundEnabled } from '../platform/audio';
 import { ownedPacks } from '../services/entitlements';
 import { track } from '../services/analytics';
-import { fetchBoardCatalogue } from '../services/catalogueApi';
 import { syncReports } from '../services/reportSyncApi';
 import { PlayerAuthError, loginPlayer as loginPlayerApi, registerPlayer as registerPlayerApi } from '../services/playerAuthApi';
 import {
-  BoardPaymentError,
-  confirmBoardCheckout as confirmBoardCheckoutApi,
-  consumeBoardCredit,
-  failBoardCheckout as failBoardCheckoutApi,
-  getBoardCredits,
-  startBoardCheckout as startBoardCheckoutApi,
+  WalletError,
+  confirmCheckout as confirmCheckoutApi,
+  failCheckout as failCheckoutApi,
+  getGamePrice,
+  getWalletBalance,
+  listDecks,
+  startCheckout as startCheckoutApi,
+  startGameSession,
   type CheckoutPayment,
-  type ProductId,
-} from '../services/boardPaymentApi';
+  type PublicDeck,
+} from '../services/walletApi';
 
 interface AppValue {
   ready: boolean;
@@ -86,44 +84,39 @@ interface AppValue {
   wipeEverything: () => Promise<void>;
 
   /**
-   * SeenJeem-style board game: draft, pay, play on one shared screen.
-   * `catalogue` starts as the cached or bundled category list and is
-   * replaced in the background by a live fetch — never blocks startup, and
-   * silently keeps whatever it already had if the fetch fails.
+   * The paid game: silent charades. `decks` is the server's list of playable
+   * decks (no offline fallback — spending real money already requires a
+   * connection). `gamePriceFils` is the current admin-set price of one game.
    */
-  catalogue: CategoryDeck[];
-  board: BoardState | null;
-  startBoardDraft: (
-    teamAName: string,
-    teamBName: string,
-    teamAPicks: readonly [string, string, string],
-    teamBPicks: readonly [string, string, string]
-  ) => BoardState;
-  updateBoard: (next: BoardState) => void;
+  decks: PublicDeck[];
+  gamePriceFils: number;
+  charades: CharadesState | null;
+  startCharadesDraft: (deckId: string, teamAName: string, teamBName: string) => CharadesState;
+  updateCharades: (next: CharadesState) => void;
   /**
-   * Spends one server-held credit and unlocks the drafted board. Requires a
-   * signed-in player — paid credits are owned by an account, never by a
-   * device, so there is no local balance to spend without one. False when
-   * there is no player session or no credit to spend.
+   * Spends one wallet credit and deals the drafted session's 10 titles.
+   * Requires a signed-in player — wallet credits are owned by an account,
+   * never a device. False when there is no player session, no credit to
+   * spend, or the deck turned out to be empty.
    */
-  unlockCurrentBoard: () => Promise<boolean>;
-  quitBoard: () => void;
+  unlockCurrentCharades: () => Promise<boolean>;
+  quitCharades: () => void;
 
   /**
-   * Real, server-authoritative board-game credits — owned by the signed-in
-   * player's account, never trusted to local device state. Buying credits
-   * requires a player session; drafting a board does not.
+   * Real, server-authoritative wallet balance — owned by the signed-in
+   * player's account, never trusted to local device state. Topping up
+   * requires a player session; drafting a session does not.
    */
-  boardCredits: number;
-  boardCreditsBusy: boolean;
-  boardCheckoutError: string | null;
-  refreshBoardCredits: () => Promise<void>;
-  /** Starts a checkout. Returns `null` when there is no player session. */
-  startBoardCheckout: (product: ProductId) => Promise<CheckoutPayment | null>;
+  walletBalance: number;
+  walletBusy: boolean;
+  walletError: string | null;
+  refreshWallet: () => Promise<void>;
+  /** Starts a top-up for exactly one game's worth of credit. Returns `null` when there is no player session. */
+  startTopUp: () => Promise<CheckoutPayment | null>;
   /** Stands in for a real KNET/payment-provider success callback until that integration exists. */
-  confirmBoardCheckout: (paymentId: string) => Promise<boolean>;
+  confirmTopUp: (paymentId: string) => Promise<boolean>;
   /** Stands in for a real payment-provider failure/cancellation callback. */
-  failBoardCheckout: (paymentId: string) => Promise<void>;
+  failTopUp: (paymentId: string) => Promise<void>;
 
   /**
    * Optional player account, entirely separate from guest play — which never
@@ -160,65 +153,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [recent, setRecent] = useState<Record<string, string[]>>({});
   const [reports, setReports] = useState<PromptReport[]>([]);
   const [packs, setPacks] = useState<string[]>(['core']);
-  const [board, setBoardState] = useState<BoardState | null>(null);
-  const [catalogue, setCatalogue] = useState<CategoryDeck[]>(BOARD_CATALOGUE);
+  const [charades, setCharadesState] = useState<CharadesState | null>(null);
+  const [decks, setDecks] = useState<PublicDeck[]>([]);
+  const [gamePriceFils, setGamePriceFils] = useState(0);
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
   const [playerAuthBusy, setPlayerAuthBusy] = useState(false);
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null);
-  const [boardCredits, setBoardCredits] = useState(0);
-  const [boardCreditsBusy, setBoardCreditsBusy] = useState(false);
-  const [boardCheckoutError, setBoardCheckoutError] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [
-        storedPrefs,
-        storedRecent,
-        storedReports,
-        storedPacks,
-        unfinished,
-        storedBoard,
-        cachedCatalogue,
-        storedPlayerSession,
-      ] = await Promise.all([
-        loadPreferences(deviceStore),
-        loadRecent(deviceStore),
-        loadReports(deviceStore),
-        ownedPacks(deviceStore),
-        loadSession(deviceStore),
-        loadBoard(deviceStore),
-        loadCatalogueCache(deviceStore),
-        loadPlayerSession(deviceStore),
-      ]);
+      const [storedPrefs, storedRecent, storedReports, storedPacks, unfinished, storedCharades, storedPlayerSession] =
+        await Promise.all([
+          loadPreferences(deviceStore),
+          loadRecent(deviceStore),
+          loadReports(deviceStore),
+          ownedPacks(deviceStore),
+          loadSession(deviceStore),
+          loadCharades(deviceStore),
+          loadPlayerSession(deviceStore),
+        ]);
 
       setPrefsState({ ...storedPrefs, lang: storedPrefs.lang ?? deviceLanguage() });
       setRecent(storedRecent);
       setReports(storedReports);
       setPacks(storedPacks);
       setSavedSession(unfinished);
-      setBoardState(storedBoard);
-      if (cachedCatalogue) setCatalogue(cachedCatalogue);
+      setCharadesState(storedCharades);
       setPlayerSession(storedPlayerSession);
       setSoundEnabled(storedPrefs.sound);
       setReady(true);
 
-      // Never blocks startup — the cached or bundled catalogue is already
-      // showing. A failure here (offline, server down) just leaves it be.
-      fetchBoardCatalogue()
-        .then((fresh) => {
-          setCatalogue(fresh);
-          void saveCatalogueCache(deviceStore, fresh);
-        })
+      // Spending real money already requires a connection, so there is no
+      // offline fallback here the way the free Party Game has — a failure
+      // just leaves the deck list empty and the draft screen says so.
+      listDecks()
+        .then(setDecks)
+        .catch(() => undefined);
+      getGamePrice()
+        .then((r) => setGamePriceFils(r.fils))
         .catch(() => undefined);
 
-      // Board credits live entirely on the server — nothing to show until a
+      // Wallet balance lives entirely on the server — nothing to show until a
       // saved player session proves there is an account to check. A failure
       // here just leaves the balance at 0; the checkout screen can retry.
       if (storedPlayerSession) {
-        getBoardCredits(storedPlayerSession.token)
-          .then(setBoardCredits)
+        getWalletBalance(storedPlayerSession.token)
+          .then(setWalletBalance)
           .catch(() => undefined);
       }
 
@@ -385,104 +370,94 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRecent({});
     setReports([]);
     setPacks(['core']);
-    setBoardState(null);
-    setBoardCredits(0);
-    setBoardCheckoutError(null);
+    setCharadesState(null);
+    setWalletBalance(0);
+    setWalletError(null);
     setPlayerSession(null);
     setPlayerAuthError(null);
     setPrefsState({ ...DEFAULT_PREFERENCES, lang });
   }, [lang]);
 
-  const updateBoard = useCallback((next: BoardState) => {
-    setBoardState(next);
-    void saveBoard(deviceStore, next);
+  const updateCharades = useCallback((next: CharadesState) => {
+    setCharadesState(next);
+    void saveCharades(deviceStore, next);
   }, []);
 
-  const startBoardDraft = useCallback(
-    (
-      teamAName: string,
-      teamBName: string,
-      teamAPicks: readonly [string, string, string],
-      teamBPicks: readonly [string, string, string]
-    ) => {
-      const teamA: Team = { id: 'board-a', name: teamAName, playerIds: [], performerCursor: 0 };
-      const teamB: Team = { id: 'board-b', name: teamBName, playerIds: [], performerCursor: 0 };
-      const next = draftBoard(teamA, teamB, teamAPicks, teamBPicks, catalogue);
-      updateBoard(next);
-      track({ name: 'board_drafted', categoryIds: next.categories.map((c) => c.id) });
+  const startCharadesDraft = useCallback(
+    (deckId: string, teamAName: string, teamBName: string) => {
+      const next = draftCharades(deckId, teamAName, teamBName);
+      updateCharades(next);
+      track({ name: 'charades_drafted', deckId });
       return next;
     },
-    [catalogue, updateBoard]
+    [updateCharades]
   );
 
-  const refreshBoardCredits = useCallback(async () => {
+  const refreshWallet = useCallback(async () => {
     if (!playerSession) {
-      setBoardCredits(0);
+      setWalletBalance(0);
       return;
     }
     try {
-      setBoardCredits(await getBoardCredits(playerSession.token));
+      setWalletBalance(await getWalletBalance(playerSession.token));
     } catch {
       // Leave the last-known balance showing rather than flash it to zero on a transient network error.
     }
   }, [playerSession]);
 
-  const unlockCurrentBoard = useCallback(async () => {
-    if (!board || !playerSession) return false;
+  const unlockCurrentCharades = useCallback(async () => {
+    if (!charades || !playerSession) return false;
     try {
-      const { balance } = await consumeBoardCredit(playerSession.token, board.id);
-      setBoardCredits(balance);
-      updateBoard(unlockBoard(board));
-      track({ name: 'board_unlocked' });
+      const { titles, balance } = await startGameSession(playerSession.token, charades.id, charades.deckId);
+      setWalletBalance(balance);
+      updateCharades(unlockCharadesState(charades, titles));
+      track({ name: 'charades_unlocked', deckId: charades.deckId });
       return true;
     } catch (err) {
-      setBoardCheckoutError(err instanceof BoardPaymentError ? err.message : 'could not reach the server');
+      setWalletError(err instanceof WalletError ? err.message : 'could not reach the server');
       return false;
     }
-  }, [board, playerSession, updateBoard]);
+  }, [charades, playerSession, updateCharades]);
 
-  const startBoardCheckout = useCallback(
-    async (product: ProductId) => {
-      if (!playerSession) return null;
-      setBoardCreditsBusy(true);
-      setBoardCheckoutError(null);
-      try {
-        return await startBoardCheckoutApi(playerSession.token, product);
-      } catch (err) {
-        setBoardCheckoutError(err instanceof BoardPaymentError ? err.message : 'could not reach the server');
-        return null;
-      } finally {
-        setBoardCreditsBusy(false);
-      }
-    },
-    [playerSession]
-  );
+  const startTopUp = useCallback(async () => {
+    if (!playerSession) return null;
+    setWalletBusy(true);
+    setWalletError(null);
+    try {
+      return await startCheckoutApi(playerSession.token);
+    } catch (err) {
+      setWalletError(err instanceof WalletError ? err.message : 'could not reach the server');
+      return null;
+    } finally {
+      setWalletBusy(false);
+    }
+  }, [playerSession]);
 
-  const confirmBoardCheckout = useCallback(
+  const confirmTopUp = useCallback(
     async (paymentId: string) => {
       if (!playerSession) return false;
-      setBoardCreditsBusy(true);
-      setBoardCheckoutError(null);
+      setWalletBusy(true);
+      setWalletError(null);
       try {
-        const { balance } = await confirmBoardCheckoutApi(playerSession.token, paymentId);
-        setBoardCredits(balance);
-        track({ name: 'board_credits_granted', count: balance });
+        const { balance } = await confirmCheckoutApi(playerSession.token, paymentId);
+        setWalletBalance(balance);
+        track({ name: 'wallet_topped_up', balance });
         return true;
       } catch (err) {
-        setBoardCheckoutError(err instanceof BoardPaymentError ? err.message : 'could not reach the server');
+        setWalletError(err instanceof WalletError ? err.message : 'could not reach the server');
         return false;
       } finally {
-        setBoardCreditsBusy(false);
+        setWalletBusy(false);
       }
     },
     [playerSession]
   );
 
-  const failBoardCheckout = useCallback(
+  const failTopUp = useCallback(
     async (paymentId: string) => {
       if (!playerSession) return;
       try {
-        await failBoardCheckoutApi(playerSession.token, paymentId);
+        await failCheckoutApi(playerSession.token, paymentId);
       } catch {
         // Nothing to reconcile client-side — the payment simply never grants credits.
       }
@@ -490,9 +465,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [playerSession]
   );
 
-  const quitBoard = useCallback(() => {
-    setBoardState(null);
-    void clearBoard(deviceStore);
+  const quitCharades = useCallback(() => {
+    setCharadesState(null);
+    void clearCharades(deviceStore);
   }, []);
 
   const registerPlayerAccount = useCallback(async (username: string, password: string) => {
@@ -504,7 +479,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPlayerSession(session);
       await savePlayerSession(deviceStore, session);
       track({ name: 'player_account_created' });
-      getBoardCredits(session.token).then(setBoardCredits).catch(() => undefined);
+      getWalletBalance(session.token).then(setWalletBalance).catch(() => undefined);
       return true;
     } catch (err) {
       setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
@@ -523,7 +498,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPlayerSession(session);
       await savePlayerSession(deviceStore, session);
       track({ name: 'player_logged_in' });
-      getBoardCredits(session.token).then(setBoardCredits).catch(() => undefined);
+      getWalletBalance(session.token).then(setWalletBalance).catch(() => undefined);
       return true;
     } catch (err) {
       setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
@@ -536,8 +511,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logoutPlayerAccount = useCallback(() => {
     setPlayerSession(null);
     setPlayerAuthError(null);
-    setBoardCredits(0);
-    setBoardCheckoutError(null);
+    setWalletBalance(0);
+    setWalletError(null);
     void clearPlayerSession(deviceStore);
     track({ name: 'player_logout' });
   }, []);
@@ -561,19 +536,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     reports,
     report,
     wipeEverything,
-    catalogue,
-    board,
-    startBoardDraft,
-    updateBoard,
-    unlockCurrentBoard,
-    quitBoard,
-    boardCredits,
-    boardCreditsBusy,
-    boardCheckoutError,
-    refreshBoardCredits,
-    startBoardCheckout,
-    confirmBoardCheckout,
-    failBoardCheckout,
+    decks,
+    gamePriceFils,
+    charades,
+    startCharadesDraft,
+    updateCharades,
+    unlockCurrentCharades,
+    quitCharades,
+    walletBalance,
+    walletBusy,
+    walletError,
+    refreshWallet,
+    startTopUp,
+    confirmTopUp,
+    failTopUp,
     player: playerSession ? { id: playerSession.id, username: playerSession.username } : null,
     playerAuthBusy,
     playerAuthError,

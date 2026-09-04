@@ -42,9 +42,8 @@ export async function grantPack(store: KeyValueStore, packId: string): Promise<s
   return next;
 }
 
-// Board-game credits used to live here as a local AsyncStorage counter, but
-// that made them trivially forgeable (edit local storage, play for free
-// forever). They are now server-authoritative — see
-// `src/services/boardPaymentApi.ts` and `server/src/db.ts`'s credit ledger —
-// and require a signed-in player account, unlike everything else in this
-// file.
+// The Charades wallet is deliberately not here: a local AsyncStorage counter
+// would be trivially forgeable (edit local storage, play for free forever).
+// It is server-authoritative instead — see `src/services/walletApi.ts` and
+// `server/src/db.ts`'s credit ledger — and requires a signed-in player
+// account, unlike everything else in this file.

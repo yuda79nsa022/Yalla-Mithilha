@@ -50,13 +50,13 @@ export default function Landing() {
       <Spacer size={spacing.md} />
       <View style={[styles.card, { borderColor: colors.accent }]}>
         <T variant="heading" color={colors.accent}>
-          {t('landing.boardTitle')}
+          {t('landing.charadesTitle')}
         </T>
         <T variant="body" color={colors.textMuted}>
-          {t('landing.boardBody')}
+          {t('landing.charadesBody')}
         </T>
         <Spacer size={spacing.sm} />
-        <Button label={t('landing.boardCta')} accent={colors.accent} onPress={() => router.push('/board/draft')} />
+        <Button label={t('landing.charadesCta')} accent={colors.accent} onPress={() => router.push('/charades/draft')} />
       </View>
 
       <Spacer size={spacing.xl} />

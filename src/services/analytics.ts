@@ -30,10 +30,10 @@ export type AnalyticsEvent =
   | { name: 'prompt_reported'; promptId: string; reason: string }
   | { name: 'rematch_selected' }
   | { name: 'language_changed'; lang: 'ar' | 'en' }
-  | { name: 'board_drafted'; categoryIds: string[] }
-  | { name: 'board_unlocked' }
-  | { name: 'board_credits_granted'; count: number }
-  | { name: 'board_completed'; winnerTeamId: string | null }
+  | { name: 'charades_drafted'; deckId: string }
+  | { name: 'charades_unlocked'; deckId: string }
+  | { name: 'charades_completed'; winner: 'A' | 'B' | 'tie' }
+  | { name: 'wallet_topped_up'; balance: number }
   | { name: 'player_account_created' }
   | { name: 'player_logged_in' }
   | { name: 'player_logout' };
