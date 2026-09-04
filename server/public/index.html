@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Yalla Mithilha — Board Catalogue Admin</title>
+<title>Yalla Mithilha — Charades Admin</title>
 <style>
   /* Palette lifted from the Yalla Mithilha logo, same tokens as src/ui/theme.ts:
      cream paper, poster blue for chrome, hot pink for the one thing to tap. */
@@ -30,29 +30,21 @@
   .field { margin-bottom: 10px; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
-  .tile-card { border: 1px solid #EAE0C4; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
-  .tile-card.needs-content { border-color: #F0A23C; background: #FDF3E2; }
   .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #EAE0C4; color: #17222E; }
   .badge.complete { background: #DCF3E9; color: #166F4C; }
   .badge.incomplete { background: #FBE3E0; color: #C23A2E; }
-  .badge.published { background: #DCF3E9; color: #166F4C; }
-  .badge.draft { background: #EAE0C4; color: #57697E; }
-  .badge.archived { background: #F0EAFC; color: #6E4FB8; }
-  .badge.duplicate { background: #FDF3D6; color: #8A6100; }
   [dir="rtl"] { text-align: right; }
   .muted { color: #57697E; font-size: 13px; }
   .hidden { display: none !important; }
   a.back { color: #57697E; text-decoration: none; font-size: 14px; cursor: pointer; }
-  .thumb { width: 96px; height: 96px; border-radius: 10px; object-fit: cover; background: #F3ECDA; border: 1px solid #D8C79C; }
-  .thumbPlaceholder { width: 96px; height: 96px; border-radius: 10px; background: #F3ECDA; border: 1px dashed #D8C79C; display: flex; align-items: center; justify-content: center; color: #8B93A0; font-size: 12px; text-align: center; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Board Catalogue Admin</h1>
+  <h1>Charades Admin</h1>
   <nav id="mainNav" class="hidden">
-    <button id="navCategories" class="active">Categories</button>
+    <button id="navDecks" class="active">Decks</button>
     <button id="navReports">Reports</button>
     <button id="navPlayers">Players</button>
     <button id="navAdmins">Admins</button>
@@ -82,103 +74,62 @@
 
   <div id="app" class="hidden">
 
-    <div id="categoriesSection">
-      <div id="listView">
+    <div id="decksSection">
+      <div id="deckListView">
         <div class="card">
           <div class="row" style="align-items:flex-end">
             <div>
-              <h2 style="margin:0 0 4px">Categories</h2>
-              <p class="muted" style="margin:0">Only categories where all six tiles are complete ever reach the app.</p>
+              <h2 style="margin:0 0 4px">Decks</h2>
+              <p class="muted" style="margin:0">Charades decks — a pool of titles to act out. Any deck with at least one title is playable.</p>
             </div>
-            <div style="flex:0 0 auto"><button id="newCategoryBtn">+ New category</button></div>
+            <div style="flex:0 0 auto"><button id="newDeckBtn">+ New deck</button></div>
           </div>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">Game price</h3>
+          <p class="muted">What one game costs a player, deducted from their wallet once they start playing.</p>
+          <div class="row">
+            <div class="field"><label>Price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
+            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveGamePriceBtn" class="secondary">Save price</button></div>
+          </div>
+          <p id="gamePriceResult" class="muted"></p>
         </div>
         <div class="card">
           <table>
             <thead>
-              <tr><th></th><th>ID</th><th>Name</th><th>Tier</th><th>Level</th><th>Region</th><th>Complete</th><th>Status</th><th></th></tr>
+              <tr><th>ID</th><th>Name</th><th>Titles</th><th></th></tr>
             </thead>
-            <tbody id="categoryRows"></tbody>
+            <tbody id="deckRows"></tbody>
           </table>
         </div>
       </div>
 
-      <div id="editView" class="hidden">
-        <a class="back" id="backLink">&larr; Back to categories</a>
+      <div id="deckEditView" class="hidden">
+        <a class="back" id="deckBackLink">&larr; Back to decks</a>
         <div class="card">
-          <h2 id="editTitle" style="margin-top:0"></h2>
+          <h2 id="deckEditTitle" style="margin-top:0"></h2>
           <div class="row">
-            <div class="field"><label>id</label><input id="fId" disabled /></div>
-            <div class="field"><label>tier</label>
-              <select id="fTier"><option value="free">free</option><option value="paid">paid</option></select>
-            </div>
+            <div class="field"><label>id</label><input id="dId" disabled /></div>
           </div>
           <div class="row">
-            <div class="field"><label>Name (Arabic)</label><input id="fNameAr" dir="rtl" /></div>
-            <div class="field"><label>Name (English)</label><input id="fNameEn" /></div>
+            <div class="field"><label>Name (Arabic)</label><input id="dNameAr" dir="rtl" /></div>
+            <div class="field"><label>Name (English)</label><input id="dNameEn" /></div>
           </div>
-          <div class="row">
-            <div class="field"><label>level</label>
-              <select id="fLevel">
-                <option value="kids">kids</option><option value="family">family</option>
-                <option value="friends">friends</option><option value="adults">adults</option>
-              </select>
-            </div>
-            <div class="field"><label>region</label>
-              <select id="fRegion">
-                <option value="kw">kw</option><option value="gulf">gulf</option>
-                <option value="egypt">egypt</option><option value="global">global</option>
-              </select>
-            </div>
-          </div>
-          <button id="saveCategoryBtn">Save category</button>
-          <button class="danger" id="deleteCategoryBtn">Delete category</button>
-        </div>
-
-        <div class="card">
-          <h3 style="margin-top:0">Status</h3>
-          <p class="muted">A category only ever reaches the app once it is <strong>both</strong> published <strong>and</strong> complete — publishing an incomplete one is harmless. New and imported content always starts as draft.</p>
-          <p>Currently: <span id="statusBadge" class="badge"></span></p>
-          <button id="publishBtn" class="secondary">Publish</button>
-          <button id="draftBtn" class="secondary">Move to draft</button>
-          <button id="archiveBtn" class="danger">Archive</button>
-        </div>
-
-        <div class="card">
-          <h3 style="margin-top:0">Cover image</h3>
-          <p class="muted">Shown in the app's home-screen category row.</p>
-          <div class="row" style="align-items:center">
-            <div style="flex:0 0 auto" id="imagePreviewSlot"></div>
-            <div>
-              <input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
-              <div style="margin-top:8px">
-                <button id="uploadImageBtn" class="secondary" disabled>Upload image</button>
-                <button id="removeImageBtn" class="danger hidden">Remove image</button>
-              </div>
-              <p id="imageResult" class="muted"></p>
-            </div>
-          </div>
+          <button id="saveDeckBtn">Save deck</button>
+          <button class="danger" id="deleteDeckBtn">Delete deck</button>
         </div>
 
         <div class="card">
           <h3 style="margin-top:0">Import titles</h3>
-          <p class="muted">Upload a .docx, .xlsx or .pdf list of names, review exactly what would be filled, then confirm. Only fills empty slots — never overwrites a tile that already has content. Fills the Arabic prompt only; you still need to add the English prompt and both answers per tile.</p>
+          <p class="muted">Upload a .docx, .xlsx or .pdf list of names — every non-duplicate title is added to this deck directly. No size limit, so the whole list goes in at once.</p>
           <input id="importFile" type="file" accept=".docx,.xlsx,.pdf" />
-          <button id="importPreviewBtn" class="secondary">Preview import</button>
-          <div id="importPreviewResult" class="hidden" style="margin-top:12px">
-            <p id="importPreviewSummary" class="muted"></p>
-            <div id="importPreviewRows" style="max-height:260px;overflow-y:auto;border:1px solid #D8C79C;border-radius:8px;padding:8px"></div>
-            <div style="margin-top:10px">
-              <button id="importCommitBtn">Confirm and fill empty slots</button>
-              <button id="importCancelBtn" class="secondary">Cancel</button>
-            </div>
-          </div>
+          <button id="importBtn" class="secondary">Import</button>
           <p id="importResult" class="muted"></p>
         </div>
 
         <div class="card">
-          <h3 style="margin-top:0">Tiles</h3>
-          <div id="tilesContainer"></div>
+          <h3 style="margin-top:0">Titles (<span id="titleCount">0</span>)</h3>
+          <div id="titleRows" style="max-height:400px;overflow-y:auto"></div>
         </div>
       </div>
     </div>
@@ -250,8 +201,8 @@
 <script>
 let token = localStorage.getItem('adminSessionToken') || '';
 let currentUsername = localStorage.getItem('adminUsername') || '';
-let currentCategoryId = null;
-let currentCategory = null;
+let currentDeckId = null;
+let currentDeck = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -304,7 +255,7 @@ function signOut() {
 
 async function enterApp() {
   try {
-    await api('/admin/categories');
+    await api('/admin/decks');
   } catch (e) {
     // Stored token is stale/invalid — fall back to the sign-in form.
     signOut();
@@ -315,10 +266,10 @@ async function enterApp() {
   $('mainNav').classList.remove('hidden');
   $('logoutBtn').classList.remove('hidden');
   $('whoami').textContent = 'signed in as ' + currentUsername;
-  showCategoriesSection();
+  showDecksSection();
 }
 
-const TABS = ['categories', 'reports', 'players', 'admins', 'auditLog'];
+const TABS = ['decks', 'reports', 'players', 'admins', 'auditLog'];
 
 function showTab(tab, onShow) {
   TABS.forEach((t) => {
@@ -329,8 +280,8 @@ function showTab(tab, onShow) {
   onShow();
 }
 
-function showCategoriesSection() {
-  showTab('categories', showList);
+function showDecksSection() {
+  showTab('decks', showDeckList);
 }
 
 function showReportsSection() {
@@ -349,120 +300,72 @@ function showAuditLogSection() {
   showTab('auditLog', renderAuditLog);
 }
 
-function isComplete(category) {
-  return category.tiles.length === 6 && category.tiles.every((t) => !t.needsContent);
-}
+async function showDeckList() {
+  $('deckEditView').classList.add('hidden');
+  $('deckListView').classList.remove('hidden');
+  const [decks, price] = await Promise.all([api('/admin/decks'), api('/admin/settings/game-price')]);
+  $('gamePriceInput').value = (price.fils / 1000).toFixed(3);
+  $('gamePriceResult').textContent = '';
 
-async function showList() {
-  $('editView').classList.add('hidden');
-  $('listView').classList.remove('hidden');
-  const categories = await api('/admin/categories');
-  const rows = categories.map((c) => {
-    const complete = isComplete(c);
-    const thumb = c.imageUrl
-      ? `<img class="thumb" style="width:40px;height:40px" src="${c.imageUrl}" />`
-      : '';
-    return `<tr>
-      <td>${thumb}</td>
-      <td>${escapeHtml(c.id)}</td>
-      <td>${escapeHtml(c.nameEn)} <span class="muted">/ ${escapeHtml(c.nameAr)}</span></td>
-      <td>${escapeHtml(c.tier)}</td><td>${escapeHtml(c.level)}</td><td>${escapeHtml(c.region)}</td>
-      <td><span class="badge ${complete ? 'complete' : 'incomplete'}">${c.tiles.filter((t) => !t.needsContent).length}/6</span></td>
-      <td><span class="badge ${escapeHtml(c.status)}">${escapeHtml(c.status)}</span></td>
-      <td><button class="secondary" data-open="${escapeHtml(c.id)}">Open</button></td>
-    </tr>`;
-  }).join('');
-  $('categoryRows').innerHTML = rows || '<tr><td colspan="9" class="muted">No categories yet.</td></tr>';
-  $('categoryRows').querySelectorAll('[data-open]').forEach((btn) => {
-    btn.addEventListener('click', () => openCategory(btn.dataset.open));
+  const rows = decks.map((d) => `<tr>
+      <td>${escapeHtml(d.id)}</td>
+      <td>${escapeHtml(d.nameEn)} <span class="muted">/ ${escapeHtml(d.nameAr)}</span></td>
+      <td>${d.titles.length}</td>
+      <td><button class="secondary" data-open="${escapeHtml(d.id)}">Open</button></td>
+    </tr>`).join('');
+  $('deckRows').innerHTML = rows || '<tr><td colspan="4" class="muted">No decks yet.</td></tr>';
+  $('deckRows').querySelectorAll('[data-open]').forEach((btn) => {
+    btn.addEventListener('click', () => openDeck(btn.dataset.open));
   });
 }
 
-function newCategoryDraft() {
-  return { id: '', nameAr: '', nameEn: '', tier: 'free', level: 'family', region: 'global', status: 'draft', imageUrl: null, tiles: [] };
-}
-
-async function openCategory(id) {
-  currentCategoryId = id;
-  currentCategory = id ? await api('/admin/categories/' + encodeURIComponent(id)) : newCategoryDraft();
-  renderEdit();
-}
-
-function renderImageSection() {
-  const c = currentCategory;
-  $('imagePreviewSlot').innerHTML = c.imageUrl
-    ? `<img class="thumb" src="${c.imageUrl}" />`
-    : `<div class="thumbPlaceholder">no image</div>`;
-  $('removeImageBtn').classList.toggle('hidden', !c.imageUrl);
-  $('uploadImageBtn').disabled = !currentCategoryId;
-  $('imageFile').value = '';
-  $('imageResult').textContent = '';
-}
-
-function renderStatusSection() {
-  const c = currentCategory;
-  $('statusBadge').textContent = c.status;
-  $('statusBadge').className = 'badge ' + c.status;
-  const disabled = !currentCategoryId;
-  $('publishBtn').disabled = disabled || c.status === 'published';
-  $('draftBtn').disabled = disabled || c.status === 'draft';
-  $('archiveBtn').disabled = disabled || c.status === 'archived';
-}
-
-async function setStatus(status) {
+async function saveGamePrice() {
+  const kd = parseFloat($('gamePriceInput').value);
+  if (!Number.isFinite(kd) || kd <= 0) { alert('Enter a price greater than zero'); return; }
   try {
-    currentCategory = await api(`/admin/categories/${encodeURIComponent(currentCategoryId)}/status`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
+    const result = await api('/admin/settings/game-price', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fils: Math.round(kd * 1000) }),
     });
-    renderStatusSection();
+    $('gamePriceInput').value = (result.fils / 1000).toFixed(3);
+    $('gamePriceResult').textContent = 'Saved.';
   } catch (e) {
-    alert('Could not change status: ' + e.message);
+    alert('Could not save price: ' + e.message);
   }
 }
 
-function renderEdit() {
-  $('listView').classList.add('hidden');
-  $('editView').classList.remove('hidden');
-  const c = currentCategory;
-  $('editTitle').textContent = currentCategoryId ? 'Edit category' : 'New category';
-  $('fId').value = c.id;
-  $('fId').disabled = Boolean(currentCategoryId);
-  $('fNameAr').value = c.nameAr;
-  $('fNameEn').value = c.nameEn;
-  $('fTier').value = c.tier;
-  $('fLevel').value = c.level;
-  $('fRegion').value = c.region;
-  $('deleteCategoryBtn').classList.toggle('hidden', !currentCategoryId);
+function newDeckDraft() {
+  return { id: '', nameAr: '', nameEn: '', titles: [] };
+}
+
+async function openDeck(id) {
+  currentDeckId = id;
+  currentDeck = id ? await api('/admin/decks/' + encodeURIComponent(id)) : newDeckDraft();
+  renderDeckEdit();
+}
+
+function renderDeckEdit() {
+  $('deckListView').classList.add('hidden');
+  $('deckEditView').classList.remove('hidden');
+  const d = currentDeck;
+  $('deckEditTitle').textContent = currentDeckId ? 'Edit deck' : 'New deck';
+  $('dId').value = d.id;
+  $('dId').disabled = Boolean(currentDeckId);
+  $('dNameAr').value = d.nameAr;
+  $('dNameEn').value = d.nameEn;
+  $('deleteDeckBtn').classList.toggle('hidden', !currentDeckId);
   $('importResult').textContent = '';
-  $('importPreviewResult').classList.add('hidden');
-  lastImportPreview = null;
-  renderStatusSection();
-  renderImageSection();
+  $('importFile').value = '';
+  $('importBtn').disabled = !currentDeckId;
 
-  const tilesHtml = (c.tiles.length ? c.tiles : Array.from({ length: 6 }, (_, i) => ({
-    index: i, points: [100,200,300,400,500,600][i], promptAr: '', promptEn: '', answerAr: '', answerEn: '', mediaType: 'text', needsContent: true,
-  }))).map((t) => `
-    <div class="tile-card ${t.needsContent ? 'needs-content' : ''}" data-index="${t.index}">
-      <div class="row" style="align-items:center">
-        <strong>${t.points} pts</strong>
-        <span class="badge ${t.needsContent ? 'incomplete' : 'complete'}">${t.needsContent ? 'needs content' : 'complete'}</span>
-      </div>
-      <div class="row">
-        <div class="field"><label>Prompt (Arabic)</label><textarea dir="rtl" data-field="promptAr">${escapeHtml(t.promptAr)}</textarea></div>
-        <div class="field"><label>Prompt (English)</label><textarea data-field="promptEn">${escapeHtml(t.promptEn)}</textarea></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>Answer (Arabic)</label><input dir="rtl" data-field="answerAr" value="${escapeHtml(t.answerAr)}" /></div>
-        <div class="field"><label>Answer (English)</label><input data-field="answerEn" value="${escapeHtml(t.answerEn)}" /></div>
-      </div>
-      <button class="secondary save-tile" data-index="${t.index}" ${currentCategoryId ? '' : 'disabled'}>Save tile</button>
-      ${currentCategoryId ? '' : '<span class="muted"> save the category first</span>'}
+  $('titleCount').textContent = d.titles.length;
+  $('titleRows').innerHTML = d.titles.map((t) => `
+    <div class="row" style="align-items:center;padding:4px 0;border-bottom:1px solid #EAE0C4">
+      <span dir="rtl" style="flex:1">${escapeHtml(t.text)}</span>
+      <button class="danger" data-remove-title="${escapeHtml(t.id)}">Remove</button>
     </div>
-  `).join('');
-  $('tilesContainer').innerHTML = tilesHtml;
-
-  $('tilesContainer').querySelectorAll('.save-tile').forEach((btn) => {
-    btn.addEventListener('click', () => saveTile(Number(btn.dataset.index)));
+  `).join('') || '<p class="muted">No titles yet — import a list below.</p>';
+  $('titleRows').querySelectorAll('[data-remove-title]').forEach((btn) => {
+    btn.addEventListener('click', () => removeTitle(btn.dataset.removeTitle));
   });
 }
 
@@ -470,135 +373,59 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-async function saveCategory() {
-  const body = {
-    nameAr: $('fNameAr').value.trim(),
-    nameEn: $('fNameEn').value.trim(),
-    tier: $('fTier').value,
-    level: $('fLevel').value,
-    region: $('fRegion').value,
-  };
+async function saveDeck() {
+  const body = { nameAr: $('dNameAr').value.trim(), nameEn: $('dNameEn').value.trim() };
   try {
-    if (currentCategoryId) {
-      currentCategory = await api('/admin/categories/' + encodeURIComponent(currentCategoryId), {
+    if (currentDeckId) {
+      currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId), {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
     } else {
-      const id = $('fId').value.trim();
-      currentCategory = await api('/admin/categories', {
+      const id = $('dId').value.trim();
+      currentDeck = await api('/admin/decks', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...body }),
       });
-      currentCategoryId = id;
+      currentDeckId = id;
     }
-    renderEdit();
+    renderDeckEdit();
   } catch (e) {
     alert('Could not save: ' + e.message);
   }
 }
 
-async function deleteCategory() {
-  if (!confirm('Delete "' + currentCategoryId + '" and all its tiles? This cannot be undone.')) return;
-  await api('/admin/categories/' + encodeURIComponent(currentCategoryId), { method: 'DELETE' });
-  showList();
+async function deleteDeck() {
+  if (!confirm('Delete "' + currentDeckId + '" and all its titles? This cannot be undone.')) return;
+  await api('/admin/decks/' + encodeURIComponent(currentDeckId), { method: 'DELETE' });
+  showDeckList();
 }
 
-async function saveTile(index) {
-  const card = $('tilesContainer').querySelector('[data-index="' + index + '"]');
-  const body = {};
-  card.querySelectorAll('[data-field]').forEach((el) => { body[el.dataset.field] = el.value; });
+async function removeTitle(titleId) {
   try {
-    await api(
-      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/tiles/' + index,
-      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-    );
-    currentCategory = await api('/admin/categories/' + encodeURIComponent(currentCategoryId));
-    renderEdit();
+    await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), { method: 'DELETE' });
+    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId));
+    renderDeckEdit();
   } catch (e) {
-    alert('Could not save tile: ' + e.message);
+    alert('Could not remove title: ' + e.message);
   }
 }
 
-let lastImportPreview = null; // { proposed, skipped } from the most recent /import/preview call
-
-async function previewImport() {
+async function importTitles() {
   const file = $('importFile').files[0];
-  if (!file) { alert('Choose a file first'); return; }
+  if (!file || !currentDeckId) { alert('Choose a file first'); return; }
   const form = new FormData();
   form.append('file', file);
   $('importResult').textContent = '';
   try {
     const result = await api(
-      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/import/preview',
+      '/admin/decks/' + encodeURIComponent(currentDeckId) + '/import',
       { method: 'POST', body: form }
     );
-    lastImportPreview = result;
-    $('importPreviewSummary').textContent =
-      `Found ${result.titlesFound} titles. ${result.proposed.length} would fill an empty slot, ${result.skipped} left over unused. Nothing is written yet.`;
-    $('importPreviewRows').innerHTML = result.proposed.map((p) => `
-      <div class="row" style="align-items:center;padding:4px 0">
-        <span>${escapeHtml(p.title)}</span>
-        ${p.duplicates.length
-          ? `<span class="badge duplicate" title="Same title already exists in: ${p.duplicates.map((d) => escapeHtml(d.categoryNameEn)).join(', ')}">possible duplicate</span>`
-          : ''}
-      </div>
-    `).join('') || '<p class="muted">Nothing would fill — every slot is already full, or the file had no usable titles.</p>';
-    $('importPreviewResult').classList.remove('hidden');
-  } catch (e) {
-    alert('Preview failed: ' + e.message);
-  }
-}
-
-async function commitImport() {
-  if (!lastImportPreview) return;
-  const titles = lastImportPreview.proposed.map((p) => p.title);
-  try {
-    const result = await api(
-      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/import/commit',
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titles }) }
-    );
-    $('importResult').textContent = `Filled ${result.filled} empty slot(s).`;
-    $('importPreviewResult').classList.add('hidden');
-    lastImportPreview = null;
+    $('importResult').textContent = `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped (already in this deck, or blank).`;
     $('importFile').value = '';
-    currentCategory = result.category;
-    renderEdit();
+    currentDeck = result.deck;
+    renderDeckEdit();
   } catch (e) {
     alert('Import failed: ' + e.message);
-  }
-}
-
-function cancelImportPreview() {
-  lastImportPreview = null;
-  $('importPreviewResult').classList.add('hidden');
-  $('importFile').value = '';
-}
-
-async function uploadImage() {
-  const file = $('imageFile').files[0];
-  if (!file || !currentCategoryId) return;
-  const form = new FormData();
-  form.append('image', file);
-  try {
-    currentCategory = await api(
-      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/image',
-      { method: 'POST', body: form }
-    );
-    $('imageResult').textContent = 'Uploaded.';
-    renderImageSection(); // the category list re-fetches on its own next time it's shown
-  } catch (e) {
-    alert('Image upload failed: ' + e.message);
-  }
-}
-
-async function removeImage() {
-  try {
-    currentCategory = await api(
-      '/admin/categories/' + encodeURIComponent(currentCategoryId) + '/image',
-      { method: 'DELETE' }
-    );
-    renderImageSection();
-  } catch (e) {
-    alert('Could not remove image: ' + e.message);
   }
 }
 
@@ -701,17 +528,17 @@ async function renderAdmins() {
 function summarizeAuditEntry(entry) {
   // A small per-action renderer rather than a raw JSON dump, so the common
   // cases read as a sentence; anything unrecognized still shows something.
-  if (entry.action === 'category.update' || entry.action === 'tile.update') {
+  if (entry.action === 'deck.update') {
     const before = entry.before || {};
     const after = entry.after || {};
-    const noisy = ['updatedAt', 'createdAt', 'tiles']; // always differ or too large to summarize usefully
-    const changed = Object.keys(after)
-      .filter((k) => !noisy.includes(k))
-      .filter((k) => JSON.stringify(after[k]) !== JSON.stringify(before[k]));
+    const changed = Object.keys(after).filter((k) => JSON.stringify(after[k]) !== JSON.stringify(before[k]));
     return changed.length ? `changed: ${changed.join(', ')}` : '';
   }
-  if (entry.action === 'category.import') {
-    return `${entry.after.filled} filled, ${entry.after.skipped} left over`;
+  if (entry.action === 'deck.import') {
+    return `${entry.after.added} added, ${entry.after.skipped} skipped`;
+  }
+  if (entry.action === 'settings.game-price.update') {
+    return `${(entry.before.fils / 1000).toFixed(3)} KD -> ${(entry.after.fils / 1000).toFixed(3)} KD`;
   }
   if (entry.action.endsWith('.update') && entry.after && 'passwordChanged' in entry.after) {
     return entry.after.passwordChanged ? 'password changed' : 'username changed';
@@ -794,24 +621,17 @@ async function addAdmin() {
 $('signInBtn').addEventListener('click', signIn);
 $('passwordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 $('logoutBtn').addEventListener('click', signOut);
-$('navCategories').addEventListener('click', showCategoriesSection);
+$('navDecks').addEventListener('click', showDecksSection);
 $('navReports').addEventListener('click', showReportsSection);
 $('navPlayers').addEventListener('click', showPlayersSection);
 $('navAdmins').addEventListener('click', showAdminsSection);
 $('navAuditLog').addEventListener('click', showAuditLogSection);
-$('newCategoryBtn').addEventListener('click', () => openCategory(null));
-$('backLink').addEventListener('click', showList);
-$('saveCategoryBtn').addEventListener('click', saveCategory);
-$('deleteCategoryBtn').addEventListener('click', deleteCategory);
-$('publishBtn').addEventListener('click', () => setStatus('published'));
-$('draftBtn').addEventListener('click', () => setStatus('draft'));
-$('archiveBtn').addEventListener('click', () => setStatus('archived'));
-$('importPreviewBtn').addEventListener('click', previewImport);
-$('importCommitBtn').addEventListener('click', commitImport);
-$('importCancelBtn').addEventListener('click', cancelImportPreview);
-$('imageFile').addEventListener('change', () => { $('uploadImageBtn').disabled = !$('imageFile').files[0] || !currentCategoryId; });
-$('uploadImageBtn').addEventListener('click', uploadImage);
-$('removeImageBtn').addEventListener('click', removeImage);
+$('newDeckBtn').addEventListener('click', () => openDeck(null));
+$('saveGamePriceBtn').addEventListener('click', saveGamePrice);
+$('deckBackLink').addEventListener('click', showDeckList);
+$('saveDeckBtn').addEventListener('click', saveDeck);
+$('deleteDeckBtn').addEventListener('click', deleteDeck);
+$('importBtn').addEventListener('click', importTitles);
 $('addAdminBtn').addEventListener('click', addAdmin);
 
 if (token) enterApp();
