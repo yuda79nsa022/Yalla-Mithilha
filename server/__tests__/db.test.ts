@@ -15,6 +15,7 @@ import {
   createAdminUser,
   createDeck,
   createPlayer,
+  creditBalance,
   deleteAdminUser,
   deleteDeck,
   deletePlayer,
@@ -23,6 +24,7 @@ import {
   getDeck,
   getGamePriceFils,
   getPlayerById,
+  grantCredits,
   listAdminUsers,
   listDecks,
   listPlayableDecks,
@@ -226,5 +228,21 @@ describe('players', () => {
     const only = createPlayer({ username: 'solo', passwordHash: 'hashed' });
     expect(() => deletePlayer(only.id)).not.toThrow();
     expect(listPlayers()).toHaveLength(0);
+  });
+});
+
+describe('grantCredits', () => {
+  it('adds to the balance with no payment behind it', () => {
+    const player = createPlayer({ username: 'jane', passwordHash: 'hashed' });
+    expect(creditBalance(player.id)).toBe(0);
+    grantCredits(player.id, 3);
+    expect(creditBalance(player.id)).toBe(3);
+  });
+
+  it('is additive across repeated calls, same as topping up an existing test player', () => {
+    const player = createPlayer({ username: 'jane', passwordHash: 'hashed' });
+    grantCredits(player.id, 2);
+    grantCredits(player.id, 5);
+    expect(creditBalance(player.id)).toBe(7);
   });
 });

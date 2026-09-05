@@ -48,6 +48,20 @@ straight into the database. Safe to re-run: an existing deck is left alone,
 and `addTitlesToDeck` itself skips any title already present, so re-running
 only tops up whatever's missing rather than duplicating anything.
 
+### Test player
+
+```bash
+npm run create-test-player -- --username=tester --password=testPass123 --credits=3
+```
+
+Creates a player account that already has a wallet balance (default 3
+games, override with `--credits`), so testing "a player who already has
+games left" doesn't mean topping up by hand through checkout first. A real
+player only ever gets credits by paying — `grantCredits` in `src/db.ts`
+grants them with no payment behind them, and only this script ever calls
+it. Safe to re-run with the same username: it tops up the existing
+account's balance instead of failing on the duplicate username.
+
 ## Environment variables
 
 | Var | Default | Notes |

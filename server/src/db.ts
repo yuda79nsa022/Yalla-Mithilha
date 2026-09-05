@@ -523,6 +523,19 @@ export function creditBalance(playerId: string): number {
   return row.balance;
 }
 
+/**
+ * Grants credits with no backing payment. A real player only ever gets
+ * credits by paying (see `confirmPayment`) — this exists only for the
+ * `create-test-player` script, so testing "a player with N games left"
+ * doesn't require N manual top-ups through the checkout flow first.
+ */
+export function grantCredits(playerId: string, amount: number): void {
+  db.prepare(
+    `INSERT INTO credit_transactions (id, player_id, kind, amount, created_at)
+     VALUES (@id, @playerId, 'grant', @amount, @now)`
+  ).run({ id: crypto.randomUUID(), playerId, amount, now: Date.now() });
+}
+
 export interface CreatePaymentInput {
   playerId: string;
   provider: string;
