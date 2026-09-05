@@ -62,6 +62,8 @@ export const ar = {
     'ما نقدر نسوي رمز الاستجابة السريعة على هذا الجهاز. لازم تحدد رابط الأساس (EXPO_PUBLIC_REVEAL_BASE_URL) عشان يشتغل هذا على شاشة مو متصفح.',
   'charades.play.award': 'أعطِ النقطة لـ {{team}}',
   'charades.play.skip': 'ما حد عرفها',
+  'charades.play.timeRemaining': 'الوقت المتبقي: {{time}}',
+  'charades.play.endEarly': 'خلصنا! سجّلوا النتيجة',
   'charades.play.complete': 'خلصت اللعبة',
   'charades.play.winner': '{{team}} فاز!',
   'charades.play.tie': 'تعادل',

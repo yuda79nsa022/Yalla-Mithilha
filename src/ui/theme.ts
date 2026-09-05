@@ -56,12 +56,36 @@ export const radius = {
 /**
  * Arabic needs more line height than Latin at the same size, and the system
  * Arabic faces differ per platform. Naskh on iOS and the Android default both
- * render Kuwaiti text cleanly; a bundled face is a production task.
+ * render Kuwaiti text cleanly; a bundled face is a production task. On web,
+ * with no fontFamily set at all, the browser falls back to whatever default
+ * font it has for Arabic script — which varies by OS and can have far taller
+ * line metrics than Latin, causing wrapped Arabic text to visually overlap
+ * the line below it if lineHeight isn't generous enough. Tahoma is present
+ * on effectively every Windows machine and has solid, predictable Arabic
+ * metrics, which is why it leads the web fallback stack here.
  */
 export const fonts = {
-  ar: Platform.select({ ios: 'Geeza Pro', android: 'sans-serif', default: 'System' }),
-  en: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }),
+  ar: Platform.select({
+    ios: 'Geeza Pro',
+    android: 'sans-serif',
+    web: 'Tahoma, "Segoe UI", Arial, sans-serif',
+    default: 'System',
+  }),
+  en: Platform.select({
+    ios: 'System',
+    android: 'sans-serif',
+    web: '-apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+    default: 'System',
+  }),
 } as const;
+
+/**
+ * Extra multiplier on top of `type[variant].lineHeight` applied only to
+ * Arabic text (see `fonts` above) — insurance against whatever font a given
+ * platform actually renders it in still needing more vertical room than a
+ * fixed pixel lineHeight tuned for Latin metrics provides.
+ */
+export const ARABIC_LINE_HEIGHT_BOOST = 1.3;
 
 export const type = {
   display: { fontSize: 44, lineHeight: 56, fontWeight: '800' as const },

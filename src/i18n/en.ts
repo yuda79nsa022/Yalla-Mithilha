@@ -58,6 +58,8 @@ export const en: Record<TranslationKey, string> = {
     'Can’t generate a QR code on this device. Set EXPO_PUBLIC_REVEAL_BASE_URL for this to work on a non-browser screen.',
   'charades.play.award': 'Award {{team}}',
   'charades.play.skip': 'No one guessed it',
+  'charades.play.timeRemaining': 'Time remaining: {{time}}',
+  'charades.play.endEarly': 'We’re done — score it',
   'charades.play.complete': 'Game complete',
   'charades.play.winner': '{{team}} wins!',
   'charades.play.tie': 'It’s a tie',

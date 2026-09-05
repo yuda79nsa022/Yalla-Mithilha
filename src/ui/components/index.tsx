@@ -12,7 +12,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { HIT_SIZE, colors, onAccent, radius, spacing, type } from '../theme';
+import { ARABIC_LINE_HEIGHT_BOOST, HIT_SIZE, colors, fonts, onAccent, radius, spacing, type } from '../theme';
+import { useApp } from '../../state/AppProvider';
 
 /* ------------------------------------------------------------------ text */
 
@@ -35,13 +36,27 @@ export function T({
   numberOfLines?: number;
   accessibilityLabel?: string;
 }) {
+  const { lang } = useApp();
+  const isAr = lang === 'ar';
+  const base = type[variant];
   return (
     <Text
       numberOfLines={numberOfLines}
       accessibilityLabel={accessibilityLabel}
       // `textAlign: auto` follows the layout direction, so the same component
       // aligns right in Arabic and left in English with no branching.
-      style={[type[variant], { color, textAlign: align }, style]}
+      // fontFamily and the extra lineHeight boost are Arabic-specific — see
+      // the comments on `fonts`/`ARABIC_LINE_HEIGHT_BOOST` in theme.ts.
+      style={[
+        base,
+        {
+          color,
+          textAlign: align,
+          fontFamily: isAr ? fonts.ar : fonts.en,
+          lineHeight: isAr ? Math.round(base.lineHeight * ARABIC_LINE_HEIGHT_BOOST) : base.lineHeight,
+        },
+        style,
+      ]}
     >
       {children}
     </Text>
