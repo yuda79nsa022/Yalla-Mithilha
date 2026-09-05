@@ -44,6 +44,7 @@ export default function CharadesPlay() {
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [endedEarly, setEndedEarly] = useState(false);
+  const [started, setStarted] = useState(false);
 
   // Hooks run unconditionally, before the early-return redirects below — so
   // every dependency here has to tolerate `charades` being null.
@@ -53,10 +54,11 @@ export default function CharadesPlay() {
   useEffect(() => {
     setTimeLeft(ROUND_SECONDS);
     setEndedEarly(false);
+    setStarted(false);
   }, [roundKey]);
 
   useEffect(() => {
-    if (!roundActive || endedEarly) return;
+    if (!roundActive || !started || endedEarly) return;
     const id = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -67,7 +69,7 @@ export default function CharadesPlay() {
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [roundActive, endedEarly, roundKey]);
+  }, [roundActive, started, endedEarly, roundKey]);
 
   if (!charades) return <Redirect href="/charades/draft" />;
   if (charades.lock !== 'unlocked') return <Redirect href="/charades/checkout" />;
@@ -78,7 +80,7 @@ export default function CharadesPlay() {
     const [scoreA, scoreB] = charades.scores;
     const winner = scoreA === scoreB ? null : scoreA > scoreB ? charades.teamAName : charades.teamBName;
     return (
-      <Screen>
+      <Screen scroll>
         <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
           <T variant="title" align="center">
             {t('charades.play.complete')}
@@ -119,7 +121,7 @@ export default function CharadesPlay() {
     : null;
 
   return (
-    <Screen>
+    <Screen scroll>
       <Spacer size={spacing.sm} />
       <View style={styles.header}>
         <ScoreChip name={charades.teamAName} score={charades.scores[0]} color={colors.teamA} />
@@ -153,7 +155,7 @@ export default function CharadesPlay() {
             <Button label={t('charades.play.award', { team: teamName })} accent={teamColor} onPress={award} />
             <Button label={t('charades.play.skip')} tone="ghost" onPress={skip} />
           </>
-        ) : (
+        ) : started ? (
           <>
             <T
               variant="timer"
@@ -165,6 +167,8 @@ export default function CharadesPlay() {
             </T>
             <Button label={t('charades.play.endEarly')} tone="secondary" onPress={() => setEndedEarly(true)} />
           </>
+        ) : (
+          <Button label={t('charades.play.startTimer')} accent={teamColor} onPress={() => setStarted(true)} />
         )}
       </View>
 
