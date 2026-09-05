@@ -38,17 +38,13 @@ export const ar = {
   'charades.home.startNew': 'ابدأ لعبة جديدة',
 
   'charades.draft.title': 'جهّزوا لعبتكم',
-  'charades.draft.subtitle': 'فريقين، فئة وحدة، عشرين جولة بينهم',
+  'charades.draft.subtitle': 'فريقين، عشرين جولة بينهم — السيرفر يختار الفئة والعنوان عشوائي كل جولة',
   'charades.draft.teamAName': 'اسم الفريق الأول',
   'charades.draft.teamBName': 'اسم الفريق الثاني',
-  'charades.draft.deckLabel': 'اختاروا فئة',
-  'charades.draft.deckCount': '{{count}} عنوان',
-  'charades.draft.noDecks': 'ما قدرنا نجيب الفئات. تأكد من الإنترنت وحاول مرة ثانية.',
   'charades.draft.confirm': 'كمّل للدفع',
-  'charades.draft.back': 'رجوع لأسماء الفرق',
 
   'charades.checkout.title': 'ابدأوا اللعبة',
-  'charades.checkout.subtitle': 'دفعة وحدة تشغّل عشرين جولة من الفئة اللي اخترتوها',
+  'charades.checkout.subtitle': 'دفعة وحدة تشغّل عشرين جولة، فئات وعناوين عشوائية من كل المجموعات',
   'charades.checkout.walletBalance': 'عندك {{count}} لعبة برصيدك',
   'charades.checkout.price': 'لعبة وحدة — {{price}}',
   'charades.checkout.devNotice':
@@ -74,6 +70,7 @@ export const ar = {
   'charades.play.home': 'الرئيسية',
 
   'charades.reveal.warning': 'وريّ هذا لك بس — لا تخلي فريقك يشوف الشاشة',
+  'charades.reveal.category': 'الفئة: {{category}}',
   'charades.reveal.missing': 'ما فيه شي نوضّحه هنا. صوّر الرمز من شاشة اللعبة عشان تشوف العنوان.',
 
   'charades.resume.title': 'عندك لعبة ما خلصت',
@@ -96,7 +93,7 @@ export const ar = {
     'يلا مثّلها لعبة "مثّلها" — تمثيل صامت على عناوين حقيقية: مسرحيات ومسلسلات كويتية وخليجية ومصرية. تشتغل بالكامل بالعربي والإنجليزي.',
   'landing.charadesTitle': 'مثّلها',
   'landing.charadesBody':
-    'فريقين يختارون فئة من عناوين حقيقية — مسرحيات كويتية ومصرية، مسلسلات مصرية وخليجية — ويتناوبون يمثّلون عنوان وحده كل مرة، عشرين جولة، بدون كلام. اشحن رصيدك مرة وحدة عشان تلعب لعبة.',
+    'فريقين يسمّون نفسهم ويتناوبون يمثّلون عناوين حقيقية — مسرحيات كويتية ومصرية، مسلسلات مصرية وخليجية — يختارها السيرفر عشوائي كل جولة، عشرين جولة، بدون كلام. اشحن رصيدك مرة وحدة عشان تلعب لعبة.',
   'landing.charadesCta': 'العب مثّلها',
   'landing.bilingualTitle': 'عربي وإنجليزي',
   'landing.bilingualBody': 'كل شاشة، باللغتين — بدّل أي وقت من الإعدادات.',

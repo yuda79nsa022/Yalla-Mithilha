@@ -10,10 +10,10 @@ bundled into the mobile/web build.
 
 **A deck is playable the moment it has at least one title** — there is no
 separate publish step and no fixed size to fill. `listPlayableDecks()`
-(`src/db.ts`) is the single gate `GET /charades/decks` goes through. Unlike
-the old board-game category (which needed six complete tiles *and* an
-explicit publish), a deck an admin just created and imported into is
-immediately live.
+(`src/db.ts`) is the single gate `allTitlesPool()` filters through before a
+session deals from it. Unlike the old board-game category (which needed six
+complete tiles *and* an explicit publish), a deck an admin just created and
+imported into is immediately live.
 
 ## Running it
 
@@ -126,7 +126,7 @@ handled explicitly, not just by convention:
 - `startGameSession` is idempotent on `game_sessions.id`, which is the
   *client's own* locally-generated session id (made once when the player
   taps "Start the game"). Replaying the same id after an app restart
-  returns the same 10 already-dealt titles and spends nothing further.
+  returns the same 20 already-dealt titles and spends nothing further.
 
 ## Decks and titles
 
@@ -143,10 +143,15 @@ slot count an import could accidentally overrun or need to protect.
 title is the one cell per row that's neither numeric nor a highly-repeated
 label like a year or category column).
 
-`startGameSession` deals 20 titles (`TITLES_PER_SESSION` in `src/db.ts`)
-at random from the chosen deck, without replacement within that session,
-the moment a wallet credit is spent. A deck with fewer than 20 titles
-just deals all of it.
+The player never picks a deck. `startGameSession` deals 20 titles
+(`TITLES_PER_SESSION` in `src/db.ts`) at random from every playable deck
+*combined* (`allTitlesPool()`), without replacement within that session —
+so the category and the title are both a surprise, and the same title text
+can never appear twice in one session even if it exists in two different
+decks (deduplicated by trimmed text before dealing). Fewer than 20 titles
+across every deck combined? Deals all of it. Each dealt title carries its
+own deck's id and bilingual name (`DealtTitle` in `src/types.ts`) so the
+app can show which category it came from once revealed.
 
 ## Audit log
 
@@ -165,10 +170,6 @@ own errors rather than throwing.
 
 ## API shape
 
-- `GET /charades/decks` — public, no auth, CORS-open (the app fetches this
-  from a different origin when running as a web page). Every playable deck
-  (`{ id, nameAr, nameEn, titleCount }`) — a guest can see what's on offer
-  before signing up.
 - `GET /charades/price` — public. `{ fils, currency }`, the current price of
   one game.
 - `POST /admin/auth/login` — public. `{ username, password }` →
@@ -176,7 +177,7 @@ own errors rather than throwing.
 - `GET/POST/PUT/DELETE /admin/users[/:id]` — bearer-token protected. Manage
   admin accounts. Never returns a password hash.
 - `POST /players/register` / `POST /players/login` — public, CORS-open (same
-  reasoning as `/charades/decks` — called cross-origin from the app running
+  reasoning as `/charades/price` — called cross-origin from the app running
   as a web page; a JSON POST also triggers a CORS preflight, so `OPTIONS`
   gets an explicit response too). `{ username, password }` →
   `{ token, player }`. Never returns a password hash.
@@ -201,10 +202,11 @@ own errors rather than throwing.
   session required, and the payment must belong to the caller (404
   otherwise). Stand in for a real payment provider's success/failure
   callback; confirm is idempotent (see above).
-- `POST /charades/sessions` — player session required. `{ sessionId, deckId }`
-  spends one credit and deals 20 titles from that deck; idempotent on
-  `sessionId` (see above). 402 when the balance is empty, 409 when the deck
-  has no titles.
+- `POST /charades/sessions` — player session required. `{ sessionId }`
+  spends one credit and deals 20 titles at random across every playable
+  deck combined — no `deckId`, the player never chooses one; idempotent on
+  `sessionId` (see above). 402 when the balance is empty, 409 when no deck
+  has any titles at all.
 - `GET /charades/sessions/:id` — player session required, and the session
   must belong to the caller. Re-fetches a previously dealt session.
 - `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit
@@ -212,11 +214,10 @@ own errors rather than throwing.
 
 ## App integration
 
-The app fetches `GET /charades/decks` and `GET /charades/price` on startup
-(`src/services/walletApi.ts` in the main project) — there is no offline
-fallback, since Charades requires a live connection for its wallet. Point
-the app at a non-default server with `EXPO_PUBLIC_CATALOGUE_API_URL`
-(`src/config.ts`).
+The app fetches `GET /charades/price` on startup (`src/services/walletApi.ts`
+in the main project) — there is no offline fallback, since Charades requires
+a live connection for its wallet. Point the app at a non-default server with
+`EXPO_PUBLIC_CATALOGUE_API_URL` (`src/config.ts`).
 
 An Account screen, reachable from the home screen or from the Charades
 checkout screen itself, lets a player create an account or sign in
@@ -226,16 +227,18 @@ sign-in/sign-up first, then shows the wallet balance and the current price,
 tops up via the mock payment flow, and spends one credit to deal a session
 (`src/services/walletApi.ts`).
 
-During play, the round's title never appears on the shared screen (a TV, a
-tablet propped up, whatever device is showing `app/charades/play.tsx`) —
-that screen only ever renders a QR code (`src/engine/reveal.ts`,
-`react-native-qrcode-svg`). It links to this same app's own
-`/charades/reveal` page with the title in the query string, so any phone's
-stock camera app recognises it and offers to open it — no app install, no
-camera permission inside this app at all. The link's base URL is whatever
-the shared screen's own page is served from when that screen is a browser
-(`window.location.origin`), or `EXPO_PUBLIC_REVEAL_BASE_URL` when it isn't
-(e.g. a native app mirrored to the TV, where there's no page origin to read).
+During play, the round's title and category never appear on the shared
+screen (a TV, a tablet propped up, whatever device is showing
+`app/charades/play.tsx`) — that screen only ever renders a QR code
+(`src/engine/reveal.ts`, `react-native-qrcode-svg`). It links to this same
+app's own `/charades/reveal` page with the title and both deck names in the
+query string, so any phone's stock camera app recognises it and offers to
+open it — no app install, no camera permission inside this app at all. The
+reveal page picks whichever deck name matches its own language setting. The
+link's base URL is whatever the shared screen's own page is served from when
+that screen is a browser (`window.location.origin`), or
+`EXPO_PUBLIC_REVEAL_BASE_URL` when it isn't (e.g. a native app mirrored to
+the TV, where there's no page origin to read).
 
 ## Known gaps
 
@@ -244,10 +247,11 @@ the shared screen's own page is served from when that screen is a browser
 - **No real payment provider.** `MockPaymentProvider` stands in until real
   KNET/aggregator merchant credentials exist — see "The wallet" above.
 - **No repetition avoidance across sessions.** `startGameSession` draws 20
-  random titles from the deck each time, with no memory of what a player
-  already saw in an earlier session against the same deck. Low priority
-  while decks are large (hundreds of titles) relative to a 20-title
-  session, but worth revisiting if a deck ever shrinks close to that size.
+  random titles from the combined pool each time, with no memory of what a
+  player already saw in an earlier session. Low priority while the total
+  pool across every deck is large (hundreds of titles) relative to a
+  20-title session, but worth revisiting if the pool ever shrinks close to
+  that size.
 - **No real migration framework.** Schema setup is a single `CREATE TABLE
   IF NOT EXISTS` block, run every time the server starts — which only ever
   creates a table from scratch and does nothing to a table that already

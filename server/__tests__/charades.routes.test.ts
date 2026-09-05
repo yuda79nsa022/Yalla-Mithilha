@@ -32,21 +32,11 @@ async function buyOneCredit(auth: { Authorization: string }) {
   await request(app).post(`/charades/checkout/${checkout.body.id}/confirm`).set(auth);
 }
 
-describe('GET /charades/decks and /charades/price', () => {
-  it('are public — no auth required', async () => {
-    seedDeck();
-    const decks = await request(app).get('/charades/decks');
-    expect(decks.status).toBe(200);
-    expect(decks.body).toEqual([{ id: deckId, nameAr: 'مجموعة', nameEn: 'Test Deck', titleCount: 12 }]);
-
+describe('GET /charades/price', () => {
+  it('is public — no auth required', async () => {
     const price = await request(app).get('/charades/price');
+    expect(price.status).toBe(200);
     expect(price.body).toEqual({ fils: 1500, currency: 'KWD' });
-  });
-
-  it('excludes a deck with no titles', async () => {
-    createDeck({ id: 'empty-deck', nameAr: 'فارغة', nameEn: 'Empty' });
-    const decks = await request(app).get('/charades/decks');
-    expect(decks.body).toEqual([]);
   });
 });
 
@@ -104,7 +94,7 @@ describe('POST /charades/sessions', () => {
   it('requires enough balance', async () => {
     seedDeck();
     const { auth } = await makePlayerSession();
-    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', deckId });
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
     expect(res.status).toBe(402);
   });
 
@@ -113,18 +103,65 @@ describe('POST /charades/sessions', () => {
     const { auth } = await makePlayerSession();
     await buyOneCredit(auth);
 
-    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', deckId });
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
     expect(res.status).toBe(201);
     expect(res.body.session.titles).toHaveLength(20);
     expect(res.body.balance).toBe(0);
   });
 
-  it('deals every title if the deck has fewer than 20', async () => {
+  it('deals every title if the total pool has fewer than 20', async () => {
     seedDeck(4);
     const { auth } = await makePlayerSession();
     await buyOneCredit(auth);
-    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', deckId });
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
     expect(res.body.session.titles).toHaveLength(4);
+  });
+
+  it('pools titles across every playable deck, not just one', async () => {
+    createDeck({ id: 'deck-a', nameAr: 'أ', nameEn: 'A' });
+    addTitlesToDeck('deck-a', ['Alpha One', 'Alpha Two']);
+    createDeck({ id: 'deck-b', nameAr: 'ب', nameEn: 'B' });
+    addTitlesToDeck('deck-b', ['Beta One', 'Beta Two']);
+
+    const { auth } = await makePlayerSession();
+    await buyOneCredit(auth);
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
+
+    expect(res.body.session.titles).toHaveLength(4);
+    const deckIds = new Set(res.body.session.titles.map((t: any) => t.deckId));
+    expect(deckIds).toEqual(new Set(['deck-a', 'deck-b']));
+    const texts = res.body.session.titles.map((t: any) => t.text);
+    expect(new Set(texts).size).toBe(4); // no repeats
+  });
+
+  it('never deals the same title text twice, even when two decks share it', async () => {
+    createDeck({ id: 'deck-a', nameAr: 'أ', nameEn: 'A' });
+    addTitlesToDeck('deck-a', ['Shared Title']);
+    createDeck({ id: 'deck-b', nameAr: 'ب', nameEn: 'B' });
+    addTitlesToDeck('deck-b', ['Shared Title']);
+
+    const { auth } = await makePlayerSession();
+    await buyOneCredit(auth);
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
+
+    expect(res.body.session.titles).toHaveLength(1);
+    expect(res.body.session.titles[0].text).toBe('Shared Title');
+  });
+
+  it('carries each title\'s own deck name, for the reveal screen', async () => {
+    createDeck({ id: 'deck-a', nameAr: 'أفلام', nameEn: 'Movies' });
+    addTitlesToDeck('deck-a', ['A Title']);
+
+    const { auth } = await makePlayerSession();
+    await buyOneCredit(auth);
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
+
+    expect(res.body.session.titles[0]).toMatchObject({
+      text: 'A Title',
+      deckId: 'deck-a',
+      deckNameAr: 'أفلام',
+      deckNameEn: 'Movies',
+    });
   });
 
   it('is idempotent on the same sessionId — resuming never spends a second credit', async () => {
@@ -133,17 +170,17 @@ describe('POST /charades/sessions', () => {
     await buyOneCredit(auth);
     await buyOneCredit(auth); // 2 credits available
 
-    const first = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', deckId });
-    const second = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', deckId });
+    const first = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
+    const second = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
     expect(second.body.session.titles).toEqual(first.body.session.titles);
     expect(second.body.balance).toBe(1); // only the first call spent a credit
   });
 
-  it('refuses to deal from an empty deck', async () => {
+  it('refuses to deal when no deck has any titles at all', async () => {
     createDeck({ id: 'empty-deck', nameAr: 'فارغة', nameEn: 'Empty' });
     const { auth } = await makePlayerSession();
     await buyOneCredit(auth);
-    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', deckId: 'empty-deck' });
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
     expect(res.status).toBe(409);
   });
 
@@ -152,9 +189,9 @@ describe('POST /charades/sessions', () => {
     const a = await makePlayerSession();
     const b = await makePlayerSession();
     await buyOneCredit(a.auth);
-    await request(app).post('/charades/sessions').set(a.auth).send({ sessionId: 'shared-id', deckId });
+    await request(app).post('/charades/sessions').set(a.auth).send({ sessionId: 'shared-id' });
 
-    const asB = await request(app).post('/charades/sessions').set(b.auth).send({ sessionId: 'shared-id', deckId });
+    const asB = await request(app).post('/charades/sessions').set(b.auth).send({ sessionId: 'shared-id' });
     expect(asB.status).toBe(404);
   });
 });
@@ -165,7 +202,7 @@ describe('GET /charades/sessions/:id', () => {
     const a = await makePlayerSession();
     const b = await makePlayerSession();
     await buyOneCredit(a.auth);
-    const started = await request(app).post('/charades/sessions').set(a.auth).send({ sessionId: 's1', deckId });
+    const started = await request(app).post('/charades/sessions').set(a.auth).send({ sessionId: 's1' });
 
     const fetched = await request(app).get('/charades/sessions/s1').set(a.auth);
     expect(fetched.body.titles).toEqual(started.body.session.titles);

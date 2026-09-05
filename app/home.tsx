@@ -1,17 +1,12 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Button, ConfirmModal, Divider, Screen, Spacer, T } from '../src/ui/components';
 import { colors, radius, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
-const DECK_THUMB_ACCENTS = [
-  colors.act, colors.taboo, colors.who, colors.imitate, colors.lips, colors.sound, colors.final,
-];
-
 export default function Home() {
-  const { t, lang, decks, player, walletBalance, refreshWallet, logoutPlayerAccount, charades, quitCharades } =
-    useApp();
+  const { t, player, walletBalance, refreshWallet, logoutPlayerAccount, charades, quitCharades } = useApp();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   useEffect(() => {
@@ -98,36 +93,6 @@ export default function Home() {
         />
       )}
 
-      {decks.length ? (
-        <>
-          <Spacer size={spacing.lg} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.thumbRow}>
-              {decks.map((deck, i) => (
-                <Pressable
-                  key={deck.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={lang === 'ar' ? deck.nameAr : deck.nameEn}
-                  onPress={() => router.push('/charades/draft')}
-                  style={({ pressed }) => [styles.thumbCard, pressed && { opacity: 0.72 }]}
-                >
-                  <View
-                    style={[
-                      styles.thumbImage,
-                      styles.thumbPlaceholder,
-                      { backgroundColor: DECK_THUMB_ACCENTS[i % DECK_THUMB_ACCENTS.length] },
-                    ]}
-                  />
-                  <T variant="label" numberOfLines={1} style={styles.thumbLabel}>
-                    {lang === 'ar' ? deck.nameAr : deck.nameEn}
-                  </T>
-                </Pressable>
-              ))}
-            </View>
-          </ScrollView>
-        </>
-      ) : null}
-
       <Spacer size={spacing.lg} />
       <Button label={t('home.settings')} tone="secondary" onPress={() => router.push('/settings')} />
 
@@ -166,9 +131,4 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     backgroundColor: colors.bgRaised,
   },
-  thumbRow: { flexDirection: 'row', gap: spacing.sm },
-  thumbCard: { width: 92, alignItems: 'center', gap: spacing.xs },
-  thumbImage: { width: 84, height: 84, borderRadius: radius.md },
-  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  thumbLabel: { textAlign: 'center' },
 });

@@ -5,6 +5,7 @@ import fs from 'fs';
 import type {
   AdminUserRow,
   AuditLogRow,
+  DealtTitle,
   DeckRow,
   DeckWithTitles,
   GameSessionRow,
@@ -469,7 +470,7 @@ export function deletePlayer(id: string): void {
 export class PaymentNotFoundError extends Error {}
 export class GameSessionNotFoundError extends Error {}
 export class InsufficientCreditsError extends Error {}
-export class EmptyDeckError extends Error {}
+export class NoTitlesAvailableError extends Error {}
 
 function rowToPayment(r: any): PaymentRow {
   return {
@@ -489,7 +490,6 @@ function rowToGameSession(r: any): GameSessionRow {
   return {
     id: r.id,
     playerId: r.player_id,
-    deckId: r.deck_id,
     titles: JSON.parse(r.titles_json),
     createdAt: r.created_at,
   };
@@ -611,18 +611,42 @@ function shuffled<T>(items: T[]): T[] {
 const TITLES_PER_SESSION = 20;
 
 /**
+ * Every title across every playable deck, tagged with its own deck's id and
+ * display name — the pool `startGameSession` deals from. Deduplicated by
+ * trimmed text so the same title text appearing in two different decks
+ * still only ever occupies one slot in a session (see "never repeated in
+ * the same game" on `startGameSession`).
+ */
+function allTitlesPool(): DealtTitle[] {
+  const seenText = new Set<string>();
+  const pool: DealtTitle[] = [];
+  for (const deck of listPlayableDecks()) {
+    for (const title of deck.titles) {
+      const text = title.text.trim();
+      if (seenText.has(text)) continue;
+      seenText.add(text);
+      pool.push({ id: title.id, text: title.text, deckId: deck.id, deckNameAr: deck.nameAr, deckNameEn: deck.nameEn });
+    }
+  }
+  return pool;
+}
+
+/**
  * Spends one wallet credit to deal `sessionId` — the client's own locally
  * generated id, created once at "start game" time. Idempotent by
  * construction: `game_sessions.id` is a primary key, so calling this again
  * with the same id (e.g. resuming after an app restart) returns the same
  * dealt titles and spends nothing further, rather than erroring or charging
- * twice. Titles are drawn without replacement from the deck; a deck with
- * fewer than 20 titles just deals all of it.
+ * twice.
+ *
+ * The player never picks a category: each of the 20 titles is drawn at
+ * random from every playable deck combined, without replacement, so no
+ * title repeats within the same session even across decks. Fewer than 20
+ * titles exist across every deck combined? Deals all of it.
  */
 export function startGameSession(
   playerId: string,
-  sessionId: string,
-  deckId: string
+  sessionId: string
 ): { session: GameSessionRow; balance: number } {
   const existing = getGameSession(sessionId);
   if (existing) {
@@ -630,20 +654,23 @@ export function startGameSession(
     return { session: existing, balance: creditBalance(playerId) };
   }
 
-  const deck = getDeck(deckId);
-  if (!deck) throw new DeckNotFoundError(`deck "${deckId}" not found`);
-  if (deck.titles.length === 0) throw new EmptyDeckError(`deck "${deckId}" has no titles yet`);
+  const pool = allTitlesPool();
+  if (pool.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
 
   const tx = db.transaction(() => {
     if (creditBalance(playerId) < 1) {
       throw new InsufficientCreditsError('not enough credits to start a game — top up your wallet first');
     }
-    const dealt = shuffled(deck.titles).slice(0, TITLES_PER_SESSION);
+    const dealt = shuffled(pool).slice(0, TITLES_PER_SESSION);
     const now = Date.now();
     db.prepare(
       `INSERT INTO game_sessions (id, player_id, deck_id, titles_json, created_at)
        VALUES (@id, @playerId, @deckId, @titlesJson, @now)`
-    ).run({ id: sessionId, playerId, deckId, titlesJson: JSON.stringify(dealt), now });
+      // `deck_id` is a schema leftover from when a session belonged to one
+      // deck — kept NOT NULL, so it's set to whichever deck happened to
+      // deal the first title. Never read back; `GameSessionRow` exposes no
+      // such field now that a session spans every deck.
+    ).run({ id: sessionId, playerId, deckId: dealt[0].deckId, titlesJson: JSON.stringify(dealt), now });
     db.prepare(
       `INSERT INTO credit_transactions (id, player_id, kind, amount, game_session_id, created_at)
        VALUES (@id, @playerId, 'consume', 1, @sessionId, @now)`

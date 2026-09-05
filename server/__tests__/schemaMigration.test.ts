@@ -56,7 +56,7 @@ describe('upgrading a pre-existing database missing a newer column', () => {
     createDeck({ id: 'old-schema-deck', nameAr: 'قديم', nameEn: 'Old' });
     addTitlesToDeck('old-schema-deck', ['A', 'B', 'C']);
 
-    const { session, balance } = startGameSession('old-player', 'sess-1', 'old-schema-deck');
+    const { session, balance } = startGameSession('old-player', 'sess-1');
     expect(session.titles).toHaveLength(3);
     expect(balance).toBe(4); // spent one of the five pre-existing credits
   });

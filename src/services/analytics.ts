@@ -9,8 +9,8 @@
  */
 export type AnalyticsEvent =
   | { name: 'language_changed'; lang: 'ar' | 'en' }
-  | { name: 'charades_drafted'; deckId: string }
-  | { name: 'charades_unlocked'; deckId: string }
+  | { name: 'charades_drafted' }
+  | { name: 'charades_unlocked' }
   | { name: 'charades_completed'; winner: 'A' | 'B' | 'tie' }
   | { name: 'wallet_topped_up'; balance: number }
   | { name: 'player_account_created' }

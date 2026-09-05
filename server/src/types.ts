@@ -73,16 +73,30 @@ export interface PaymentRow {
 }
 
 /**
- * One purchased charades session: 20 titles dealt from a single deck at the
+ * One title as dealt into a session — carries its deck's display name
+ * alongside the title itself, since the reveal page is a standalone page
+ * with no API access of its own: everything it shows has to already be in
+ * the link a session's QR code encodes.
+ */
+export interface DealtTitle {
+  id: string;
+  text: string;
+  deckId: string;
+  deckNameAr: string;
+  deckNameEn: string;
+}
+
+/**
+ * One purchased charades session: 20 titles dealt at random across every
+ * playable deck (never chosen by the player — see `startGameSession`) the
  * moment a wallet credit was spent. Its id is client-generated (the same
  * pattern the old board game used) so resuming after an app restart replays
- * the same id and never spends a second credit — see `startGameSession`.
+ * the same id and never spends a second credit.
  */
 export interface GameSessionRow {
   id: string;
   playerId: string;
-  deckId: string;
-  titles: TitleRow[];
+  titles: DealtTitle[];
   createdAt: number;
 }
 

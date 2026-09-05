@@ -20,13 +20,6 @@ export interface CheckoutPayment {
   redirectUrl?: string;
 }
 
-export interface PublicDeck {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-  titleCount: number;
-}
-
 async function request<T>(path: string, init: RequestInit, timeoutMs: number): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -61,11 +54,6 @@ function authedPost<T>(path: string, token: string, body: unknown, timeoutMs = 8
   );
 }
 
-/** Playable decks — public, no sign-in needed to see what's on offer. */
-export function listDecks(timeoutMs = 8000): Promise<PublicDeck[]> {
-  return request<PublicDeck[]>('/charades/decks', { method: 'GET' }, timeoutMs);
-}
-
 /** Current price of one game, in fils (1000 fils = 1 KD). Public, so a guest can see it before signing up. */
 export function getGamePrice(timeoutMs = 8000): Promise<{ fils: number; currency: string }> {
   return request('/charades/price', { method: 'GET' }, timeoutMs);
@@ -96,22 +84,22 @@ export function failCheckout(token: string, paymentId: string, timeoutMs = 8000)
 }
 
 /**
- * Spends one wallet credit and deals `sessionId`'s 20 titles from `deckId`
- * in one call. Idempotent server-side — calling this again with the same
- * sessionId (e.g. after an app restart) never spends a second credit, and
- * returns the same dealt titles instead. Throws `WalletError` with
- * `status: 402` when the balance is empty.
+ * Spends one wallet credit and deals `sessionId`'s 20 titles in one call —
+ * at random across every playable deck, never a deck the player chose.
+ * Idempotent server-side — calling this again with the same sessionId (e.g.
+ * after an app restart) never spends a second credit, and returns the same
+ * dealt titles instead. Throws `WalletError` with `status: 402` when the
+ * balance is empty.
  */
 export function startGameSession(
   token: string,
   sessionId: string,
-  deckId: string,
   timeoutMs = 8000
 ): Promise<{ titles: CharadesTitle[]; balance: number }> {
   return authedPost<{ session: { titles: CharadesTitle[] }; balance: number }>(
     '/charades/sessions',
     token,
-    { sessionId, deckId },
+    { sessionId },
     timeoutMs
   ).then((r) => ({ titles: r.session.titles, balance: r.balance }));
 }

@@ -78,7 +78,9 @@ export default function CharadesPlay() {
   const skip = () => updateCharades(skipRound(charades));
 
   const baseUrl = resolveRevealBaseUrl(REVEAL_BASE_URL, webOrigin());
-  const revealUrl = baseUrl ? buildRevealUrl(baseUrl, currentTitle.text) : null;
+  const revealUrl = baseUrl
+    ? buildRevealUrl(baseUrl, currentTitle.text, currentTitle.deckNameAr, currentTitle.deckNameEn)
+    : null;
 
   return (
     <Screen>

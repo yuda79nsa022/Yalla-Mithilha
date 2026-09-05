@@ -26,16 +26,19 @@ describe('resolveRevealBaseUrl', () => {
 });
 
 describe('buildRevealUrl', () => {
-  it('builds a link to the reveal route with the title URL-encoded', () => {
-    expect(buildRevealUrl('https://example.com', 'The Lion King')).toBe(
-      'https://example.com/charades/reveal?t=The%20Lion%20King'
-    );
+  it('builds a link to the reveal route with the title and category URL-encoded', () => {
+    const url = buildRevealUrl('https://example.com', 'The Lion King', 'أفلام', 'Movies');
+    expect(url.startsWith('https://example.com/charades/reveal?')).toBe(true);
+    const params = new URL(url).searchParams;
+    expect(params.get('t')).toBe('The Lion King');
+    expect(params.get('ca')).toBe('أفلام');
+    expect(params.get('ce')).toBe('Movies');
   });
 
   it('round-trips Arabic titles and special characters', () => {
     const title = 'أحلام الشوارع & أصدقاء؟';
-    const url = buildRevealUrl('https://example.com', title);
-    const decoded = decodeURIComponent(url.split('?t=')[1]);
-    expect(decoded).toBe(title);
+    const url = buildRevealUrl('https://example.com', title, 'فئة', 'Category');
+    const params = new URL(url).searchParams;
+    expect(params.get('t')).toBe(title);
   });
 });

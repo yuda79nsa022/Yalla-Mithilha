@@ -26,11 +26,9 @@ import {
   failCheckout as failCheckoutApi,
   getGamePrice,
   getWalletBalance,
-  listDecks,
   startCheckout as startCheckoutApi,
   startGameSession,
   type CheckoutPayment,
-  type PublicDeck,
 } from '../services/walletApi';
 
 interface AppValue {
@@ -43,20 +41,19 @@ interface AppValue {
   wipeEverything: () => Promise<void>;
 
   /**
-   * The paid game: silent charades. `decks` is the server's list of playable
-   * decks (no offline fallback — spending real money already requires a
-   * connection). `gamePriceFils` is the current admin-set price of one game.
+   * The paid game: silent charades. The server chooses every round's
+   * category and title at random — there is no deck to pick. `gamePriceFils`
+   * is the current admin-set price of one game.
    */
-  decks: PublicDeck[];
   gamePriceFils: number;
   charades: CharadesState | null;
-  startCharadesDraft: (deckId: string, teamAName: string, teamBName: string) => CharadesState;
+  startCharadesDraft: (teamAName: string, teamBName: string) => CharadesState;
   updateCharades: (next: CharadesState) => void;
   /**
    * Spends one wallet credit and deals the drafted session's 20 titles.
    * Requires a signed-in player — wallet credits are owned by an account,
    * never a device. False when there is no player session, no credit to
-   * spend, or the deck turned out to be empty.
+   * spend, or no titles are available yet.
    */
   unlockCurrentCharades: () => Promise<boolean>;
   quitCharades: () => void;
@@ -103,7 +100,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [prefs, setPrefsState] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [charades, setCharadesState] = useState<CharadesState | null>(null);
-  const [decks, setDecks] = useState<PublicDeck[]>([]);
   const [gamePriceFils, setGamePriceFils] = useState(0);
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
   const [playerAuthBusy, setPlayerAuthBusy] = useState(false);
@@ -125,11 +121,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPlayerSession(storedPlayerSession);
       setReady(true);
 
-      // Spending real money requires a connection — no offline fallback. A
-      // failure just leaves the deck list empty and the draft screen says so.
-      listDecks()
-        .then(setDecks)
-        .catch(() => undefined);
       getGamePrice()
         .then((r) => setGamePriceFils(r.fils))
         .catch(() => undefined);
@@ -172,10 +163,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startCharadesDraft = useCallback(
-    (deckId: string, teamAName: string, teamBName: string) => {
-      const next = draftCharades(deckId, teamAName, teamBName);
+    (teamAName: string, teamBName: string) => {
+      const next = draftCharades(teamAName, teamBName);
       updateCharades(next);
-      track({ name: 'charades_drafted', deckId });
+      track({ name: 'charades_drafted' });
       return next;
     },
     [updateCharades]
@@ -196,10 +187,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const unlockCurrentCharades = useCallback(async () => {
     if (!charades || !playerSession) return false;
     try {
-      const { titles, balance } = await startGameSession(playerSession.token, charades.id, charades.deckId);
+      const { titles, balance } = await startGameSession(playerSession.token, charades.id);
       setWalletBalance(balance);
       updateCharades(unlockCharadesState(charades, titles));
-      track({ name: 'charades_unlocked', deckId: charades.deckId });
+      track({ name: 'charades_unlocked' });
       return true;
     } catch (err) {
       setWalletError(err instanceof WalletError ? err.message : 'could not reach the server');
@@ -312,7 +303,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     prefs,
     setPrefs,
     wipeEverything,
-    decks,
     gamePriceFils,
     charades,
     startCharadesDraft,

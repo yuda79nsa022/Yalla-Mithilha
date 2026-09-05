@@ -1,7 +1,7 @@
 /**
- * The paid game: silent charades. A team picks a deck (a themed pool of
- * titles an admin imported — movies, series, plays, songs), pays for a
- * session, and the server deals 20 titles from it. One player privately
+ * The paid game: silent charades. A team names their two sides, pays for a
+ * session, and the server deals 20 titles at random across every playable
+ * deck combined — the player never picks a category. One player privately
  * reads a title, acts it out with no words or sounds, their team guesses,
  * then the phone moves to "show answer" (re-confirming the same title) to
  * award the round before the next one deals. Unlike a trivia question,
@@ -12,6 +12,8 @@
 export interface CharadesTitle {
   id: string;
   text: string;
+  deckNameAr: string;
+  deckNameEn: string;
 }
 
 export type CharadesLock = 'locked' | 'unlocked';
@@ -19,7 +21,6 @@ export type CharadesLock = 'locked' | 'unlocked';
 export interface CharadesState {
   /** Client-generated, becomes the server's game_sessions row id — the idempotency key for "start game". */
   id: string;
-  deckId: string;
   teamAName: string;
   teamBName: string;
   /** Empty until `unlockCharades` deals them from the server. */
@@ -27,7 +28,7 @@ export interface CharadesState {
   /** Which title is next/current, 0-based. */
   index: number;
   scores: [number, number];
-  /** `locked` = drafted (deck + team names chosen) but not yet paid; `unlocked` = paid, titles dealt. */
+  /** `locked` = drafted (team names chosen) but not yet paid; `unlocked` = paid, titles dealt. */
   lock: CharadesLock;
 }
 
@@ -36,12 +37,11 @@ export function makeCharadesId(): string {
 }
 
 export function draftCharades(
-  deckId: string,
   teamAName: string,
   teamBName: string,
   id: string = makeCharadesId()
 ): CharadesState {
-  return { id, deckId, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked' };
+  return { id, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked' };
 }
 
 export function unlockCharades(state: CharadesState, titles: CharadesTitle[]): CharadesState {

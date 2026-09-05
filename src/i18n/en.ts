@@ -34,17 +34,13 @@ export const en: Record<TranslationKey, string> = {
   'charades.home.startNew': 'Start a new game',
 
   'charades.draft.title': 'Set up your game',
-  'charades.draft.subtitle': 'Two teams, one deck, twenty rounds between them',
+  'charades.draft.subtitle': 'Two teams, twenty rounds between them — the server picks a random category and title each round',
   'charades.draft.teamAName': 'Team A name',
   'charades.draft.teamBName': 'Team B name',
-  'charades.draft.deckLabel': 'Pick a deck',
-  'charades.draft.deckCount': '{{count}} titles',
-  'charades.draft.noDecks': 'Could not load decks. Check your connection and try again.',
   'charades.draft.confirm': 'Continue to checkout',
-  'charades.draft.back': 'Back to team names',
 
   'charades.checkout.title': 'Start the game',
-  'charades.checkout.subtitle': 'One payment plays twenty rounds from the deck you picked',
+  'charades.checkout.subtitle': 'One payment plays twenty rounds, random categories and titles from every deck',
   'charades.checkout.walletBalance': '{{count}} games in your wallet',
   'charades.checkout.price': 'One game — {{price}}',
   'charades.checkout.devNotice':
@@ -70,6 +66,7 @@ export const en: Record<TranslationKey, string> = {
   'charades.play.home': 'Home',
 
   'charades.reveal.warning': 'Show this to yourself only — don’t let your team see the screen',
+  'charades.reveal.category': 'Category: {{category}}',
   'charades.reveal.missing': 'Nothing to reveal here. Scan the code on the game screen to see the title.',
 
   'charades.resume.title': 'You have a game in progress',
@@ -92,7 +89,7 @@ export const en: Record<TranslationKey, string> = {
     'Yalla Mithilha is Charades — silent acting built on real titles: Kuwaiti, Khaleeji and Egyptian movies, series and plays. Runs fully in Arabic and English.',
   'landing.charadesTitle': 'Charades',
   'landing.charadesBody':
-    'Two teams pick a deck of real titles — Kuwaiti and Egyptian plays, Egyptian series, Khaleeji series — and take turns acting one out at a time, twenty rounds, no words allowed. Top up your wallet once to play a game.',
+    'Two teams name themselves and take turns acting out real titles — Kuwaiti and Egyptian plays, Egyptian series, Khaleeji series — picked at random by the server each round, twenty rounds, no words allowed. Top up your wallet once to play a game.',
   'landing.charadesCta': 'Play charades',
   'landing.bilingualTitle': 'Arabic and English',
   'landing.bilingualBody': 'Every screen, in both languages — switch anytime in Settings.',

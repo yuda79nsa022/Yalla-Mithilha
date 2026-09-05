@@ -12,9 +12,12 @@ import { useApp } from '../../src/state/AppProvider';
  * deck, or login state.
  */
 export default function CharadesReveal() {
-  const { t } = useApp();
-  const { t: title } = useLocalSearchParams<{ t?: string }>();
+  const { t, lang } = useApp();
+  const { t: title, ca, ce } = useLocalSearchParams<{ t?: string; ca?: string; ce?: string }>();
   const text = Array.isArray(title) ? title[0] : title;
+  const categoryAr = Array.isArray(ca) ? ca[0] : ca;
+  const categoryEn = Array.isArray(ce) ? ce[0] : ce;
+  const category = lang === 'ar' ? categoryAr : categoryEn;
 
   return (
     <Screen>
@@ -24,6 +27,11 @@ export default function CharadesReveal() {
             <T variant="label" align="center" color={colors.textMuted}>
               {t('charades.reveal.warning')}
             </T>
+            {category ? (
+              <T variant="heading" align="center" color={colors.accent}>
+                {t('charades.reveal.category', { category })}
+              </T>
+            ) : null}
             <T variant="display" align="center">
               {text}
             </T>

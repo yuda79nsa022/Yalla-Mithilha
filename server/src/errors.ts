@@ -5,10 +5,10 @@ import {
   DuplicateDeckError,
   DuplicatePlayerUsernameError,
   DuplicateUsernameError,
-  EmptyDeckError,
   GameSessionNotFoundError,
   InsufficientCreditsError,
   LastAdminError,
+  NoTitlesAvailableError,
   PaymentNotFoundError,
   PlayerNotFoundError,
   TitleNotFoundError,
@@ -25,7 +25,7 @@ export function handleError(err: unknown, res: Response): void {
     err instanceof DuplicateUsernameError ||
     err instanceof DuplicatePlayerUsernameError ||
     err instanceof LastAdminError ||
-    err instanceof EmptyDeckError
+    err instanceof NoTitlesAvailableError
   ) {
     res.status(409).json({ error: err.message });
     return;

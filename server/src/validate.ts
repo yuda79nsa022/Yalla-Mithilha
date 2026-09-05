@@ -136,7 +136,6 @@ export function parseUpdatePlayerBody(body: unknown): UpdatePlayerBody {
 
 export interface StartSessionBody {
   sessionId: string;
-  deckId: string;
 }
 
 /** `sessionId` is the client's own locally generated id — used verbatim as the server-side game_sessions row id. */
@@ -144,8 +143,6 @@ export function parseStartSessionBody(body: unknown): StartSessionBody {
   const b = (body ?? {}) as Record<string, unknown>;
   const sessionId = requireString(b.sessionId, 'sessionId');
   if (sessionId.length > 200) throw new ValidationError('"sessionId" is too long');
-  const deckId = requireString(b.deckId, 'deckId');
-  if (deckId.length > 200) throw new ValidationError('"deckId" is too long');
-  return { sessionId, deckId };
+  return { sessionId };
 }
 

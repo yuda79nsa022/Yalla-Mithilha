@@ -20,6 +20,7 @@ export function resolveRevealBaseUrl(configured: string | null, webOrigin: strin
   return base.endsWith('/') ? base.slice(0, -1) : base;
 }
 
-export function buildRevealUrl(baseUrl: string, title: string): string {
-  return `${baseUrl}/charades/reveal?t=${encodeURIComponent(title)}`;
+export function buildRevealUrl(baseUrl: string, title: string, categoryAr: string, categoryEn: string): string {
+  const params = new URLSearchParams({ t: title, ca: categoryAr, ce: categoryEn });
+  return `${baseUrl}/charades/reveal?${params.toString()}`;
 }
