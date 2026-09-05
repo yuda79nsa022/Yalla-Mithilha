@@ -1,11 +1,11 @@
 import { Redirect, router } from 'expo-router';
-import { useKeepAwake } from 'expo-keep-awake';
 import React, { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Button, ConfirmModal, Screen, Spacer, T } from '../../src/ui/components';
 import { colors, radius, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
+import { useKeepAwake } from '../../src/platform/keepAwake';
 import { awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
 import { buildRevealUrl, resolveRevealBaseUrl } from '../../src/engine/reveal';
 import { REVEAL_BASE_URL } from '../../src/config';

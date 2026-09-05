@@ -1,10 +1,10 @@
 import { Redirect, router } from 'expo-router';
-import { useKeepAwake } from 'expo-keep-awake';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { BigChoice, Button, Screen, Spacer, T } from '../../src/ui/components';
 import { colors, miniGameColor, radius, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
+import { useKeepAwake } from '../../src/platform/keepAwake';
 import { completeRound, currentPlan, roundPrompts } from '../../src/engine/engine';
 import { MINI_GAMES } from '../../src/engine/config';
 import {
