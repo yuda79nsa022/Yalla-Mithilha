@@ -73,7 +73,7 @@ export interface PaymentRow {
 }
 
 /**
- * One purchased charades session: 10 titles dealt from a single deck at the
+ * One purchased charades session: 20 titles dealt from a single deck at the
  * moment a wallet credit was spent. Its id is client-generated (the same
  * pattern the old board game used) so resuming after an app restart replays
  * the same id and never spends a second credit — see `startGameSession`.

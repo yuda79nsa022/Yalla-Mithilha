@@ -96,7 +96,7 @@ export function failCheckout(token: string, paymentId: string, timeoutMs = 8000)
 }
 
 /**
- * Spends one wallet credit and deals `sessionId`'s 10 titles from `deckId`
+ * Spends one wallet credit and deals `sessionId`'s 20 titles from `deckId`
  * in one call. Idempotent server-side — calling this again with the same
  * sessionId (e.g. after an app restart) never spends a second credit, and
  * returns the same dealt titles instead. Throws `WalletError` with

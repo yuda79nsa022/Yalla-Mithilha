@@ -131,9 +131,9 @@ slot count an import could accidentally overrun or need to protect.
 title is the one cell per row that's neither numeric nor a highly-repeated
 label like a year or category column).
 
-`startGameSession` deals 10 titles (`TITLES_PER_SESSION` in `src/db.ts`)
+`startGameSession` deals 20 titles (`TITLES_PER_SESSION` in `src/db.ts`)
 at random from the chosen deck, without replacement within that session,
-the moment a wallet credit is spent. A deck with fewer than 10 titles
+the moment a wallet credit is spent. A deck with fewer than 20 titles
 just deals all of it.
 
 ## Audit log
@@ -190,7 +190,7 @@ own errors rather than throwing.
   otherwise). Stand in for a real payment provider's success/failure
   callback; confirm is idempotent (see above).
 - `POST /charades/sessions` — player session required. `{ sessionId, deckId }`
-  spends one credit and deals 10 titles from that deck; idempotent on
+  spends one credit and deals 20 titles from that deck; idempotent on
   `sessionId` (see above). 402 when the balance is empty, 409 when the deck
   has no titles.
 - `GET /charades/sessions/:id` — player session required, and the session

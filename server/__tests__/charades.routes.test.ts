@@ -108,18 +108,18 @@ describe('POST /charades/sessions', () => {
     expect(res.status).toBe(402);
   });
 
-  it('spends exactly one credit and deals up to 10 titles', async () => {
-    seedDeck(12);
+  it('spends exactly one credit and deals up to 20 titles', async () => {
+    seedDeck(25);
     const { auth } = await makePlayerSession();
     await buyOneCredit(auth);
 
     const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', deckId });
     expect(res.status).toBe(201);
-    expect(res.body.session.titles).toHaveLength(10);
+    expect(res.body.session.titles).toHaveLength(20);
     expect(res.body.balance).toBe(0);
   });
 
-  it('deals every title if the deck has fewer than 10', async () => {
+  it('deals every title if the deck has fewer than 20', async () => {
     seedDeck(4);
     const { auth } = await makePlayerSession();
     await buyOneCredit(auth);

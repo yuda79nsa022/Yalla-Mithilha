@@ -87,7 +87,7 @@ charadesRouter.post('/checkout/:paymentId/fail', (req, res) => {
 });
 
 /**
- * Spends one wallet credit and deals the session's 10 titles in one call.
+ * Spends one wallet credit and deals the session's 20 titles in one call.
  * Idempotent — see startGameSession. Resuming an interrupted app replays the
  * same client-generated sessionId and spends nothing further, returning the
  * same dealt titles instead.

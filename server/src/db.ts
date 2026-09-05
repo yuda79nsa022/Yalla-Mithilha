@@ -93,7 +93,7 @@ db.exec(`
     updated_at INTEGER NOT NULL
   );
 
-  -- One row per purchased charades session — 10 titles dealt from one deck
+  -- One row per purchased charades session — 20 titles dealt from one deck
   -- the moment a wallet credit was spent. Its id is the client's own
   -- locally-generated session id, generated once at "start game" time — that
   -- shared identity is what makes spending idempotent: resuming an
@@ -595,7 +595,7 @@ function shuffled<T>(items: T[]): T[] {
   return arr;
 }
 
-const TITLES_PER_SESSION = 10;
+const TITLES_PER_SESSION = 20;
 
 /**
  * Spends one wallet credit to deal `sessionId` — the client's own locally
@@ -604,7 +604,7 @@ const TITLES_PER_SESSION = 10;
  * with the same id (e.g. resuming after an app restart) returns the same
  * dealt titles and spends nothing further, rather than erroring or charging
  * twice. Titles are drawn without replacement from the deck; a deck with
- * fewer than 10 titles just deals all of it.
+ * fewer than 20 titles just deals all of it.
  */
 export function startGameSession(
   playerId: string,

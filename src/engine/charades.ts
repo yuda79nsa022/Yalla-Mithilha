@@ -1,7 +1,7 @@
 /**
  * The paid game: silent charades. A team picks a deck (a themed pool of
  * titles an admin imported — movies, series, plays, songs), pays for a
- * session, and the server deals 10 titles from it. One player privately
+ * session, and the server deals 20 titles from it. One player privately
  * reads a title, acts it out with no words or sounds, their team guesses,
  * then the phone moves to "show answer" (re-confirming the same title) to
  * award the round before the next one deals. Unlike a trivia question,

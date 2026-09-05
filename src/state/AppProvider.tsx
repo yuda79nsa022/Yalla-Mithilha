@@ -94,7 +94,7 @@ interface AppValue {
   startCharadesDraft: (deckId: string, teamAName: string, teamBName: string) => CharadesState;
   updateCharades: (next: CharadesState) => void;
   /**
-   * Spends one wallet credit and deals the drafted session's 10 titles.
+   * Spends one wallet credit and deals the drafted session's 20 titles.
    * Requires a signed-in player — wallet credits are owned by an account,
    * never a device. False when there is no player session, no credit to
    * spend, or the deck turned out to be empty.

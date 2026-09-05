@@ -196,7 +196,7 @@ export const ar = {
   'charades.home.startNew': 'ابدأ لعبة جديدة',
 
   'charades.draft.title': 'جهّزوا لعبتكم',
-  'charades.draft.subtitle': 'فريقين، فئة وحدة، عشر جولات بينهم',
+  'charades.draft.subtitle': 'فريقين، فئة وحدة، عشرين جولة بينهم',
   'charades.draft.teamAName': 'اسم الفريق الأول',
   'charades.draft.teamBName': 'اسم الفريق الثاني',
   'charades.draft.deckLabel': 'اختاروا فئة',
@@ -206,7 +206,7 @@ export const ar = {
   'charades.draft.back': 'رجوع لأسماء الفرق',
 
   'charades.checkout.title': 'ابدأوا اللعبة',
-  'charades.checkout.subtitle': 'دفعة وحدة تشغّل عشر جولات من الفئة اللي اخترتوها',
+  'charades.checkout.subtitle': 'دفعة وحدة تشغّل عشرين جولة من الفئة اللي اخترتوها',
   'charades.checkout.walletBalance': 'عندك {{count}} لعبة برصيدك',
   'charades.checkout.price': 'لعبة وحدة — {{price}}',
   'charades.checkout.topUp': 'اشحن رصيدك',
@@ -262,7 +262,7 @@ export const ar = {
   'landing.partyCta': 'العب لعبة الحفلة',
   'landing.charadesTitle': 'مثّلها',
   'landing.charadesBody':
-    'فريقين يختارون فئة من عناوين حقيقية — مسرحيات كويتية ومصرية، مسلسلات مصرية وخليجية — ويتناوبون يمثّلون عنوان وحده كل مرة، عشر جولات، بدون كلام. اشحن رصيدك مرة وحدة عشان تلعب لعبة.',
+    'فريقين يختارون فئة من عناوين حقيقية — مسرحيات كويتية ومصرية، مسلسلات مصرية وخليجية — ويتناوبون يمثّلون عنوان وحده كل مرة، عشرين جولة، بدون كلام. اشحن رصيدك مرة وحدة عشان تلعب لعبة.',
   'landing.charadesCta': 'العب مثّلها',
   'landing.bilingualTitle': 'عربي وإنجليزي',
   'landing.bilingualBody': 'كل شاشة وكل كرت، باللغتين — بدّل أي وقت من الإعدادات.',
