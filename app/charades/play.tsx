@@ -40,11 +40,17 @@ function ScoreChip({ name, score, color }: { name: string; score: number; color:
 
 export default function CharadesPlay() {
   useKeepAwake();
-  const { t, charades, updateCharades, quitCharades } = useApp();
+  const { t, lang, charades, updateCharades, quitCharades } = useApp();
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [endedEarly, setEndedEarly] = useState(false);
   const [started, setStarted] = useState(false);
+  /**
+   * Set the instant "award" or "skip" is tapped — holds the outcome so the
+   * round's answer can be shown to everyone before `charades.index` actually
+   * advances (which is deferred until "next round" is tapped).
+   */
+  const [pendingOutcome, setPendingOutcome] = useState<{ team: 0 | 1; awarded: boolean } | null>(null);
 
   // Hooks run unconditionally, before the early-return redirects below — so
   // every dependency here has to tolerate `charades` being null.
@@ -55,6 +61,7 @@ export default function CharadesPlay() {
     setTimeLeft(ROUND_SECONDS);
     setEndedEarly(false);
     setStarted(false);
+    setPendingOutcome(null);
   }, [roundKey]);
 
   useEffect(() => {
@@ -111,14 +118,46 @@ export default function CharadesPlay() {
   const teamColor = teamIndex === 0 ? colors.teamA : colors.teamB;
   const currentTitle = charades.titles[charades.index];
 
-  const award = () => updateCharades(awardRound(charades, teamIndex));
-  const skip = () => updateCharades(skipRound(charades));
   const revealed = endedEarly || timeLeft <= 0;
+  const category = lang === 'ar' ? currentTitle.deckNameAr : currentTitle.deckNameEn;
 
   const baseUrl = resolveRevealBaseUrl(REVEAL_BASE_URL, webOrigin());
   const revealUrl = baseUrl
     ? buildRevealUrl(baseUrl, currentTitle.text, currentTitle.deckNameAr, currentTitle.deckNameEn)
     : null;
+
+  const nextRound = () => {
+    if (!pendingOutcome) return;
+    updateCharades(pendingOutcome.awarded ? awardRound(charades, pendingOutcome.team) : skipRound(charades));
+  };
+
+  if (pendingOutcome) {
+    const finishedTeamName = pendingOutcome.team === 0 ? charades.teamAName : charades.teamBName;
+    const finishedTeamColor = pendingOutcome.team === 0 ? colors.teamA : colors.teamB;
+    return (
+      <Screen scroll>
+        <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
+          <T variant="label" align="center" color={colors.textMuted}>
+            {t('charades.play.answerReveal')}
+          </T>
+          <T variant="heading" align="center" color={colors.accent}>
+            {t('charades.reveal.category', { category })}
+          </T>
+          <T variant="display" align="center">
+            {currentTitle.text}
+          </T>
+          <Spacer />
+          <T variant="heading" align="center" color={finishedTeamColor}>
+            {pendingOutcome.awarded
+              ? t('charades.play.pointAwardedTo', { team: finishedTeamName })
+              : t('charades.play.noOneGuessedOutcome')}
+          </T>
+          <Spacer size={spacing.xl} />
+          <Button label={t('charades.play.nextRound')} accent={colors.accent} onPress={nextRound} />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen scroll>
@@ -152,8 +191,16 @@ export default function CharadesPlay() {
 
         {revealed ? (
           <>
-            <Button label={t('charades.play.award', { team: teamName })} accent={teamColor} onPress={award} />
-            <Button label={t('charades.play.skip')} tone="ghost" onPress={skip} />
+            <Button
+              label={t('charades.play.award', { team: teamName })}
+              accent={teamColor}
+              onPress={() => setPendingOutcome({ team: teamIndex, awarded: true })}
+            />
+            <Button
+              label={t('charades.play.skip')}
+              tone="ghost"
+              onPress={() => setPendingOutcome({ team: teamIndex, awarded: false })}
+            />
           </>
         ) : started ? (
           <>
