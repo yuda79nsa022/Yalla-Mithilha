@@ -145,12 +145,14 @@ label like a year or category column).
 
 The player never picks a deck. `startGameSession` deals 20 titles
 (`TITLES_PER_SESSION` in `src/db.ts`) at random from every playable deck
-*combined* (`allTitlesPool()`), without replacement within that session —
-so the category and the title are both a surprise, and the same title text
+*combined* (`dealTitles()`), without replacement within that session — so
+the category and the title are both a surprise, and the same title text
 can never appear twice in one session even if it exists in two different
-decks (deduplicated by trimmed text before dealing). Fewer than 20 titles
-across every deck combined? Deals all of it. Each dealt title carries its
-own deck's id and bilingual name (`DealtTitle` in `src/types.ts`) so the
+decks (deduplicated by trimmed text before dealing). Dealing is also
+round-robin across decks, so two consecutive rounds never share a category
+unless only one deck has titles left. Fewer than 20 titles across every
+deck combined? Deals all of it. Each dealt title carries its own deck's id
+and bilingual name (`DealtTitle` in `src/types.ts`) so the
 app can show which category it came from once revealed.
 
 ## Audit log

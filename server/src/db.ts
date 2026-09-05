@@ -611,24 +611,38 @@ function shuffled<T>(items: T[]): T[] {
 const TITLES_PER_SESSION = 20;
 
 /**
- * Every title across every playable deck, tagged with its own deck's id and
- * display name — the pool `startGameSession` deals from. Deduplicated by
- * trimmed text so the same title text appearing in two different decks
- * still only ever occupies one slot in a session (see "never repeated in
- * the same game" on `startGameSession`).
+ * Deals up to `count` titles round-robin across every playable deck, so two
+ * consecutive rounds never share a category unless only one deck still has
+ * titles left (unavoidable once every other category is exhausted).
+ * Deduplicated by trimmed text so the same title text appearing in two
+ * different decks still only ever occupies one slot in a session (see
+ * "never repeated in the same game" on `startGameSession`). Which deck goes
+ * first, and which title comes out of each deck, are both random.
  */
-function allTitlesPool(): DealtTitle[] {
+function dealTitles(count: number): DealtTitle[] {
   const seenText = new Set<string>();
-  const pool: DealtTitle[] = [];
-  for (const deck of listPlayableDecks()) {
-    for (const title of deck.titles) {
-      const text = title.text.trim();
-      if (seenText.has(text)) continue;
-      seenText.add(text);
-      pool.push({ id: title.id, text: title.text, deckId: deck.id, deckNameAr: deck.nameAr, deckNameEn: deck.nameEn });
+  let queues = shuffled(listPlayableDecks())
+    .map((deck) => {
+      const titles: DealtTitle[] = [];
+      for (const title of deck.titles) {
+        const text = title.text.trim();
+        if (seenText.has(text)) continue;
+        seenText.add(text);
+        titles.push({ id: title.id, text: title.text, deckId: deck.id, deckNameAr: deck.nameAr, deckNameEn: deck.nameEn });
+      }
+      return shuffled(titles);
+    })
+    .filter((titles) => titles.length > 0);
+
+  const dealt: DealtTitle[] = [];
+  while (dealt.length < count && queues.length > 0) {
+    for (const queue of queues) {
+      if (dealt.length >= count) break;
+      dealt.push(queue.shift()!);
     }
+    queues = queues.filter((queue) => queue.length > 0);
   }
-  return pool;
+  return dealt;
 }
 
 /**
@@ -641,8 +655,10 @@ function allTitlesPool(): DealtTitle[] {
  *
  * The player never picks a category: each of the 20 titles is drawn at
  * random from every playable deck combined, without replacement, so no
- * title repeats within the same session even across decks. Fewer than 20
- * titles exist across every deck combined? Deals all of it.
+ * title repeats within the same session even across decks — and dealt
+ * round-robin across decks, so consecutive rounds don't share a category
+ * either (see `dealTitles`). Fewer than 20 titles exist across every deck
+ * combined? Deals all of it.
  */
 export function startGameSession(
   playerId: string,
@@ -654,14 +670,13 @@ export function startGameSession(
     return { session: existing, balance: creditBalance(playerId) };
   }
 
-  const pool = allTitlesPool();
-  if (pool.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
+  const dealt = dealTitles(TITLES_PER_SESSION);
+  if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
 
   const tx = db.transaction(() => {
     if (creditBalance(playerId) < 1) {
       throw new InsufficientCreditsError('not enough credits to start a game — top up your wallet first');
     }
-    const dealt = shuffled(pool).slice(0, TITLES_PER_SESSION);
     const now = Date.now();
     db.prepare(
       `INSERT INTO game_sessions (id, player_id, deck_id, titles_json, created_at)

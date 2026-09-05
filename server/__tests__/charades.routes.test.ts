@@ -134,6 +134,29 @@ describe('POST /charades/sessions', () => {
     expect(new Set(texts).size).toBe(4); // no repeats
   });
 
+  it('never deals two consecutive rounds from the same deck, while more than one deck still has titles', async () => {
+    createDeck({ id: 'deck-a', nameAr: 'أ', nameEn: 'A' });
+    addTitlesToDeck(
+      'deck-a',
+      Array.from({ length: 10 }, (_, i) => `A${i}`)
+    );
+    createDeck({ id: 'deck-b', nameAr: 'ب', nameEn: 'B' });
+    addTitlesToDeck(
+      'deck-b',
+      Array.from({ length: 10 }, (_, i) => `B${i}`)
+    );
+
+    const { auth } = await makePlayerSession();
+    await buyOneCredit(auth);
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
+
+    const deckIds = res.body.session.titles.map((t: any) => t.deckId);
+    expect(deckIds).toHaveLength(20);
+    for (let i = 1; i < deckIds.length; i++) {
+      expect(deckIds[i]).not.toBe(deckIds[i - 1]);
+    }
+  });
+
   it('never deals the same title text twice, even when two decks share it', async () => {
     createDeck({ id: 'deck-a', nameAr: 'أ', nameEn: 'A' });
     addTitlesToDeck('deck-a', ['Shared Title']);
