@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Button, ConfirmModal, Divider, Pill, Screen, Spacer, T } from '../src/ui/components';
 import { colors, radius, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
@@ -56,19 +56,15 @@ export default function Home() {
 
   return (
     <Screen scroll>
-      <Spacer size={spacing.xl} />
-      <View style={styles.topRow}>
-        <View style={styles.band}>
-          {Array.from({ length: 9 }, (_, i) => (
-            <View
-              key={i}
-              style={[styles.chevron, { backgroundColor: i % 2 ? colors.accent : colors.brand }]}
-            />
-          ))}
-        </View>
-        <LanguageToggle />
-      </View>
-      <T variant="display">{t('app.name')}</T>
+      <Spacer size={spacing.md} />
+      <LanguageToggle />
+      <Spacer size={spacing.sm} />
+      <Image
+        source={require('../assets/logo.png')}
+        style={styles.logo}
+        resizeMode="contain"
+        accessibilityLabel={t('app.name')}
+      />
       <T variant="body" color={colors.textMuted}>
         {t('app.tagline')}
       </T>
@@ -154,9 +150,7 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  topRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing.md },
-  band: { flexDirection: 'row', gap: 6 },
-  chevron: { width: 14, height: 14, transform: [{ rotate: '45deg' }], borderRadius: 2 },
+  logo: { width: '100%', height: 220, alignSelf: 'center' },
   accountCard: {
     borderWidth: 2,
     borderColor: colors.border,
