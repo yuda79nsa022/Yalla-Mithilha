@@ -275,12 +275,27 @@ the shared screen's own page is served from when that screen is a browser
   with a real domain is a separate step.
 - **No real payment provider.** `MockPaymentProvider` stands in until real
   KNET/aggregator merchant credentials exist — see "The wallet" above.
-- **No repetition avoidance across sessions.** `startGameSession` draws 10
+- **No repetition avoidance across sessions.** `startGameSession` draws 20
   random titles from the deck each time, with no memory of what a player
   already saw in an earlier session against the same deck — unlike the free
   party game's rolling-window repeat avoidance. Low priority while decks
-  are large (hundreds of titles) relative to a 10-title session, but worth
+  are large (hundreds of titles) relative to a 20-title session, but worth
   revisiting if a deck ever shrinks close to that size.
+- **No real migration framework.** Schema setup is a single `CREATE TABLE
+  IF NOT EXISTS` block, run every time the server starts — which only ever
+  creates a table from scratch and does nothing to a table that already
+  exists from an older schema version. A column added to an existing table
+  after it already shipped (like `credit_transactions.game_session_id`)
+  needs its own explicit, idempotent `ALTER TABLE`, added by hand via the
+  small `ensureColumn()` helper right after the `CREATE TABLE` block. Found
+  the hard way: a database created before that column existed threw `table
+  credit_transactions has no column named game_session_id` on every "start
+  game" call, since the block above is a no-op on a table that's already
+  there. Covered by `__tests__/schemaMigration.test.ts`, which builds an
+  old-shaped table by hand before importing `db.ts` to prove the upgrade
+  path actually runs. The next schema change that adds a column to an
+  existing table needs the same treatment, not just an updated
+  `CREATE TABLE`.
 - **`uuid` transitive vulnerability** via `exceljs` (write path only — never
   exercised, since the server only *reads* uploaded spreadsheets). Fixing it
   means downgrading `exceljs` three major versions; not worth it for an

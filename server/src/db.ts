@@ -152,6 +152,25 @@ db.exec(`
   );
 `);
 
+/**
+ * `CREATE TABLE IF NOT EXISTS` above only creates a table from scratch — it
+ * never adds a column to a table that already exists from an older schema
+ * version. This project has no migration framework, so a column added
+ * after a table already shipped (like this one, added when charades
+ * sessions started recording which session consumed a credit) needs an
+ * explicit, idempotent `ALTER TABLE` here, or a database created before
+ * that change stays stuck on the old shape forever and every insert
+ * naming the new column fails with "no column named ...".
+ */
+function ensureColumn(table: string, column: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+  }
+}
+
+ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REFERENCES game_sessions(id)');
+
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
 
 /* --------------------------------------------------------------- settings */
