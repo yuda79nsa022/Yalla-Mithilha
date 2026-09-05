@@ -1,13 +1,10 @@
 import { Platform } from 'react-native';
-import type { MiniGameId } from '../engine/types';
 
 /**
  * Visual direction: the app's own poster. Warm paper cream instead of black
  * or white, deep ink-navy for reading text and line art, hot pink as the one
- * colour that means "tap this," and every mini-game still owns one saturated
- * hue that fills the whole screen — from three metres away you should know
- * which game is running before you read a word. Palette lifted straight from
- * the Yalla Mithilha logo (cream ground, blue illustration, pink accent).
+ * colour that means "tap this." Palette lifted straight from the Yalla
+ * Mithilha logo (cream ground, blue illustration, pink accent).
  */
 export const colors = {
   bg: '#F7F0DF',
@@ -18,13 +15,13 @@ export const colors = {
   border: '#D8C79C',
   correct: '#1F9E6C',
   skip: '#C23A2E',
-  /** Poster blue, straight off the logo's masks and film reel. Chrome and brand marks, not a mini-game. */
+  /** Poster blue, straight off the logo's masks and film reel. Chrome and brand marks. */
   brand: '#246E9C',
   /** The one colour that means "tap this" — the logo's hand gesture and ticket stubs. */
   accent: '#E8368F',
   overlay: 'rgba(247, 240, 223, 0.94)',
 
-  // Mini-game identity colours.
+  // Deck-thumbnail accent colours, cycled through on the Charades hub.
   act: '#F0A23C',
   taboo: '#F0614C',
   who: '#4FB6E0',
@@ -37,11 +34,7 @@ export const colors = {
   teamB: '#4FB6E0',
 } as const;
 
-export function miniGameColor(game: MiniGameId): string {
-  return colors[game];
-}
-
-/** Text that sits on top of a mini-game colour block. */
+/** Text that sits on top of an accent colour block. */
 export const onAccent = '#17222E';
 
 export const spacing = {

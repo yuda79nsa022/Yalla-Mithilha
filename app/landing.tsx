@@ -36,18 +36,6 @@ export default function Landing() {
       <T variant="body">{t('landing.intro')}</T>
 
       <Spacer size={spacing.xl} />
-      <View style={[styles.card, { borderColor: colors.taboo }]}>
-        <T variant="heading" color={colors.taboo}>
-          {t('landing.partyTitle')}
-        </T>
-        <T variant="body" color={colors.textMuted}>
-          {t('landing.partyBody')}
-        </T>
-        <Spacer size={spacing.sm} />
-        <Button label={t('landing.partyCta')} accent={colors.taboo} onPress={() => router.push('/rooms')} />
-      </View>
-
-      <Spacer size={spacing.md} />
       <View style={[styles.card, { borderColor: colors.accent }]}>
         <T variant="heading" color={colors.accent}>
           {t('landing.charadesTitle')}
@@ -56,7 +44,7 @@ export default function Landing() {
           {t('landing.charadesBody')}
         </T>
         <Spacer size={spacing.sm} />
-        <Button label={t('landing.charadesCta')} accent={colors.accent} onPress={() => router.push('/charades/home')} />
+        <Button label={t('landing.charadesCta')} accent={colors.accent} onPress={() => router.push('/home')} />
       </View>
 
       <Spacer size={spacing.xl} />
@@ -82,8 +70,6 @@ export default function Landing() {
       <Spacer size={spacing.xl} />
       <Divider />
       <Spacer />
-      <Button label={t('landing.howToLink')} tone="secondary" onPress={() => router.push('/how-to-play')} />
-      <Spacer size={spacing.sm} />
       <Button label={t('landing.fullMenu')} tone="ghost" onPress={() => router.push('/home')} />
       <Spacer size={spacing.xl} />
     </Screen>

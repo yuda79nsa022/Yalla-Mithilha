@@ -27,13 +27,3 @@ export const registerLimiter = rateLimit({
   skip,
   message: { error: 'too many accounts created from this network, try again later' },
 });
-
-/** Content reports: unauthenticated by design (no account needed to report a card), so this is the only thing standing between it and a flood. Each request can carry a batch, so the request-count budget stays modest. */
-export const reportLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip,
-  message: { error: 'too many reports from this network, try again later' },
-});

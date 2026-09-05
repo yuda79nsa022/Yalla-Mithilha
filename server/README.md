@@ -1,11 +1,10 @@
 # Charades admin server
 
-A small, separate Node/Express/TypeScript backend for Charades — the paid
-game in Yalla Mithilha. Manages decks (named pools of titles to act out),
-the admin-set price of one game, admin accounts, optional player accounts
-and their wallets, and content reports from the free party game. Not part
-of the Expo app's dependency graph; nothing here is bundled into the
-mobile/web build.
+A small, separate Node/Express/TypeScript backend for Yalla Mithilha's
+Charades game. Manages decks (named pools of titles to act out), the
+admin-set price of one game, admin accounts, and player accounts and their
+wallets. Not part of the Expo app's dependency graph; nothing here is
+bundled into the mobile/web build.
 
 ## The one rule that matters
 
@@ -87,13 +86,12 @@ no roles, appropriate for a small trusted content team. The one guard rail:
 deleting the last remaining admin account is refused, so nobody can lock
 everyone out of the dashboard by mistake.
 
-Player accounts are a separate, optional-for-the-free-game system for
-people actually playing — not the CMS, and not optional once real money is
-involved. `src/auth.ts` + the `players` table, signed with their own
-`PLAYER_SESSION_SECRET`. `POST /players/register` and `POST /players/login`
-are public and exchange a username/password for a 12-hour JWT. The free
-party game never touches this at all. Charades does require it — there is
-no way to hold a wallet balance without an account. Admins can list,
+Player accounts are a separate system for people actually playing — not
+the CMS, and not optional once real money is involved. `src/auth.ts` + the
+`players` table, signed with their own `PLAYER_SESSION_SECRET`.
+`POST /players/register` and `POST /players/login` are public and exchange
+a username/password for a 12-hour JWT — there is no way to hold a wallet
+balance without an account. Admins can list,
 rename, reset the password of, and delete any player account
 (`/admin/players`); unlike admin accounts, there's no "last remaining
 account" guard, since deleting every player carries no lockout risk.
@@ -211,51 +209,21 @@ own errors rather than throwing.
   must belong to the caller. Re-fetches a previously dealt session.
 - `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit
   log" above.
-- `POST /reports` — public, CORS-open (same reasoning as the public
-  `/charades` routes and `/players` — reporting a card never requires an
-  account). `{ reports: [{ id, promptId, reason, lang, createdAt,
-  appVersion? }, ...] }`, capped at 50 per batch. Idempotent per report
-  `id` — see "Content report sync" below.
-- `GET /admin/reports` — bearer-token protected. Raw list, most-recent
-  first; the admin UI's "Reports" tab groups and counts them per card.
-- `PUT /admin/reports/by-prompt/:promptId/status` — bearer-token protected.
-  `{ status: 'open' | 'resolved' | 'dismissed' }`. Bulk-updates every
-  currently-open report for that card at once; already-resolved/dismissed
-  reports are left alone.
-
-## Content report sync
-
-The Party Game's card-report feature (`report.title` etc. in the app) used
-to be entirely local — saved on-device, never seen by anyone but the
-player. It's now an offline queue that syncs here: the app tries to sync a
-report right after it's filed, and retries whatever is still queued on next
-launch. Neither path blocks anything or requires a player session —
-reporting a card never needs an account, online or offline, and this is
-unrelated to Charades' own account requirement.
-
-`POST /reports` is idempotent per report id (`INSERT OR IGNORE` in
-`submitContentReports`, `src/db.ts`), so a retried sync after a dropped
-connection never creates a duplicate row. No player identity of any kind is
-stored — only which card, why, the language, roughly which app version, and
-when. An admin reviews and resolves/dismisses a card's reports together via
-`PUT /admin/reports/by-prompt/:promptId/status`, not one row at a time,
-since that's how the report list is actually used.
 
 ## App integration
 
 The app fetches `GET /charades/decks` and `GET /charades/price` on startup
 (`src/services/walletApi.ts` in the main project) — there is no offline
-fallback the way the free party game has, since Charades already requires a
-live connection for its wallet. Point the app at a non-default server with
-`EXPO_PUBLIC_CATALOGUE_API_URL` (`src/config.ts`).
+fallback, since Charades requires a live connection for its wallet. Point
+the app at a non-default server with `EXPO_PUBLIC_CATALOGUE_API_URL`
+(`src/config.ts`).
 
-An Account screen, reachable from Settings or from the Charades checkout
-screen itself, lets a player create an account or sign in
-(`src/services/playerAuthApi.ts`). Guest play (the free party game) never
-touches this. Playing Charades does require it — the checkout screen
-(`app/charades/checkout.tsx`) routes a guest through sign-in/sign-up first,
-then shows the wallet balance and the current price, tops up via the mock
-payment flow, and spends one credit to deal a session
+An Account screen, reachable from the home screen or from the Charades
+checkout screen itself, lets a player create an account or sign in
+(`src/services/playerAuthApi.ts`). Playing Charades requires it — the
+checkout screen (`app/charades/checkout.tsx`) routes a guest through
+sign-in/sign-up first, then shows the wallet balance and the current price,
+tops up via the mock payment flow, and spends one credit to deal a session
 (`src/services/walletApi.ts`).
 
 During play, the round's title never appears on the shared screen (a TV, a
@@ -277,10 +245,9 @@ the shared screen's own page is served from when that screen is a browser
   KNET/aggregator merchant credentials exist — see "The wallet" above.
 - **No repetition avoidance across sessions.** `startGameSession` draws 20
   random titles from the deck each time, with no memory of what a player
-  already saw in an earlier session against the same deck — unlike the free
-  party game's rolling-window repeat avoidance. Low priority while decks
-  are large (hundreds of titles) relative to a 20-title session, but worth
-  revisiting if a deck ever shrinks close to that size.
+  already saw in an earlier session against the same deck. Low priority
+  while decks are large (hundreds of titles) relative to a 20-title
+  session, but worth revisiting if a deck ever shrinks close to that size.
 - **No real migration framework.** Schema setup is a single `CREATE TABLE
   IF NOT EXISTS` block, run every time the server starts — which only ever
   creates a table from scratch and does nothing to a table that already

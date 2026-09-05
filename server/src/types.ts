@@ -86,38 +86,6 @@ export interface GameSessionRow {
   createdAt: number;
 }
 
-export type ReportReason = 'unclear' | 'translation' | 'not_funny' | 'inappropriate' | 'too_hard' | 'duplicate';
-export type ReportStatus = 'open' | 'resolved' | 'dismissed';
-
-/**
- * A Party Game card report, synced from the app's offline queue. Reporting
- * never requires an account — this table carries only what content
- * moderation needs: which card, why, in what language, from roughly what
- * app version, and when. No player identity of any kind.
- */
-export interface ContentReportRow {
-  /** The client's own report id — the sync boundary: re-submitting the same id is a no-op, not a duplicate. */
-  id: string;
-  promptId: string;
-  reason: ReportReason;
-  lang: string;
-  appVersion: string | null;
-  status: ReportStatus;
-  /** When the report was made on-device. */
-  createdAt: number;
-  /** When the server first received it — can lag createdAt by however long the device was offline. */
-  receivedAt: number;
-}
-
-export interface SubmitReportInput {
-  id: string;
-  promptId: string;
-  reason: ReportReason;
-  lang: string;
-  appVersion?: string;
-  createdAt: number;
-}
-
 /** One sensitive admin action. `before`/`after` are opaque snapshots — shaped differently per `action`. */
 export interface AuditLogRow {
   id: string;

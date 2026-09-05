@@ -30,9 +30,6 @@
   .field { margin-bottom: 10px; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
-  .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #EAE0C4; color: #17222E; }
-  .badge.complete { background: #DCF3E9; color: #166F4C; }
-  .badge.incomplete { background: #FBE3E0; color: #C23A2E; }
   [dir="rtl"] { text-align: right; }
   .muted { color: #57697E; font-size: 13px; }
   .hidden { display: none !important; }
@@ -45,7 +42,6 @@
   <h1>Charades Admin</h1>
   <nav id="mainNav" class="hidden">
     <button id="navDecks" class="active">Decks</button>
-    <button id="navReports">Reports</button>
     <button id="navPlayers">Players</button>
     <button id="navAdmins">Admins</button>
     <button id="navAuditLog">Audit log</button>
@@ -169,19 +165,6 @@
       </div>
     </div>
 
-    <div id="reportsSection" class="hidden">
-      <div class="card">
-        <h2 style="margin:0 0 4px">Reported content</h2>
-        <p class="muted" style="margin:0">Synced from players' offline report queues — grouped by card. Resolve once you've reviewed (and fixed, if needed) a card; dismiss if the reports don't need action.</p>
-      </div>
-      <div class="card">
-        <table>
-          <thead><tr><th>Card</th><th>Reports</th><th>Reasons</th><th>Languages</th><th>Status</th><th></th></tr></thead>
-          <tbody id="reportRows"></tbody>
-        </table>
-      </div>
-    </div>
-
     <div id="auditLogSection" class="hidden">
       <div class="card">
         <h2 style="margin:0 0 4px">Audit log</h2>
@@ -269,7 +252,7 @@ async function enterApp() {
   showDecksSection();
 }
 
-const TABS = ['decks', 'reports', 'players', 'admins', 'auditLog'];
+const TABS = ['decks', 'players', 'admins', 'auditLog'];
 
 function showTab(tab, onShow) {
   TABS.forEach((t) => {
@@ -282,10 +265,6 @@ function showTab(tab, onShow) {
 
 function showDecksSection() {
   showTab('decks', showDeckList);
-}
-
-function showReportsSection() {
-  showTab('reports', renderReports);
 }
 
 function showPlayersSection() {
@@ -558,49 +537,6 @@ async function renderAuditLog() {
   $('auditRows').innerHTML = rows || '<tr><td colspan="5" class="muted">Nothing logged yet.</td></tr>';
 }
 
-async function renderReports() {
-  const reports = await api('/admin/reports');
-  const groups = {};
-  reports.forEach((r) => { (groups[r.promptId] ??= []).push(r); });
-
-  const rows = Object.entries(groups).map(([promptId, items]) => {
-    const openCount = items.filter((i) => i.status === 'open').length;
-    const anyOpen = openCount > 0;
-    const reasons = [...new Set(items.map((i) => i.reason))].join(', ');
-    const langs = [...new Set(items.map((i) => i.lang))].join(', ');
-    return `<tr>
-      <td>${escapeHtml(promptId)}</td>
-      <td>${items.length} <span class="muted">(${openCount} open)</span></td>
-      <td>${escapeHtml(reasons)}</td>
-      <td>${escapeHtml(langs)}</td>
-      <td><span class="badge ${anyOpen ? 'incomplete' : 'complete'}">${anyOpen ? 'open' : 'closed'}</span></td>
-      <td>
-        <button class="secondary" data-resolve="${escapeHtml(promptId)}" ${anyOpen ? '' : 'disabled'}>Resolve</button>
-        <button class="danger" data-dismiss="${escapeHtml(promptId)}" ${anyOpen ? '' : 'disabled'}>Dismiss</button>
-      </td>
-    </tr>`;
-  }).join('');
-  $('reportRows').innerHTML = rows || '<tr><td colspan="6" class="muted">No reports yet.</td></tr>';
-
-  $('reportRows').querySelectorAll('[data-resolve]').forEach((btn) => {
-    btn.addEventListener('click', () => setReportStatus(btn.dataset.resolve, 'resolved'));
-  });
-  $('reportRows').querySelectorAll('[data-dismiss]').forEach((btn) => {
-    btn.addEventListener('click', () => setReportStatus(btn.dataset.dismiss, 'dismissed'));
-  });
-}
-
-async function setReportStatus(promptId, status) {
-  try {
-    await api(`/admin/reports/by-prompt/${encodeURIComponent(promptId)}/status`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
-    });
-    renderReports();
-  } catch (e) {
-    alert('Could not update: ' + e.message);
-  }
-}
-
 async function addAdmin() {
   const username = $('newAdminUsername').value.trim();
   const password = $('newAdminPassword').value;
@@ -622,7 +558,6 @@ $('signInBtn').addEventListener('click', signIn);
 $('passwordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 $('logoutBtn').addEventListener('click', signOut);
 $('navDecks').addEventListener('click', showDecksSection);
-$('navReports').addEventListener('click', showReportsSection);
 $('navPlayers').addEventListener('click', showPlayersSection);
 $('navAdmins').addEventListener('click', showAdminsSection);
 $('navAuditLog').addEventListener('click', showAuditLogSection);

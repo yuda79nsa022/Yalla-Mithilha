@@ -1,51 +1,24 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import {
-  createSession,
-  rematch as rematchSession,
-  sessionPromptIdsByGame,
-  type CreateSessionInput,
-} from '../engine/engine';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { draftCharades, unlockCharades as unlockCharadesState } from '../engine/charades';
 import type { CharadesState } from '../engine/charades';
 import {
   DEFAULT_PREFERENCES,
-  addReport,
   clearCharades,
   clearPlayerSession,
-  clearSession,
   loadCharades,
   loadPlayerSession,
   loadPreferences,
-  loadRecent,
-  loadReports,
-  loadSession,
-  loadSyncedReportIds,
-  markReportsSynced,
   resetAllLocalData,
   saveCharades,
   savePlayerSession,
-  saveRecent,
   savePreferences,
-  saveSession,
   type Preferences,
   type PlayerSession,
 } from '../engine/persistence';
-import { rememberPrompts } from '../engine/selector';
-import type { Lang, MiniGameId, PromptReport, SessionState } from '../engine/types';
+import type { Lang } from '../engine/types';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
-import { setSoundEnabled } from '../platform/audio';
-import { ownedPacks } from '../services/entitlements';
 import { track } from '../services/analytics';
-import { syncReports } from '../services/reportSyncApi';
 import { PlayerAuthError, loginPlayer as loginPlayerApi, registerPlayer as registerPlayerApi } from '../services/playerAuthApi';
 import {
   WalletError,
@@ -66,21 +39,7 @@ interface AppValue {
   t: (key: TranslationKey, params?: TranslateParams) => string;
   prefs: Preferences;
   setPrefs: (patch: Partial<Preferences>) => void;
-  packs: string[];
 
-  /** A game saved from a previous launch, offered on the home screen. */
-  savedSession: SessionState | null;
-  session: SessionState | null;
-  startSession: (input: Omit<CreateSessionInput, 'recentIds' | 'packs'>) => SessionState;
-  updateSession: (next: SessionState) => void;
-  resumeSaved: () => void;
-  discardSaved: () => void;
-  finishSession: (state: SessionState) => void;
-  quitSession: () => void;
-  playAgain: () => SessionState | null;
-
-  reports: PromptReport[];
-  report: (promptId: string, reason: PromptReport['reason']) => Promise<void>;
   wipeEverything: () => Promise<void>;
 
   /**
@@ -118,12 +77,7 @@ interface AppValue {
   /** Stands in for a real payment-provider failure/cancellation callback. */
   failTopUp: (paymentId: string) => Promise<void>;
 
-  /**
-   * Optional player account, entirely separate from guest play — which never
-   * creates one of these and keeps working exactly as before. Signing up or
-   * signing in sends a username and password to the backend; nothing else
-   * about how the game runs depends on it.
-   */
+  /** A real player account. Signing up or signing in sends a username and password to the backend. */
   player: { id: string; username: string } | null;
   playerAuthBusy: boolean;
   playerAuthError: string | null;
@@ -148,11 +102,6 @@ export function useT() {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [prefs, setPrefsState] = useState<Preferences>(DEFAULT_PREFERENCES);
-  const [session, setSession] = useState<SessionState | null>(null);
-  const [savedSession, setSavedSession] = useState<SessionState | null>(null);
-  const [recent, setRecent] = useState<Record<string, string[]>>({});
-  const [reports, setReports] = useState<PromptReport[]>([]);
-  const [packs, setPacks] = useState<string[]>(['core']);
   const [charades, setCharadesState] = useState<CharadesState | null>(null);
   const [decks, setDecks] = useState<PublicDeck[]>([]);
   const [gamePriceFils, setGamePriceFils] = useState(0);
@@ -163,34 +112,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   useEffect(() => {
     (async () => {
-      const [storedPrefs, storedRecent, storedReports, storedPacks, unfinished, storedCharades, storedPlayerSession] =
-        await Promise.all([
-          loadPreferences(deviceStore),
-          loadRecent(deviceStore),
-          loadReports(deviceStore),
-          ownedPacks(deviceStore),
-          loadSession(deviceStore),
-          loadCharades(deviceStore),
-          loadPlayerSession(deviceStore),
-        ]);
+      const [storedPrefs, storedCharades, storedPlayerSession] = await Promise.all([
+        loadPreferences(deviceStore),
+        loadCharades(deviceStore),
+        loadPlayerSession(deviceStore),
+      ]);
 
       setPrefsState({ ...storedPrefs, lang: storedPrefs.lang ?? deviceLanguage() });
-      setRecent(storedRecent);
-      setReports(storedReports);
-      setPacks(storedPacks);
-      setSavedSession(unfinished);
       setCharadesState(storedCharades);
       setPlayerSession(storedPlayerSession);
-      setSoundEnabled(storedPrefs.sound);
       setReady(true);
 
-      // Spending real money already requires a connection, so there is no
-      // offline fallback here the way the free Party Game has — a failure
-      // just leaves the deck list empty and the draft screen says so.
+      // Spending real money requires a connection — no offline fallback. A
+      // failure just leaves the deck list empty and the draft screen says so.
       listDecks()
         .then(setDecks)
         .catch(() => undefined);
@@ -206,31 +142,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           .then(setWalletBalance)
           .catch(() => undefined);
       }
-
-      // Flushes whatever is left of the offline report queue from a
-      // previous launch — never blocks startup, no account required. If the
-      // device is still offline this just fails silently and tries again
-      // next launch (or the next time a report is filed, see `report`
-      // below), which is the offline-first pattern already used for the
-      // catalogue fetch above.
-      void syncPendingReports(storedReports);
     })();
-  }, []);
-
-  const syncPendingReports = useCallback(async (allReports: PromptReport[]) => {
-    const synced = await loadSyncedReportIds(deviceStore);
-    const syncedSet = new Set(synced);
-    const pending = allReports.filter((r) => !syncedSet.has(r.id));
-    if (!pending.length) return;
-    try {
-      await syncReports(pending);
-      await markReportsSynced(
-        deviceStore,
-        pending.map((r) => r.id)
-      );
-    } catch {
-      // Still offline, or the server is down — stays queued for next time.
-    }
   }, []);
 
   const lang: Lang = prefs.lang ?? 'en';
@@ -239,137 +151,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setPrefs = useCallback((patch: Partial<Preferences>) => {
     setPrefsState((current) => {
       const next = { ...current, ...patch };
-      if (patch.sound !== undefined) setSoundEnabled(patch.sound);
       void savePreferences(deviceStore, next);
       return next;
     });
   }, []);
 
-  /**
-   * Every state change is written to disk, but throttled: a round can produce
-   * a dozen updates in a minute and AsyncStorage writes are not free.
-   */
-  const persistSession = useCallback((next: SessionState | null) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (!next) {
-      void clearSession(deviceStore);
-      return;
-    }
-    saveTimer.current = setTimeout(() => {
-      void saveSession(deviceStore, next);
-    }, 400);
-  }, []);
-
-  const updateSession = useCallback(
-    (next: SessionState) => {
-      setSession(next);
-      persistSession(next);
-    },
-    [persistSession]
-  );
-
-  const startSession = useCallback(
-    (input: Omit<CreateSessionInput, 'recentIds' | 'packs'>) => {
-      const next = createSession({ ...input, recentIds: recent, packs });
-      setSavedSession(null);
-      updateSession(next);
-      track({
-        name: 'game_started',
-        room: next.setup.room,
-        length: next.setup.length,
-        level: next.setup.level,
-        players: next.setup.players.length,
-        mode: next.setup.mode,
-      });
-      return next;
-    },
-    [packs, recent, updateSession]
-  );
-
-  const rememberSession = useCallback(
-    (state: SessionState) => {
-      let next = recent;
-      for (const [game, ids] of Object.entries(sessionPromptIdsByGame(state))) {
-        next = rememberPrompts(next, game as MiniGameId, ids);
-      }
-      setRecent(next);
-      void saveRecent(deviceStore, next);
-      return next;
-    },
-    [recent]
-  );
-
-  const finishSession = useCallback(
-    (state: SessionState) => {
-      rememberSession(state);
-      setSession(state);
-      void clearSession(deviceStore);
-      track({
-        name: 'game_completed',
-        rounds: state.results.length,
-        durationSeconds: Math.round((state.updatedAt - state.startedAt) / 1000),
-      });
-    },
-    [rememberSession]
-  );
-
-  const quitSession = useCallback(() => {
-    if (session) {
-      rememberSession(session);
-      track({ name: 'game_abandoned', roundsPlayed: session.results.length });
-    }
-    setSession(null);
-    setSavedSession(null);
-    void clearSession(deviceStore);
-  }, [rememberSession, session]);
-
-  const playAgain = useCallback(() => {
-    if (!session) return null;
-    const next = rematchSession(session, recent);
-    updateSession(next);
-    track({ name: 'rematch_selected' });
-    return next;
-  }, [recent, session, updateSession]);
-
-  const resumeSaved = useCallback(() => {
-    if (!savedSession) return;
-    setSession(savedSession);
-    setSavedSession(null);
-  }, [savedSession]);
-
-  const discardSaved = useCallback(() => {
-    setSavedSession(null);
-    void clearSession(deviceStore);
-  }, []);
-
-  const report = useCallback(
-    async (promptId: string, reason: PromptReport['reason']) => {
-      const entry: PromptReport = {
-        id: `rep-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        promptId,
-        reason,
-        createdAt: Date.now(),
-        lang,
-      };
-      setReports(await addReport(deviceStore, entry));
-      track({ name: 'prompt_reported', promptId, reason });
-
-      // Best-effort immediate sync — offline (or a down server) just leaves
-      // it queued for the next launch's `syncPendingReports` pass.
-      syncReports([entry])
-        .then(() => markReportsSynced(deviceStore, [entry.id]))
-        .catch(() => undefined);
-    },
-    [lang]
-  );
-
   const wipeEverything = useCallback(async () => {
     await resetAllLocalData(deviceStore);
-    setSession(null);
-    setSavedSession(null);
-    setRecent({});
-    setReports([]);
-    setPacks(['core']);
     setCharadesState(null);
     setWalletBalance(0);
     setWalletError(null);
@@ -523,18 +311,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     t,
     prefs,
     setPrefs,
-    packs,
-    savedSession,
-    session,
-    startSession,
-    updateSession,
-    resumeSaved,
-    discardSaved,
-    finishSession,
-    quitSession,
-    playAgain,
-    reports,
-    report,
     wipeEverything,
     decks,
     gamePriceFils,

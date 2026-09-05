@@ -10,7 +10,6 @@ import {
   missingKeys,
   translate,
 } from '../src/i18n';
-import { ALL_MINI_GAMES, ROOMS } from '../src/engine/config';
 
 describe('catalogues', () => {
   it('has the same keys in Arabic and English', () => {
@@ -29,27 +28,16 @@ describe('catalogues', () => {
     });
     expect(suspicious).toEqual([]);
   });
-
-  it('names every room and mini-game in both languages', () => {
-    for (const room of ROOMS) {
-      expect(translate('ar', `rooms.${room}` as never)).not.toBe(`rooms.${room}`);
-      expect(translate('en', `rooms.${room}` as never)).not.toBe(`rooms.${room}`);
-    }
-    for (const game of ALL_MINI_GAMES) {
-      expect(translate('ar', `game.${game}` as never)).not.toBe(`game.${game}`);
-      expect(translate('en', `game.${game}.rule` as never)).not.toBe(`game.${game}.rule`);
-    }
-  });
 });
 
 describe('translate', () => {
   it('interpolates named parameters', () => {
-    expect(translate('en', 'pass.title', { name: 'Dana' })).toBe('Pass the phone to Dana');
-    expect(translate('ar', 'pass.title', { name: 'دانة' })).toContain('دانة');
+    expect(translate('en', 'charades.play.turn', { team: 'Dana' })).toBe('Dana’s turn');
+    expect(translate('ar', 'charades.play.turn', { team: 'دانة' })).toContain('دانة');
   });
 
   it('leaves an unknown placeholder untouched instead of printing undefined', () => {
-    expect(translate('en', 'pass.title', { other: 'x' })).toContain('{{name}}');
+    expect(translate('en', 'charades.play.turn', { other: 'x' })).toContain('{{team}}');
   });
 
   it('falls back to English for a missing key rather than crashing', () => {
@@ -58,7 +46,7 @@ describe('translate', () => {
 
   it('exposes a bound translator', () => {
     const t = makeTranslator('en');
-    expect(t('brief.round', { round: 2, total: 8 })).toBe('Round 2 of 8');
+    expect(t('charades.play.round', { round: 2, total: 20 })).toBe('Round 2 of 20');
   });
 });
 

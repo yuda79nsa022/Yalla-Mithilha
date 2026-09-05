@@ -1,7 +1,3 @@
-import type { ReportReason } from './types';
-
-const REPORT_REASONS: ReportReason[] = ['unclear', 'translation', 'not_funny', 'inappropriate', 'too_hard', 'duplicate'];
-
 export class ValidationError extends Error {}
 
 function requireString(value: unknown, field: string): string {
@@ -18,13 +14,6 @@ function requireDeckId(value: unknown): string {
     throw new ValidationError('"id" may only contain lowercase letters, digits and hyphens');
   }
   return id;
-}
-
-function requireEnum<T extends string>(value: unknown, field: string, allowed: readonly T[]): T {
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new ValidationError(`"${field}" must be one of: ${allowed.join(', ')}`);
-  }
-  return value as T;
 }
 
 export interface CreateDeckBody {
@@ -160,55 +149,3 @@ export function parseStartSessionBody(body: unknown): StartSessionBody {
   return { sessionId, deckId };
 }
 
-export interface SubmitReportItem {
-  id: string;
-  promptId: string;
-  reason: ReportReason;
-  lang: string;
-  createdAt: number;
-  appVersion?: string;
-}
-
-export interface SubmitReportsBody {
-  reports: SubmitReportItem[];
-}
-
-const MAX_REPORTS_PER_BATCH = 50;
-
-function parseOneReport(value: unknown, index: number): SubmitReportItem {
-  const r = (value ?? {}) as Record<string, unknown>;
-  const id = requireString(r.id, `reports[${index}].id`);
-  if (id.length > 100) throw new ValidationError(`reports[${index}].id is too long`);
-  const promptId = requireString(r.promptId, `reports[${index}].promptId`);
-  if (promptId.length > 200) throw new ValidationError(`reports[${index}].promptId is too long`);
-  const reason = requireEnum(r.reason, `reports[${index}].reason`, REPORT_REASONS);
-  const lang = requireString(r.lang, `reports[${index}].lang`);
-  if (typeof r.createdAt !== 'number' || !Number.isFinite(r.createdAt)) {
-    throw new ValidationError(`reports[${index}].createdAt must be a number`);
-  }
-  const appVersion = r.appVersion !== undefined ? requireString(r.appVersion, `reports[${index}].appVersion`) : undefined;
-  return { id, promptId, reason, lang, createdAt: r.createdAt, appVersion };
-}
-
-/** The app's offline report queue, synced as a batch — capped so one request can't be used to flood the table. */
-export function parseSubmitReportsBody(body: unknown): SubmitReportsBody {
-  const b = (body ?? {}) as Record<string, unknown>;
-  if (!Array.isArray(b.reports) || b.reports.length === 0) {
-    throw new ValidationError('"reports" must be a non-empty array');
-  }
-  if (b.reports.length > MAX_REPORTS_PER_BATCH) {
-    throw new ValidationError(`"reports" has too many entries (max ${MAX_REPORTS_PER_BATCH} per batch)`);
-  }
-  return { reports: b.reports.map((r, i) => parseOneReport(r, i)) };
-}
-
-const REPORT_STATUSES = ['open', 'resolved', 'dismissed'] as const;
-
-export interface SetReportStatusBody {
-  status: (typeof REPORT_STATUSES)[number];
-}
-
-export function parseSetReportStatusBody(body: unknown): SetReportStatusBody {
-  const b = (body ?? {}) as Record<string, unknown>;
-  return { status: requireEnum(b.status, 'status', REPORT_STATUSES) };
-}

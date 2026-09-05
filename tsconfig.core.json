@@ -5,10 +5,8 @@
   },
   "include": [
     "src/engine/**/*",
-    "src/content/**/*",
     "src/i18n/**/*",
     "src/services/**/*",
-    "src/state/roundController.ts",
     "__tests__/**/*"
   ]
 }

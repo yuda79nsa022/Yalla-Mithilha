@@ -1,138 +1,102 @@
 # Yalla Mithilha — يلا مثّلها
 
-A party game for Kuwaiti and Gulf gatherings. One phone, a room full of people,
-and seven mini-games that reward performance rather than knowledge.
+Charades on real titles. Two teams, one phone (or a TV and everyone's own
+phone), twenty rounds of silent acting on real Kuwaiti, Khaleeji and
+Egyptian movies, series and plays.
 
 > You do not need to know the answer. You need your friends to understand you.
 
 ## Running it
 
+Charades needs a backend for accounts, the wallet and the deck catalogue —
+see `server/README.md` for that half. Once it's running:
+
 ```bash
 npm install
-npx expo start          # then press i for iOS or a for Android
+export EXPO_PUBLIC_CATALOGUE_API_URL=http://localhost:4000   # or wherever the server is
+npx expo start          # then press i for iOS, a for Android, or w for web
 ```
 
-Requires Node 18 or newer and the Expo Go app (or a development build) on the
-device. The game works fully offline once installed — no account, no network
-call, no permissions requested.
+Requires Node 18 or newer and the Expo Go app (or a development build) on
+the device.
 
 ```bash
-npm test                # 162 unit and interaction tests
+npm test                # unit and interaction tests
 npm run typecheck       # whole project, screens included
-npm run typecheck:core  # engine, content and i18n only (no React Native needed)
+npm run typecheck:core  # engine, i18n and services only (no React Native needed)
 ```
 
 ## What is in the box
 
 | Area | Where | Notes |
 | --- | --- | --- |
-| Game engine | `src/engine/` | Pure TypeScript, no React Native imports |
-| Content | `src/content/` | 146 bilingual cards + an authoring validator |
+| Charades engine | `src/engine/charades.ts` | Pure TypeScript, no React Native imports — drafting, turn alternation, scoring, completion |
+| QR reveal | `src/engine/reveal.ts` | Builds the link a shared screen's QR code encodes; the reveal page itself is `app/charades/reveal.tsx` |
 | Localisation | `src/i18n/` | Arabic and English catalogues, key-parity tested |
-| App state | `src/state/` | Provider plus a pure round controller |
+| App state | `src/state/AppProvider.tsx` | Preferences, the Charades session, the wallet, the player account |
 | Screens | `app/` | Expo Router file routes |
 | Design system | `src/ui/` | Tokens and reusable components |
-| Platform seams | `src/platform/` | Storage, haptics, RTL, tilt, audio |
-| Services | `src/services/` | Analytics contract, entitlements |
+| Platform seams | `src/platform/` | Storage, RTL, keep-awake |
+| Services | `src/services/` | Wallet/player HTTP clients, the analytics contract |
 
 ## Architecture
 
-The engine is deliberately framework-free. Everything about *how the game
-works* — which mini-game comes next, who performs, which cards are dealt, what
-a card is worth — lives in `src/engine` and `src/state/roundController.ts` and
-is tested in plain Node. The screens are a thin layer that renders state and
-calls those functions.
+The engine is deliberately framework-free: everything about *how a round
+works* — team alternation, scoring, when a session ends — lives in
+`src/engine/charades.ts`, tested in plain Node. The screens are a thin
+layer that renders state and calls those functions.
 
-Two consequences worth knowing:
-
-**One config table drives the session.** `src/engine/config.ts` holds a row per
-mini-game with its clock, card count, skip limit, eligible rooms and levels,
-scheduling weight, and whether it needs a pass-the-phone screen. Adding an
-eighth mini-game means adding a row and a renderer. The scheduler, the dealer
-and the scoring do not change.
-
-**Free-for-all is two teams' worth of code, not two code paths.** In FFA every
-player becomes a one-person team, so turn order, scoring, the final challenge
-and the winner screen all work unchanged.
+**The reveal never touches the shared screen.** Whatever device is showing
+`app/charades/play.tsx` (a TV, a laptop, a phone passed around) only ever
+renders a QR code — never the round's title. The actor scans it with their
+own phone's stock camera, which opens `app/charades/reveal.tsx` as a normal
+web link. See `server/README.md`'s "App integration" section for exactly
+how the link's address is resolved.
 
 **The web build's entry point is a landing page, not the app menu.**
-`app/index.tsx`'s splash redirects to `/landing` (`app/landing.tsx`) only when
-`Platform.OS === 'web'` — a website visitor may not know what the game even
-is yet, unlike someone who just installed it. Native installs skip straight
-to `/home` as before. The landing page explains both game modes and links
-into the same routes `/home` does (`/rooms`, `/charades/home`, `/privacy`,
-`/how-to-play`), fully bilingual and RTL-aware like everything else in `app/`.
+`app/index.tsx`'s splash redirects to `/landing` (`app/landing.tsx`) only
+when `Platform.OS === 'web'` — a website visitor may not know what the game
+even is yet, unlike someone who just installed it. Native installs skip
+straight to `/home`, which is Charades' own hub: account/wallet status, the
+deck list, and "Start a new game" or "Resume."
 
 ### The session lifecycle
 
 ```
-createSession()   reserves every round's cards up front, so the deck can be
-                  checked for repeats before the first card is shown
+draftCharades()    picks a deck and names two teams
    ↓
-pass → brief → round → result      (repeats)
+checkout           sign in if needed, top up the wallet, spend one credit
    ↓
-advance()         moves the cursor, appends sudden death on a tie
+unlockCharades()   server deals 20 titles from the deck
    ↓
-finished → winner → rematch
+award/skip         (repeats, alternating teams, scores accumulate)
+   ↓
+complete           winner declared (or a tie)
 ```
-
-### Repetition prevention
-
-Three layers, in order:
-
-1. A prompt never repeats inside one session.
-2. A rolling window of the last 40 prompt ids **per mini-game** carries across
-   sessions and is avoided.
-3. If a narrow room and level leave too few cards, the oldest memories are
-   released first, and only then are session cards recycled — never one from
-   the previous two rounds.
-
-That last fallback is why a long game in the Kids room deals full rounds
-instead of half-empty ones.
-
-## Content levels
-
-Levels are ordered: `kids < family < friends < adults`. A card declares the
-*lowest* audience it suits, and a session shows everything at or below the
-selected level. A kids card is fine in an adults game; the reverse never
-happens. `npm test` asserts this.
 
 ## Privacy
 
-- Player names, scores and settings are stored on the device only, and the
-  core party game (rooms, mini-games, scoring) needs no network call at all.
-- Three things do talk to a separate backend (see `server/`):
-  - Charades (the paid game) needs an account and a connection — there is
-    no offline fallback, since it involves a real wallet. Signing up sends
-    a username and password to the server; topping up and playing move
-    money through it. **The free party game needs none of this.**
-  - A player can optionally create the same account from Settings → Account
-    without ever touching Charades — it just saves a username across
-    sessions. **Guest play needs none of this and works exactly the same
-    without ever creating an account.**
-  - Reporting a card (which card, why, your language, roughly which app
-    version — never a name or account) queues on-device and syncs to the
-    server once it can reach it, whether or not you have an account. This
-    is the one thing here that is not fully optional in the sense of "never
-    happens" — it only ever fires when you actually tap "Report".
-- No camera, microphone, contacts, or location permission is declared —
-  including for Charades' reveal step: the shared screen shows a QR code
-  linking to this app's own `/charades/reveal` page, and any phone's stock
-  camera app opens it as a normal link. Nothing inside this app ever
-  touches a camera.
-- The analytics module is typed so player names and prompt text *cannot* be put
-  in an event, and it is wired to a no-op sink.
-- Settings has a one-tap wipe of everything stored locally, including any
+- Team names and preferences are stored on the device only.
+- Playing needs an account and a connection — there is no offline
+  fallback, since it involves a real wallet. Signing up or signing in sends
+  a username and password to the server; topping up and playing move money
+  through your account's wallet, held on the server, never on the device.
+- The QR-code reveal opens in the phone's own browser as a normal web
+  link — nothing inside this app ever requests a camera permission.
+- No microphone, contacts, or location permission is declared either.
+- The analytics module is typed so a player name cannot be put in an event,
+  and it is wired to a no-op sink.
+- Settings has a one-tap wipe of everything stored locally, including the
   saved account session.
 
 ## Documentation
 
-- `docs/CONTENT_GUIDE.md` — how to write and add cards
-- `docs/ASSUMPTIONS.md` — decisions made where the brief left room
-- `docs/PRODUCTION_CHECKLIST.md` — what still stands between this and the store
 - `docs/GAP_ANALYSIS.md` — honest area-by-area status, including the full security review
+- `server/README.md` — the backend: accounts, the wallet, decks, the admin CMS
 
 ## Licensing note
 
-Every card was written for this game. No question bank, card text, visual
-identity or mechanic was copied from another product.
+The Charades engine, screens and UI were written for this game. Deck
+content (movie, series and play titles) is real, publicly known work
+titles, imported by an admin — see `server/README.md`'s "Decks and titles"
+section for how.

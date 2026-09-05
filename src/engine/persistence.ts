@@ -1,15 +1,6 @@
-import { STATE_VERSION } from './config';
 import { isCharadesComplete } from './charades';
 import type { CharadesState } from './charades';
-import type {
-  ContentLevel,
-  Lang,
-  Player,
-  PromptReport,
-  RoomId,
-  SessionLength,
-  SessionState,
-} from './types';
+import type { Lang } from './types';
 
 /**
  * The engine talks to this interface, never to AsyncStorage directly, so the
@@ -36,42 +27,16 @@ export class MemoryStore implements KeyValueStore {
 
 export const KEYS = {
   preferences: 'ym:preferences:v1',
-  session: 'ym:session:v1',
-  recent: 'ym:recent:v1',
-  reports: 'ym:reports:v1',
-  syncedReportIds: 'ym:syncedReportIds:v1',
-  entitlements: 'ym:entitlements:v1',
   charades: 'ym:charades:v1',
   playerSession: 'ym:playerSession:v1',
 } as const;
 
 export interface Preferences {
   lang: Lang | null;
-  /** Names are kept only on the device and never sent anywhere. */
-  lastPlayers: Player[];
-  lastRoom: RoomId;
-  lastLength: SessionLength;
-  lastLevel: ContentLevel;
-  lastMode: 'teams' | 'ffa';
-  sound: boolean;
-  haptics: boolean;
-  motion: boolean;
-  reduceMotion: boolean;
-  hasSeenHowToPlay: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
   lang: null,
-  lastPlayers: [],
-  lastRoom: 'friends',
-  lastLength: 'standard',
-  lastLevel: 'family',
-  lastMode: 'teams',
-  sound: true,
-  haptics: true,
-  motion: true,
-  reduceMotion: false,
-  hasSeenHowToPlay: false,
 };
 
 async function readJson<T>(store: KeyValueStore, key: string, fallback: T): Promise<T> {
@@ -93,85 +58,6 @@ export async function savePreferences(
   prefs: Preferences
 ): Promise<void> {
   await store.setItem(KEYS.preferences, JSON.stringify(prefs));
-}
-
-export async function saveSession(store: KeyValueStore, state: SessionState): Promise<void> {
-  await store.setItem(KEYS.session, JSON.stringify(state));
-}
-
-/** Returns `null` for a missing, corrupt or out-of-date saved game. */
-export async function loadSession(store: KeyValueStore): Promise<SessionState | null> {
-  try {
-    const raw = await store.getItem(KEYS.session);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SessionState;
-    if (parsed.version !== STATE_VERSION) return null;
-    if (!parsed.plan?.length || !parsed.setup?.teams?.length) return null;
-    if (parsed.phase === 'finished') return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-export async function clearSession(store: KeyValueStore): Promise<void> {
-  await store.removeItem(KEYS.session);
-}
-
-export async function loadRecent(store: KeyValueStore): Promise<Record<string, string[]>> {
-  try {
-    const raw = await store.getItem(KEYS.recent);
-    return raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
-  } catch {
-    return {};
-  }
-}
-
-export async function saveRecent(
-  store: KeyValueStore,
-  recent: Record<string, string[]>
-): Promise<void> {
-  await store.setItem(KEYS.recent, JSON.stringify(recent));
-}
-
-export async function loadReports(store: KeyValueStore): Promise<PromptReport[]> {
-  try {
-    const raw = await store.getItem(KEYS.reports);
-    return raw ? (JSON.parse(raw) as PromptReport[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export async function addReport(
-  store: KeyValueStore,
-  report: PromptReport
-): Promise<PromptReport[]> {
-  const all = await loadReports(store);
-  const next = [...all, report].slice(-200);
-  await store.setItem(KEYS.reports, JSON.stringify(next));
-  return next;
-}
-
-/**
- * Which locally-saved reports have already reached the server — the rest
- * are the offline queue. A report id moves in here only after a successful
- * sync; nothing here is ever removed except by `resetAllLocalData`.
- */
-export async function loadSyncedReportIds(store: KeyValueStore): Promise<string[]> {
-  try {
-    const raw = await store.getItem(KEYS.syncedReportIds);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export async function markReportsSynced(store: KeyValueStore, ids: string[]): Promise<void> {
-  if (!ids.length) return;
-  const current = await loadSyncedReportIds(store);
-  const next = Array.from(new Set([...current, ...ids])).slice(-200);
-  await store.setItem(KEYS.syncedReportIds, JSON.stringify(next));
 }
 
 export async function saveCharades(store: KeyValueStore, state: CharadesState): Promise<void> {

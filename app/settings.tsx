@@ -1,12 +1,12 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Button, ConfirmModal, Divider, Screen, Spacer, T, Toggle } from '../src/ui/components';
+import { Button, ConfirmModal, Divider, Screen, Spacer, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
 export default function Settings() {
-  const { t, prefs, setPrefs, reports, wipeEverything, player } = useApp();
+  const { t, prefs, wipeEverything, player } = useApp();
   const [wiped, setWiped] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
 
@@ -36,36 +36,7 @@ export default function Settings() {
       />
 
       <Spacer />
-      <View>
-        <Toggle
-          label={t('settings.sound')}
-          value={prefs.sound}
-          onChange={(v) => setPrefs({ sound: v })}
-        />
-        <Toggle
-          label={t('settings.haptics')}
-          value={prefs.haptics}
-          onChange={(v) => setPrefs({ haptics: v })}
-        />
-        <Toggle
-          label={t('settings.motion')}
-          description={t('round.tiltHint')}
-          value={prefs.motion}
-          onChange={(v) => setPrefs({ motion: v })}
-        />
-        <Toggle
-          label={t('settings.reduceMotion')}
-          value={prefs.reduceMotion}
-          onChange={(v) => setPrefs({ reduceMotion: v })}
-        />
-      </View>
-
       <Divider />
-      <T variant="label" color={colors.textMuted}>
-        {t('settings.reports', { count: reports.length })}
-      </T>
-
-      <Spacer />
       <Button label={t('home.about')} tone="secondary" onPress={() => router.push('/privacy')} />
       <Spacer size={spacing.sm} />
       <Button label={t('settings.reset')} tone="danger" onPress={() => setConfirmingReset(true)} />

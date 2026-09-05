@@ -4,13 +4,11 @@ import path from 'path';
 import { requireAdminSession } from './auth';
 import { adminDecksRouter } from './routes/adminDecks';
 import { adminPlayersRouter } from './routes/adminPlayers';
-import { adminReportsRouter } from './routes/adminReports';
 import { adminUsersRouter } from './routes/adminUsers';
 import { auditLogRouter } from './routes/auditLog';
 import { authRouter } from './routes/auth';
 import { charadesRouter } from './routes/charades';
 import { playerAuthRouter } from './routes/playerAuth';
-import { reportsRouter } from './routes/reports';
 
 export function createApp(): express.Express {
   const app = express();
@@ -32,11 +30,9 @@ export function createApp(): express.Express {
 
   app.use('/players', playerAuthRouter);
   app.use('/charades', charadesRouter);
-  app.use('/reports', reportsRouter);
   app.use('/admin/auth', authRouter);
   app.use('/admin/users', requireAdminSession, adminUsersRouter);
   app.use('/admin/players', requireAdminSession, adminPlayersRouter);
-  app.use('/admin/reports', requireAdminSession, adminReportsRouter);
   app.use('/admin', requireAdminSession, auditLogRouter);
   app.use('/admin', requireAdminSession, adminDecksRouter);
 
