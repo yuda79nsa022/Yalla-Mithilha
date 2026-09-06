@@ -88,6 +88,7 @@ export const en: Record<TranslationKey, string> = {
   'account.switchToSignIn': 'Already have an account? Sign in',
   'account.switchToCreate': "Don't have an account? Create one",
   'account.loggedInAs': 'Signed in as {{username}}',
+  'account.signupBonus': 'Create an account and get a one-time welcome bonus of 3.000 KD in free game credits.',
   'account.logout': 'Sign out',
   'account.logoutConfirm': 'Sign out of this account? Guest play keeps working as usual.',
 
