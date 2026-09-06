@@ -262,7 +262,16 @@ if [[ "$SKIP_PM2" == false ]]; then
   if command -v pm2 >/dev/null 2>&1; then
     info "Building server (npm run build)…"
     (cd "$SERVER_DIR" && npm run build)
-    ok "Server built."
+    # tsc only compiles .ts -> dist/; it never copies static assets, so the
+    # admin UI's public/index.html has to be mirrored into dist/public by
+    # hand or app.ts's `express.static(path.join(__dirname, '..', 'public'))`
+    # (which resolves to dist/public from the compiled dist/src/app.js)
+    # finds nothing there and every route falls through to Express's own
+    # 404 handler — "Cannot GET /". Re-copied on every build so edits to
+    # public/ aren't silently left stale in dist/.
+    rm -rf "$SERVER_DIR/dist/public"
+    cp -r "$SERVER_DIR/public" "$SERVER_DIR/dist/public"
+    ok "Server built (static assets synced to dist/public)."
 
     info 'Attaching server to pm2 as "yalla"…'
     if pm2 describe yalla >/dev/null 2>&1; then
