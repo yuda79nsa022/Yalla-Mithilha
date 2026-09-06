@@ -6,7 +6,9 @@
 #   1. Installs npm dependencies for the Expo app (root) and the admin
 #      server (server/), unless skipped.
 #   2. Ensures server/.env exists (copied from server/.env.example, with
-#      SESSION_SECRET / PLAYER_SESSION_SECRET auto-generated if blank).
+#      SESSION_SECRET / PLAYER_SESSION_SECRET auto-generated if blank),
+#      and pins the server's PORT (default 8096 — 8081 is taken on this
+#      host, see --port to change it).
 #   3. Checks whether the SQLite database already exists at the configured
 #      path:
 #        - if it exists          -> leave it untouched
@@ -14,6 +16,8 @@
 #          schema-creation code via `db.ts`, which is idempotent), then
 #          optionally seeds the starter decks and creates the first admin
 #          account.
+#   4. Builds the server and attaches it to pm2 as process "yalla" (starts
+#      it if not already running, restarts it if it is), unless skipped.
 #
 # Usage:
 #   ./installer.sh [options]
@@ -23,6 +27,8 @@
 #   --skip-server-install Skip `npm install` for the server
 #   --seed                 Load the bundled starter decks (safe to re-run)
 #   --non-interactive       Never prompt (skip admin-account creation prompt)
+#   --port <n>              Server port to write into server/.env (default: 8096)
+#   --skip-pm2              Don't build or attach the server to pm2
 #   -h, --help              Show this help and exit
 #
 set -euo pipefail
@@ -46,6 +52,9 @@ SKIP_APP_INSTALL=false
 SKIP_SERVER_INSTALL=false
 DO_SEED=false
 NON_INTERACTIVE=false
+SKIP_PM2=false
+# 8081 (the usual default) is already in use on this host — 8096 instead.
+SERVER_PORT="8096"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -53,6 +62,12 @@ while [[ $# -gt 0 ]]; do
     --skip-server-install) SKIP_SERVER_INSTALL=true ;;
     --seed)                DO_SEED=true ;;
     --non-interactive)     NON_INTERACTIVE=true ;;
+    --skip-pm2)            SKIP_PM2=true ;;
+    --port)
+      SERVER_PORT="${2:-}"
+      [[ -n "$SERVER_PORT" ]] || die "--port requires a value"
+      shift
+      ;;
     -h|--help)
       # Print only the header comment block (before the first blank-then-code
       # line), not every inline comment further down in the script.
@@ -117,6 +132,20 @@ else
   ok "server/.env created."
 fi
 
+# Set KEY=VALUE in server/.env unconditionally — adds the line if it's
+# missing, overwrites it if it's already there.
+set_env_kv() {
+  local key="$1" value="$2"
+  if grep -qE "^${key}=" "$ENV_FILE"; then
+    local tmp
+    tmp="$(mktemp)"
+    awk -v k="$key" -v v="$value" -F= 'BEGIN{OFS="="} $1==k{$0=k"="v} {print}' "$ENV_FILE" > "$tmp"
+    mv "$tmp" "$ENV_FILE"
+  else
+    printf "%s=%s\n" "$key" "$value" >> "$ENV_FILE"
+  fi
+}
+
 # Fill in SESSION_SECRET / PLAYER_SESSION_SECRET if they're blank — the
 # server refuses to serve /admin/* or /players/* routes without them.
 fill_secret_if_blank() {
@@ -124,22 +153,18 @@ fill_secret_if_blank() {
   local current
   current="$(grep -E "^${key}=" "$ENV_FILE" | head -n1 | cut -d= -f2- || true)"
   if [[ -z "${current// /}" ]]; then
-    local value
-    value="$(gen_secret)"
-    if grep -qE "^${key}=" "$ENV_FILE"; then
-      # portable in-place edit (no GNU/BSD sed differences)
-      local tmp
-      tmp="$(mktemp)"
-      awk -v k="$key" -v v="$value" -F= 'BEGIN{OFS="="} $1==k{$0=k"="v} {print}' "$ENV_FILE" > "$tmp"
-      mv "$tmp" "$ENV_FILE"
-    else
-      printf "%s=%s\n" "$key" "$value" >> "$ENV_FILE"
-    fi
+    set_env_kv "$key" "$(gen_secret)"
     ok "Generated a random $key."
   fi
 }
 fill_secret_if_blank "SESSION_SECRET"
 fill_secret_if_blank "PLAYER_SESSION_SECRET"
+
+# 8081 is already taken on this host, so the server is pinned to 8096
+# (override with --port). Unconditional: this is an explicit deployment
+# choice, not a "fill if blank" default.
+set_env_kv "PORT" "$SERVER_PORT"
+ok "Server PORT set to $SERVER_PORT in server/.env."
 
 # ---------------------------------------------------- resolve the DB path --
 # Mirrors server/src/db.ts: DATA_DIR defaults to <server>/data, DB_PATH
@@ -220,9 +245,52 @@ else
   fi
 fi
 
+# --------------------------------------------------------- pm2 attach --
+PM2_ATTACHED=false
+if [[ "$SKIP_PM2" == false ]]; then
+  if ! command -v pm2 >/dev/null 2>&1; then
+    info "pm2 not found — installing it globally (npm install -g pm2)…"
+    if npm install -g pm2 >/tmp/pm2-install.log 2>&1; then
+      ok "pm2 installed."
+    else
+      warn "Couldn't install pm2 globally (log: /tmp/pm2-install.log). Skipping process manager setup."
+      warn "Install it yourself, then run:"
+      warn "  (cd server && npm run build && pm2 start dist/src/index.js --name yalla)"
+    fi
+  fi
+
+  if command -v pm2 >/dev/null 2>&1; then
+    info "Building server (npm run build)…"
+    (cd "$SERVER_DIR" && npm run build)
+    ok "Server built."
+
+    info 'Attaching server to pm2 as "yalla"…'
+    if pm2 describe yalla >/dev/null 2>&1; then
+      (cd "$SERVER_DIR" && pm2 restart yalla --update-env)
+      ok 'pm2 process "yalla" restarted.'
+    else
+      # tsc's rootDir is "." (it also compiles __tests__), so the compiled
+      # entry point lands at dist/src/index.js, not dist/index.js.
+      (cd "$SERVER_DIR" && pm2 start dist/src/index.js --name yalla)
+      ok 'pm2 process "yalla" started.'
+    fi
+    pm2 save >/dev/null 2>&1 || warn "pm2 save failed — the process list won't auto-resurrect on reboot."
+    PM2_ATTACHED=true
+  fi
+else
+  warn "Skipping pm2 setup (--skip-pm2)."
+fi
+
 # ------------------------------------------------------------------- done --
 echo
 ok "Setup complete."
-echo "  Start the admin server:  (cd server && npm run dev)     -> http://localhost:4000"
+if [[ "$PM2_ATTACHED" == true ]]; then
+  echo "  Server running under pm2 as \"yalla\": http://localhost:${SERVER_PORT}"
+  echo "    Logs:     pm2 logs yalla"
+  echo "    Status:   pm2 status"
+  echo "    Restart:  pm2 restart yalla"
+else
+  echo "  Start the admin server:  (cd server && npm run dev)     -> http://localhost:${SERVER_PORT}"
+fi
 echo "  Start the Expo app:      npm start"
 [[ "$DO_SEED" == false ]] && echo "  Load starter decks:      (cd server && npm run seed-decks)"
