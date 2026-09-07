@@ -7,7 +7,7 @@ process.env.PLAYER_SESSION_SECRET = 'test-player-secret';
 
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { resetDbForTests } from '../src/db';
+import { resetDbForTests, setGamePriceFils, signupBonusCredits } from '../src/db';
 
 const app = createApp();
 
@@ -55,6 +55,32 @@ describe('POST /players/register', () => {
       .post('/players/register')
       .send({ username: 'shortpw', password: 'short' });
     expect(res.status).toBe(400);
+  });
+
+  it('credits the one-time signup bonus, worth 3.00 KD in games at the current price', async () => {
+    setGamePriceFils(1500); // 1.500 KD/game, so 3.00 KD is exactly 2 games
+    const register = await request(app)
+      .post('/players/register')
+      .send({ username: 'bonusplayer', password: 'password1234' });
+    expect(register.status).toBe(201);
+
+    const wallet = await request(app)
+      .get('/charades/wallet')
+      .set('Authorization', `Bearer ${register.body.token}`);
+    expect(wallet.body.balance).toBe(2);
+    expect(wallet.body.balance).toBe(signupBonusCredits());
+  });
+
+  it('never re-grants the bonus on login, only on registration', async () => {
+    const register = await request(app)
+      .post('/players/register')
+      .send({ username: 'onceonly', password: 'password1234' });
+
+    await request(app).post('/players/login').send({ username: 'onceonly', password: 'password1234' });
+    const wallet = await request(app)
+      .get('/charades/wallet')
+      .set('Authorization', `Bearer ${register.body.token}`);
+    expect(wallet.body.balance).toBe(signupBonusCredits());
   });
 
   it('a player token does not work as an admin session', async () => {

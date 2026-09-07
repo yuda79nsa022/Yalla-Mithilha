@@ -92,6 +92,7 @@ export const ar = {
   'account.switchToSignIn': 'عندك حساب؟ سجّل دخولك',
   'account.switchToCreate': 'ما عندك حساب؟ أنشئ وحد',
   'account.loggedInAs': 'مسجّل باسم {{username}}',
+  'account.signupBonus': 'أنشئ حساب واحصل على هدية ترحيبية لمرة وحدة بقيمة ٣٫٠٠٠ د.ك رصيد لعب مجاني.',
   'account.logout': 'تسجيل الخروج',
   'account.logoutConfirm': 'تبي تسجّل خروج من هالحساب؟ اللعب كضيف يستمر عادي.',
 

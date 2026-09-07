@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
 import { Screen, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
@@ -31,16 +31,13 @@ export default function Splash() {
   return (
     <Screen>
       <View style={styles.center}>
-        {/* The chevron band is the app's one signature mark: a nod to Sadu
-            weaving, drawn in plain views so it costs nothing to render. */}
-        <View style={styles.band}>
-          {Array.from({ length: 7 }, (_, i) => (
-            <View
-              key={i}
-              style={[styles.chevron, { backgroundColor: i % 2 ? colors.accent : colors.brand }]}
-            />
-          ))}
-        </View>
+        <Image
+          source={require('../assets/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel={`${ar['app.name']} / ${en['app.name']}`}
+        />
         {/* Always both languages, regardless of the current app language —
             this is the brand mark, shown before a language is even chosen
             on a first run. Reads from the translation catalogues directly
@@ -59,6 +56,5 @@ export default function Splash() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  band: { flexDirection: 'row', gap: 6, marginBottom: spacing.lg },
-  chevron: { width: 18, height: 18, transform: [{ rotate: '45deg' }], borderRadius: 3 },
+  logo: { width: 140, height: 140, borderRadius: 28, marginBottom: spacing.lg },
 });

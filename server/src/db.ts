@@ -525,7 +525,8 @@ export function creditBalance(playerId: string): number {
 
 /**
  * Grants credits with no backing payment. A real player only ever gets
- * credits by paying (see `confirmPayment`) — this exists only for the
+ * credits by paying (see `confirmPayment`) or via the one-time signup bonus
+ * (see `grantSignupBonus`) — this general form exists for the
  * `create-test-player` script, so testing "a player with N games left"
  * doesn't require N manual top-ups through the checkout flow first.
  */
@@ -534,6 +535,31 @@ export function grantCredits(playerId: string, amount: number): void {
     `INSERT INTO credit_transactions (id, player_id, kind, amount, created_at)
      VALUES (@id, @playerId, 'grant', @amount, @now)`
   ).run({ id: crypto.randomUUID(), playerId, amount, now: Date.now() });
+}
+
+/**
+ * One-time new-account bonus, in fils (1000 fils = 1 KD). Expressed as a
+ * fixed KD value rather than a fixed number of credits: the number of games
+ * it's worth is derived from whatever the admin currently charges per game
+ * (see `signupBonusCredits`), so it keeps meaning "3.00 KD" even if that
+ * price later changes, rather than silently over- or under-paying.
+ */
+const SIGNUP_BONUS_FILS = 3000; // 3.000 KD
+
+/** How many whole game credits the signup bonus is worth at today's price. Floors down, since the ledger only ever holds whole games. */
+export function signupBonusCredits(): number {
+  return Math.floor(SIGNUP_BONUS_FILS / getGamePriceFils());
+}
+
+/**
+ * Grants the one-time signup bonus. Only ever called once per account, right
+ * after `createPlayer` in the `/players/register` route — nothing else
+ * calls this, so there's no separate de-duplication to do here beyond that.
+ */
+export function grantSignupBonus(playerId: string): number {
+  const amount = signupBonusCredits();
+  if (amount > 0) grantCredits(playerId, amount);
+  return amount;
 }
 
 export interface CreatePaymentInput {

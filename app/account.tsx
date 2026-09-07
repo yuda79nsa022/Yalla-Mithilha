@@ -60,6 +60,14 @@ export default function Account() {
       <T variant="body" color={colors.textMuted}>
         {t('account.subtitle')}
       </T>
+      {mode === 'create' ? (
+        <>
+          <Spacer size={spacing.sm} />
+          <T variant="label" color={colors.accent}>
+            {t('account.signupBonus')}
+          </T>
+        </>
+      ) : null}
       <Spacer size={spacing.xl} />
 
       <TextInput

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 import { Button, Divider, Screen, Spacer, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
@@ -16,13 +16,14 @@ export default function Landing() {
   return (
     <Screen scroll>
       <Spacer size={spacing.xl} />
-      <View style={styles.band}>
-        {Array.from({ length: 9 }, (_, i) => (
-          <View
-            key={i}
-            style={[styles.chevron, { backgroundColor: i % 2 ? colors.accent : colors.brand }]}
-          />
-        ))}
+      <View style={styles.logoRow}>
+        <Image
+          source={require('../assets/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel={t('app.name')}
+        />
       </View>
 
       <T variant="label" color={colors.accent}>
@@ -77,8 +78,8 @@ export default function Landing() {
 }
 
 const styles = {
-  band: { flexDirection: 'row' as const, gap: 6, marginBottom: spacing.md },
-  chevron: { width: 14, height: 14, transform: [{ rotate: '45deg' as const }], borderRadius: 2 },
+  logoRow: { alignItems: 'center' as const, marginBottom: spacing.md },
+  logo: { width: 120, height: 120, borderRadius: 24 },
   card: {
     borderWidth: 2,
     borderRadius: 18,
