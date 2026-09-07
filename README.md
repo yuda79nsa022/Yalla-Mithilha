@@ -31,7 +31,7 @@ npm run typecheck:core  # engine, i18n and services only (no React Native needed
 | Area | Where | Notes |
 | --- | --- | --- |
 | Charades engine | `src/engine/charades.ts` | Pure TypeScript, no React Native imports — drafting, turn alternation, scoring, completion |
-| QR reveal | `src/engine/reveal.ts` | Builds the link a shared screen's QR code encodes; the reveal page itself is `app/charades/reveal.tsx` |
+| QR reveal | `src/engine/reveal.ts` | Builds the link a shared screen's QR code encodes; the reveal page itself is `app/reveal.tsx` |
 | Localisation | `src/i18n/` | Arabic and English catalogues, key-parity tested |
 | App state | `src/state/AppProvider.tsx` | Preferences, the Charades session, the wallet, the player account |
 | Screens | `app/` | Expo Router file routes |
@@ -49,9 +49,11 @@ layer that renders state and calls those functions.
 **The reveal never touches the shared screen.** Whatever device is showing
 `app/charades/play.tsx` (a TV, a laptop, a phone passed around) only ever
 renders a QR code — never the round's title. The actor scans it with their
-own phone's stock camera, which opens `app/charades/reveal.tsx` as a normal
-web link. See `server/README.md`'s "App integration" section for exactly
-how the link's address is resolved.
+own phone's stock camera, which opens `app/reveal.tsx` as a normal web
+link — deliberately not under `/charades`, since the server reserves that
+whole path prefix for its own, session-protected API. See
+`server/README.md`'s "App integration" section for exactly how the link's
+address is resolved.
 
 **The web build's entry point is a landing page, not the app menu.**
 `app/index.tsx`'s splash redirects to `/landing` (`app/landing.tsx`) only

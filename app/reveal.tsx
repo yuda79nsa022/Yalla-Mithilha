@@ -1,15 +1,17 @@
 import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
-import { Screen, Spacer, T } from '../../src/ui/components';
-import { colors, spacing } from '../../src/ui/theme';
-import { useApp } from '../../src/state/AppProvider';
+import { Screen, Spacer, T } from '../src/ui/components';
+import { colors, spacing } from '../src/ui/theme';
+import { useApp } from '../src/state/AppProvider';
 
 /**
  * Where a Charades reveal QR code points. Standalone on purpose: opened by
  * scanning the code with a plain camera, on a phone that may not even have
  * this app installed, so it must render from the URL alone — no session,
- * deck, or login state.
+ * deck, or login state. Deliberately not under `/charades` — the server
+ * claims that whole path prefix for its API and requires a player session
+ * for everything under it, which would 401 a plain camera scan.
  */
 export default function CharadesReveal() {
   const { t, lang } = useApp();

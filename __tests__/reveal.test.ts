@@ -28,7 +28,7 @@ describe('resolveRevealBaseUrl', () => {
 describe('buildRevealUrl', () => {
   it('builds a link to the reveal route with the title and category URL-encoded', () => {
     const url = buildRevealUrl('https://example.com', 'The Lion King', 'أفلام', 'Movies');
-    expect(url.startsWith('https://example.com/charades/reveal?')).toBe(true);
+    expect(url.startsWith('https://example.com/reveal?')).toBe(true);
     const params = new URL(url).searchParams;
     expect(params.get('t')).toBe('The Lion King');
     expect(params.get('ca')).toBe('أفلام');
