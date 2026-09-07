@@ -62,14 +62,19 @@ export function createApp(): express.Express {
   // a chance to render it.
   app.use(express.static(PLAYER_APP_DIR));
   app.get('*', (req, res, next) => {
-    // Leave API paths, the admin tool's own path, and non-navigation
-    // requests (an XHR expecting JSON, say) alone — only a browser
-    // navigating to an unbuilt player-app route should get the SPA shell.
+    // Leave the admin tool's own path and non-navigation requests (an XHR
+    // expecting JSON, say) alone — only a browser navigating to an unbuilt
+    // player-app route should get the SPA shell. Deliberately NOT excluding
+    // /charades wholesale: charadesRouter guards its real endpoints with
+    // requirePlayerSession per-route rather than as a router-wide `.use()`,
+    // so an unmatched GET under /charades (a refresh on this app's own
+    // /charades/draft, /charades/checkout or /charades/play screens) already
+    // falls through the router unanswered by the time it reaches here — and
+    // needs the SPA shell exactly like any other player-app route.
     if (
       req.method !== 'GET' ||
       req.path.startsWith('/admin') ||
       req.path.startsWith('/players') ||
-      req.path.startsWith('/charades') ||
       req.path === '/health' ||
       !req.accepts('html')
     ) {
