@@ -98,20 +98,6 @@ export const ar = {
   'account.signupBonus': 'أنشئ حساب واحصل على هدية ترحيبية لمرة وحدة بقيمة ٣٫٠٠٠ د.ك رصيد لعب مجاني.',
   'account.logout': 'تسجيل الخروج',
   'account.logoutConfirm': 'تبي تسجّل خروج من هالحساب؟ اللعب كضيف يستمر عادي.',
-
-  'landing.eyebrow': 'أول مرة تزورنا؟',
-  'landing.intro':
-    'يلا مثّلها لعبة "مثّلها" — تمثيل صامت على عناوين حقيقية: مسرحيات ومسلسلات كويتية وخليجية ومصرية. تشتغل بالكامل بالعربي والإنجليزي.',
-  'landing.charadesTitle': 'مثّلها',
-  'landing.charadesBody':
-    'فريقين يسمّون نفسهم ويتناوبون يمثّلون عناوين حقيقية — مسرحيات كويتية ومصرية، مسلسلات مصرية وخليجية — يختارها السيرفر عشوائي كل جولة، عشرين جولة، بدون كلام. اشحن رصيدك مرة وحدة عشان تلعب لعبة.',
-  'landing.charadesCta': 'العب مثّلها',
-  'landing.bilingualTitle': 'عربي وإنجليزي',
-  'landing.bilingualBody': 'كل شاشة، باللغتين — بدّل أي وقت من الإعدادات.',
-  'landing.privacyTitle': 'الخصوصية',
-  'landing.privacyBody': 'اقرأ بالضبط وش ترسل لعبة "مثّلها" ومتى — تحتاج حساب ومحفظة عشان تلعب.',
-  'landing.privacyLink': 'اقرأ صفحة الخصوصية',
-  'landing.fullMenu': 'شوف القائمة الكاملة',
 } as const;
 
 export type TranslationKey = keyof typeof ar;

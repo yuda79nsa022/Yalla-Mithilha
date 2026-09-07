@@ -59,11 +59,11 @@ export function createApp(): express.Express {
   app.use('/title-images', express.static(TITLE_IMAGES_DIR));
 
   // The player app is a client-side-routed single-page app: one JS bundle,
-  // one index.html, every route (/landing, /home, /account, ...) rendered
-  // by expo-router in the browser — see `dist/` after `npx expo export -p
+  // one index.html, every route (/home, /account, ...) rendered by
+  // expo-router in the browser — see `dist/` after `npx expo export -p
   // web`, which is what installer.sh copies into public-player. Serving it
   // with `express.static` alone would 404 a browser opened directly on
-  // /landing (there's no such file on disk); the catch-all below falls back
+  // /home (there's no such file on disk); the catch-all below falls back
   // to that same index.html for any of those, giving the client-side router
   // a chance to render it.
   app.use(express.static(PLAYER_APP_DIR));

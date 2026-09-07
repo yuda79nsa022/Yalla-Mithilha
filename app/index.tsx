@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Platform, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Screen, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
@@ -20,12 +20,9 @@ export default function Splash() {
     return () => clearTimeout(timer);
   }, []);
 
-  // A native install already knows what it installed — straight to the menu.
-  // A website visitor might not know what Yalla Mithilha even is yet, so the
-  // web build's entry point is the explainer landing page instead.
   if (done) {
     if (!prefs.lang) return <Redirect href="/language" />;
-    return <Redirect href={Platform.OS === 'web' ? '/landing' : '/home'} />;
+    return <Redirect href="/home" />;
   }
 
   return (

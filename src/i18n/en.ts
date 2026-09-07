@@ -94,18 +94,4 @@ export const en: Record<TranslationKey, string> = {
   'account.signupBonus': 'Create an account and get a one-time welcome bonus of 3.000 KD in free game credits.',
   'account.logout': 'Sign out',
   'account.logoutConfirm': 'Sign out of this account? Guest play keeps working as usual.',
-
-  'landing.eyebrow': 'New here?',
-  'landing.intro':
-    'Yalla Mithilha is Charades — silent acting built on real titles: Kuwaiti, Khaleeji and Egyptian movies, series and plays. Runs fully in Arabic and English.',
-  'landing.charadesTitle': 'Charades',
-  'landing.charadesBody':
-    'Two teams name themselves and take turns acting out real titles — Kuwaiti and Egyptian plays, Egyptian series, Khaleeji series — picked at random by the server each round, twenty rounds, no words allowed. Top up your wallet once to play a game.',
-  'landing.charadesCta': 'Play charades',
-  'landing.bilingualTitle': 'Arabic and English',
-  'landing.bilingualBody': 'Every screen, in both languages — switch anytime in Settings.',
-  'landing.privacyTitle': 'Privacy',
-  'landing.privacyBody': 'Read exactly what Charades sends, and when — it needs an account and a wallet to play.',
-  'landing.privacyLink': 'Read the privacy page',
-  'landing.fullMenu': 'See the full menu',
 };

@@ -55,12 +55,11 @@ whole path prefix for its own, session-protected API. See
 `server/README.md`'s "App integration" section for exactly how the link's
 address is resolved.
 
-**The web build's entry point is a landing page, not the app menu.**
-`app/index.tsx`'s splash redirects to `/landing` (`app/landing.tsx`) only
-when `Platform.OS === 'web'` — a website visitor may not know what the game
-even is yet, unlike someone who just installed it. Native installs skip
-straight to `/home`, which is Charades' own hub: account/wallet status, the
-deck list, and "Start a new game" or "Resume."
+**Both web and native land on the same entry point.**
+`app/index.tsx`'s splash redirects straight to `/home` (after the
+first-run language picker) on every platform — `/home` is Charades' own
+hub: account/wallet status, the deck list, and "Start a new game" or
+"Resume."
 
 ### The session lifecycle
 
