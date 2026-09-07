@@ -218,8 +218,14 @@ own errors rather than throwing.
 
 The app fetches `GET /charades/price` on startup (`src/services/walletApi.ts`
 in the main project) — there is no offline fallback, since Charades requires
-a live connection for its wallet. Point the app at a non-default server with
-`EXPO_PUBLIC_CATALOGUE_API_URL` (`src/config.ts`).
+a live connection for its wallet. The intended deployment (`installer.sh`)
+serves the player app and this API from the same pm2 process and the same
+origin — see "Deployment" below — so a web build normally needs no
+configuration at all: `src/config.ts` falls back to the page's own origin
+when `EXPO_PUBLIC_CATALOGUE_API_URL` isn't set. Set that env var explicitly
+only when the player app and its API genuinely live on different origins
+(a native build always needs it, since there's no page origin to fall back
+to; so does local web development against a separate dev server).
 
 An Account screen, reachable from the home screen or from the Charades
 checkout screen itself, lets a player create an account or sign in
@@ -242,10 +248,23 @@ that screen is a browser (`window.location.origin`), or
 `EXPO_PUBLIC_REVEAL_BASE_URL` when it isn't (e.g. a native app mirrored to
 the TV, where there's no page origin to read).
 
+## Deployment
+
+`installer.sh` (repo root) deploys both portals as one pm2 process, "yalla":
+it builds this server, exports the root Expo project for web
+(`npx expo export -p web`), and copies both into `dist/public` (admin tool)
+and `dist/public-player` (player app) so a single `express` app
+(`src/app.ts`) serves both from one port — `/admin-ui` for the admin tool,
+everything else for the player app. This is deliberate, not incidental:
+serving the player app from anywhere other than this same process/origin is
+exactly what causes a player-facing "could not reach the server" (the app
+falls back to `http://localhost:4000` on native, or the wrong page origin on
+web, when the two are split across separate deployments — see
+`resolveCatalogueApiUrl` in `src/config.ts`). `pm2 logs yalla` is the one
+place to look for either portal's runtime errors.
+
 ## Known gaps
 
-- **Not deployed anywhere.** This runs locally; putting it on a real host
-  with a real domain is a separate step.
 - **No real payment provider.** `MockPaymentProvider` stands in until real
   KNET/aggregator merchant credentials exist — see "The wallet" above.
 - **No repetition avoidance across sessions.** `startGameSession` draws 20
