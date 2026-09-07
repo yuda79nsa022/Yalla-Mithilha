@@ -3,6 +3,8 @@ import type { TranslationKey } from './ar';
 export const en: Record<TranslationKey, string> = {
   'app.name': 'Yalla Mithilha',
   'app.tagline': 'You do not need to know the answer. You need your friends to understand you.',
+  'app.writeup':
+    'Yalla Mithilha is Charades — two teams act out real titles while the other guesses, no words allowed. What you act out follows this screen’s language: Arabic means Kuwaiti, Khaleeji and Egyptian plays, series and movies; English means Hollywood movies, American series and English songs. Twenty rounds, picked at random by the server every time.',
 
   'common.next': 'Next',
   'common.back': 'Back',

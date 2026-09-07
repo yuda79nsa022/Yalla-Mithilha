@@ -68,6 +68,10 @@ export default function Home() {
       <T variant="body" color={colors.textMuted}>
         {t('app.tagline')}
       </T>
+      <Spacer size={spacing.sm} />
+      <T variant="label" color={colors.textMuted}>
+        {t('app.writeup')}
+      </T>
 
       <Spacer size={spacing.xl} />
       <View style={styles.accountCard}>
