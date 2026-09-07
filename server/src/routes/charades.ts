@@ -29,14 +29,18 @@ charadesRouter.get('/price', (_req, res) => {
 });
 
 // Every route below is a real player, never a guest — only spending real
-// money requires an account.
-charadesRouter.use(requirePlayerSession);
-
-charadesRouter.get('/wallet', (req, res) => {
+// money requires an account. Guarded per-route rather than with a blanket
+// `.use(requirePlayerSession)` on the whole router: a deployment that serves
+// the player web app from this same origin also has real pages living under
+// this same `/charades` path (draft, checkout, play) for its own
+// client-side router — a blanket check would 401 a plain page refresh on
+// one of those before Express ever got to notice no API route matched,
+// instead of falling through to that app's SPA shell.
+charadesRouter.get('/wallet', requirePlayerSession, (req, res) => {
   res.json({ balance: creditBalance(req.player!.sub) });
 });
 
-charadesRouter.post('/checkout', async (req, res) => {
+charadesRouter.post('/checkout', requirePlayerSession, async (req, res) => {
   try {
     const payment = createPayment({ playerId: req.player!.sub, provider: paymentProvider.name });
     const { redirectUrl } = await paymentProvider.createCheckout({
@@ -57,7 +61,7 @@ charadesRouter.post('/checkout', async (req, res) => {
  * check and the idempotent grant inside `confirmPayment` are the same
  * either way.
  */
-charadesRouter.post('/checkout/:paymentId/confirm', (req, res) => {
+charadesRouter.post('/checkout/:paymentId/confirm', requirePlayerSession, (req, res) => {
   try {
     const existing = getPayment(req.params.paymentId);
     if (!existing || existing.playerId !== req.player!.sub) {
@@ -70,7 +74,7 @@ charadesRouter.post('/checkout/:paymentId/confirm', (req, res) => {
   }
 });
 
-charadesRouter.post('/checkout/:paymentId/fail', (req, res) => {
+charadesRouter.post('/checkout/:paymentId/fail', requirePlayerSession, (req, res) => {
   try {
     const existing = getPayment(req.params.paymentId);
     if (!existing || existing.playerId !== req.player!.sub) {
@@ -89,7 +93,7 @@ charadesRouter.post('/checkout/:paymentId/fail', (req, res) => {
  * same client-generated sessionId and spends nothing further, returning the
  * same dealt titles instead.
  */
-charadesRouter.post('/sessions', (req, res) => {
+charadesRouter.post('/sessions', requirePlayerSession, (req, res) => {
   try {
     const { sessionId } = parseStartSessionBody(req.body);
     const { session, balance } = startGameSession(req.player!.sub, sessionId);
@@ -99,7 +103,7 @@ charadesRouter.post('/sessions', (req, res) => {
   }
 });
 
-charadesRouter.get('/sessions/:id', (req, res) => {
+charadesRouter.get('/sessions/:id', requirePlayerSession, (req, res) => {
   try {
     const session = getGameSession(req.params.id);
     if (!session || session.playerId !== req.player!.sub) {
