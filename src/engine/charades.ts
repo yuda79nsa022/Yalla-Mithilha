@@ -14,6 +14,8 @@ export interface CharadesTitle {
   text: string;
   deckNameAr: string;
   deckNameEn: string;
+  /** A path relative to CATALOGUE_API_URL (e.g. `/title-images/<uuid>.png`) — absent when this title has no picture. */
+  imageUrl?: string;
 }
 
 export type CharadesLock = 'locked' | 'unlocked';

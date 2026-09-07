@@ -41,4 +41,21 @@ describe('buildRevealUrl', () => {
     const params = new URL(url).searchParams;
     expect(params.get('t')).toBe(title);
   });
+
+  it('includes the image URL when the title has a picture', () => {
+    const url = buildRevealUrl(
+      'https://example.com',
+      'The Lion King',
+      'أفلام',
+      'Movies',
+      'https://api.example/title-images/x.png'
+    );
+    const params = new URL(url).searchParams;
+    expect(params.get('img')).toBe('https://api.example/title-images/x.png');
+  });
+
+  it('omits the img param entirely when the title has no picture', () => {
+    const url = buildRevealUrl('https://example.com', 'The Lion King', 'أفلام', 'Movies');
+    expect(new URL(url).searchParams.has('img')).toBe(false);
+  });
 });

@@ -1,8 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 import { Screen, Spacer, T } from '../src/ui/components';
-import { colors, spacing } from '../src/ui/theme';
+import { colors, radius, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
 /**
@@ -15,10 +15,11 @@ import { useApp } from '../src/state/AppProvider';
  */
 export default function CharadesReveal() {
   const { t, lang } = useApp();
-  const { t: title, ca, ce } = useLocalSearchParams<{ t?: string; ca?: string; ce?: string }>();
+  const { t: title, ca, ce, img } = useLocalSearchParams<{ t?: string; ca?: string; ce?: string; img?: string }>();
   const text = Array.isArray(title) ? title[0] : title;
   const categoryAr = Array.isArray(ca) ? ca[0] : ca;
   const categoryEn = Array.isArray(ce) ? ce[0] : ce;
+  const imageUrl = Array.isArray(img) ? img[0] : img;
   const category = lang === 'ar' ? categoryAr : categoryEn;
 
   return (
@@ -37,6 +38,14 @@ export default function CharadesReveal() {
             <T variant="display" align="center">
               {text}
             </T>
+            {imageUrl ? (
+              <Image
+                source={{ uri: imageUrl }}
+                style={{ width: '100%', height: 220, borderRadius: radius.lg }}
+                resizeMode="cover"
+                accessibilityLabel={text}
+              />
+            ) : null}
           </>
         ) : (
           <T variant="heading" align="center" color={colors.textMuted}>
