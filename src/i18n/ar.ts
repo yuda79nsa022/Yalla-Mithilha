@@ -20,6 +20,7 @@ export const ar = {
 
   'home.settings': 'الإعدادات',
   'home.about': 'عن اللعبة والخصوصية',
+  'home.adminSignIn': 'تسجيل دخول الإدارة',
 
   'settings.title': 'الإعدادات',
   'settings.language': 'اللغة',

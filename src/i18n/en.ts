@@ -17,6 +17,7 @@ export const en: Record<TranslationKey, string> = {
 
   'home.settings': 'Settings',
   'home.about': 'About and privacy',
+  'home.adminSignIn': 'Admin sign-in',
 
   'settings.title': 'Settings',
   'settings.language': 'Language',
