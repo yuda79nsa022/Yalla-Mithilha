@@ -11,7 +11,9 @@ import {
   DuplicateUsernameError,
   LastAdminError,
   PlayerNotFoundError,
+  TitleNotFoundError,
   addTitlesToDeck,
+  addTitlesToDeckWithImages,
   createAdminUser,
   createDeck,
   createPlayer,
@@ -24,6 +26,7 @@ import {
   getDeck,
   getGamePriceFils,
   getPlayerById,
+  getTitle,
   grantCredits,
   listAdminUsers,
   listDecks,
@@ -34,6 +37,7 @@ import {
   updateAdminUser,
   updateDeck,
   updatePlayer,
+  updateTitle,
 } from '../src/db';
 
 beforeEach(() => resetDbForTests());
@@ -140,6 +144,86 @@ describe('deleteTitle', () => {
   it('throws for an unknown title', () => {
     createDeck(sample);
     expect(() => deleteTitle(sample.id, 'nope')).toThrow();
+  });
+
+  it('returns the removed row, so a caller can clean up its image file', () => {
+    createDeck(sample);
+    addTitlesToDeckWithImages(sample.id, [{ text: 'a', imagePath: '/title-images/x.png' }]);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+    const removed = deleteTitle(sample.id, titleId);
+    expect(removed).toMatchObject({ text: 'a', imagePath: '/title-images/x.png' });
+  });
+});
+
+describe('addTitlesToDeckWithImages', () => {
+  it('stores each row\'s own image path alongside its title', () => {
+    createDeck(sample);
+    const { added, skipped } = addTitlesToDeckWithImages(sample.id, [
+      { text: 'a', imagePath: '/title-images/a.png' },
+      { text: 'b', imagePath: null },
+    ]);
+    expect(added).toBe(2);
+    expect(skipped).toBe(0);
+    const titles = getDeck(sample.id)!.titles;
+    expect(titles.find((t) => t.text === 'a')!.imagePath).toBe('/title-images/a.png');
+    expect(titles.find((t) => t.text === 'b')!.imagePath).toBeNull();
+  });
+
+  it('skips exact duplicates already in the deck, same rule as addTitlesToDeck', () => {
+    createDeck(sample);
+    addTitlesToDeck(sample.id, ['a']);
+    const { added, skipped } = addTitlesToDeckWithImages(sample.id, [
+      { text: 'a', imagePath: '/title-images/a.png' },
+      { text: 'b', imagePath: null },
+    ]);
+    expect(added).toBe(1);
+    expect(skipped).toBe(1);
+  });
+
+  it('throws for an unknown deck', () => {
+    expect(() => addTitlesToDeckWithImages('nope', [{ text: 'a', imagePath: null }])).toThrow(DeckNotFoundError);
+  });
+});
+
+describe('updateTitle', () => {
+  it('updates the text without touching the image', () => {
+    createDeck(sample);
+    addTitlesToDeckWithImages(sample.id, [{ text: 'a', imagePath: '/title-images/a.png' }]);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+    const updated = updateTitle(sample.id, titleId, { text: 'renamed' });
+    expect(updated).toMatchObject({ text: 'renamed', imagePath: '/title-images/a.png' });
+  });
+
+  it('replaces the image without touching the text', () => {
+    createDeck(sample);
+    addTitlesToDeckWithImages(sample.id, [{ text: 'a', imagePath: '/title-images/old.png' }]);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+    const updated = updateTitle(sample.id, titleId, { imagePath: '/title-images/new.png' });
+    expect(updated).toMatchObject({ text: 'a', imagePath: '/title-images/new.png' });
+  });
+
+  it('clears the image when imagePath is explicitly null, but leaves it alone when omitted', () => {
+    createDeck(sample);
+    addTitlesToDeckWithImages(sample.id, [{ text: 'a', imagePath: '/title-images/a.png' }]);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+
+    const untouched = updateTitle(sample.id, titleId, { text: 'still a' });
+    expect(untouched.imagePath).toBe('/title-images/a.png');
+
+    const cleared = updateTitle(sample.id, titleId, { imagePath: null });
+    expect(cleared.imagePath).toBeNull();
+  });
+
+  it('throws for an unknown title', () => {
+    createDeck(sample);
+    expect(() => updateTitle(sample.id, 'nope', { text: 'x' })).toThrow(TitleNotFoundError);
+  });
+});
+
+describe('getTitle', () => {
+  it('returns null for a title that does not exist', () => {
+    createDeck(sample);
+    expect(getTitle(sample.id, 'nope')).toBeNull();
   });
 });
 

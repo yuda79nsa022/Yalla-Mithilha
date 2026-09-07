@@ -6,6 +6,7 @@ process.env.SESSION_SECRET = 'test-secret';
 process.env.PLAYER_SESSION_SECRET = 'test-player-secret';
 
 import AdmZip from 'adm-zip';
+import ExcelJS from 'exceljs';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { createDeck, getDeck, getGamePriceFils, resetDbForTests } from '../src/db';
@@ -30,6 +31,22 @@ function buildDocxFixture(titles: string[]): Buffer {
   zip.addFile('word/document.xml', Buffer.from(xml, 'utf-8'));
   return zip.toBuffer();
 }
+
+async function buildManifestXlsx(rows: Array<[string, string]>): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Titles');
+  sheet.addRow(['Title', 'Image filename']); // header, always skipped
+  for (const row of rows) sheet.addRow(row);
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+function buildImagesZip(files: Array<{ name: string; data: Buffer }>): Buffer {
+  const zip = new AdmZip();
+  for (const f of files) zip.addFile(f.name, f.data);
+  return zip.toBuffer();
+}
+
+const FAKE_IMAGE = Buffer.from('fake-image-bytes');
 
 describe('deck CRUD', () => {
   it('requires auth', async () => {
@@ -119,6 +136,128 @@ describe('DELETE /admin/decks/:deckId/titles/:titleId', () => {
     const res = await request(app).delete(`/admin/decks/${sample.id}/titles/${titleId}`).set(auth);
     expect(res.status).toBe(204);
     expect(getDeck(sample.id)!.titles).toHaveLength(0);
+  });
+});
+
+describe('POST /admin/decks/:id/import-with-images', () => {
+  it('pairs each title with its picture by filename', async () => {
+    createDeck(sample);
+    const manifest = await buildManifestXlsx([
+      ['Title A', 'a.png'],
+      ['Title B', 'b.jpg'],
+    ]);
+    const images = buildImagesZip([
+      { name: 'a.png', data: FAKE_IMAGE },
+      { name: 'b.jpg', data: FAKE_IMAGE },
+    ]);
+
+    const res = await request(app)
+      .post(`/admin/decks/${sample.id}/import-with-images`)
+      .set(auth)
+      .attach('manifest', manifest, 'manifest.xlsx')
+      .attach('images', images, 'images.zip');
+
+    expect(res.status).toBe(200);
+    expect(res.body.added).toBe(2);
+    expect(res.body.imageIssues).toEqual([]);
+    const titles = getDeck(sample.id)!.titles;
+    expect(titles.find((t) => t.text === 'Title A')!.imagePath).toMatch(/^\/title-images\/.+\.png$/);
+    expect(titles.find((t) => t.text === 'Title B')!.imagePath).toMatch(/^\/title-images\/.+\.jpg$/);
+  });
+
+  it('still adds a title whose image filename is missing from the zip, reported in imageIssues', async () => {
+    createDeck(sample);
+    const manifest = await buildManifestXlsx([['Title A', 'missing.png']]);
+    const images = buildImagesZip([{ name: 'unrelated.png', data: FAKE_IMAGE }]);
+
+    const res = await request(app)
+      .post(`/admin/decks/${sample.id}/import-with-images`)
+      .set(auth)
+      .attach('manifest', manifest, 'manifest.xlsx')
+      .attach('images', images, 'images.zip');
+
+    expect(res.status).toBe(200);
+    expect(res.body.added).toBe(1);
+    expect(res.body.imageIssues).toHaveLength(1);
+    expect(getDeck(sample.id)!.titles[0]).toMatchObject({ text: 'Title A', imagePath: null });
+  });
+
+  it('rejects an unsupported image type, still adding the title without a picture', async () => {
+    createDeck(sample);
+    const manifest = await buildManifestXlsx([['Title A', 'a.gif']]);
+    const images = buildImagesZip([{ name: 'a.gif', data: FAKE_IMAGE }]);
+
+    const res = await request(app)
+      .post(`/admin/decks/${sample.id}/import-with-images`)
+      .set(auth)
+      .attach('manifest', manifest, 'manifest.xlsx')
+      .attach('images', images, 'images.zip');
+
+    expect(res.status).toBe(200);
+    expect(res.body.imageIssues[0]).toMatch(/unsupported image type/);
+    expect(getDeck(sample.id)!.titles[0].imagePath).toBeNull();
+  });
+
+  it('requires both a manifest and an images zip', async () => {
+    createDeck(sample);
+    const manifest = await buildManifestXlsx([['Title A', 'a.png']]);
+    const res = await request(app)
+      .post(`/admin/decks/${sample.id}/import-with-images`)
+      .set(auth)
+      .attach('manifest', manifest, 'manifest.xlsx');
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('PUT /admin/decks/:deckId/titles/:titleId', () => {
+  async function seedOneTitleWithImage() {
+    createDeck(sample);
+    const manifest = await buildManifestXlsx([['Title A', 'a.png']]);
+    const images = buildImagesZip([{ name: 'a.png', data: FAKE_IMAGE }]);
+    await request(app)
+      .post(`/admin/decks/${sample.id}/import-with-images`)
+      .set(auth)
+      .attach('manifest', manifest, 'manifest.xlsx')
+      .attach('images', images, 'images.zip');
+    return getDeck(sample.id)!.titles[0];
+  }
+
+  it('renames a title without touching its image', async () => {
+    const title = await seedOneTitleWithImage();
+    const res = await request(app)
+      .put(`/admin/decks/${sample.id}/titles/${title.id}`)
+      .set(auth)
+      .field('text', 'Renamed');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ text: 'Renamed', imagePath: title.imagePath });
+  });
+
+  it('replaces the picture without touching the text', async () => {
+    const title = await seedOneTitleWithImage();
+    const res = await request(app)
+      .put(`/admin/decks/${sample.id}/titles/${title.id}`)
+      .set(auth)
+      .attach('image', FAKE_IMAGE, 'new.png');
+    expect(res.status).toBe(200);
+    expect(res.body.text).toBe('Title A');
+    expect(res.body.imagePath).not.toBe(title.imagePath);
+    expect(res.body.imagePath).toMatch(/\.png$/);
+  });
+
+  it('removes the picture when removeImage is sent', async () => {
+    const title = await seedOneTitleWithImage();
+    const res = await request(app)
+      .put(`/admin/decks/${sample.id}/titles/${title.id}`)
+      .set(auth)
+      .field('removeImage', 'true');
+    expect(res.status).toBe(200);
+    expect(res.body.imagePath).toBeNull();
+  });
+
+  it('returns 404 for an unknown title', async () => {
+    createDeck(sample);
+    const res = await request(app).put(`/admin/decks/${sample.id}/titles/nope`).set(auth).field('text', 'x');
+    expect(res.status).toBe(404);
   });
 });
 

@@ -3,6 +3,7 @@ import fs from 'fs';
 import helmet from 'helmet';
 import path from 'path';
 import { requireAdminSession } from './auth';
+import { TITLE_IMAGES_DIR } from './db';
 import { adminDecksRouter } from './routes/adminDecks';
 import { adminPlayersRouter } from './routes/adminPlayers';
 import { adminUsersRouter } from './routes/adminUsers';
@@ -52,6 +53,11 @@ export function createApp(): express.Express {
   // tool lives at /admin-ui instead.
   app.use('/admin-ui', express.static(ADMIN_UI_DIR));
 
+  // Title pictures — public and unauthenticated like any other game asset,
+  // since both the player app and the reveal page (opened by a plain camera
+  // scan, no session at all) need to display them with no auth of their own.
+  app.use('/title-images', express.static(TITLE_IMAGES_DIR));
+
   // The player app is a client-side-routed single-page app: one JS bundle,
   // one index.html, every route (/landing, /home, /account, ...) rendered
   // by expo-router in the browser — see `dist/` after `npx expo export -p
@@ -75,6 +81,7 @@ export function createApp(): express.Express {
       req.method !== 'GET' ||
       req.path.startsWith('/admin') ||
       req.path.startsWith('/players') ||
+      req.path.startsWith('/title-images') ||
       req.path === '/health' ||
       !req.accepts('html')
     ) {

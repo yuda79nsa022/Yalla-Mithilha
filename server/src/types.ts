@@ -48,6 +48,8 @@ export interface TitleRow {
   id: string;
   deckId: string;
   text: string;
+  /** A servable path (e.g. `/title-images/<uuid>.png`), or null when this title has no picture. Optional — most titles never need one. */
+  imagePath: string | null;
   createdAt: number;
 }
 
@@ -94,6 +96,8 @@ export interface DealtTitle {
   deckId: string;
   deckNameAr: string;
   deckNameEn: string;
+  /** A servable path (e.g. `/title-images/<uuid>.png`), relative to the API origin — absent when this title has no picture. */
+  imageUrl?: string;
 }
 
 /**

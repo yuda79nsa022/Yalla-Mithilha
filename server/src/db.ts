@@ -18,6 +18,10 @@ import type {
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
+/** Where uploaded title pictures live on disk — served publicly at `/title-images/*` (see app.ts), unauthenticated like any other game asset. */
+export const TITLE_IMAGES_DIR = path.join(DATA_DIR, 'title-images');
+if (!fs.existsSync(TITLE_IMAGES_DIR)) fs.mkdirSync(TITLE_IMAGES_DIR, { recursive: true });
+
 const DB_PATH = process.env.DB_PATH ?? path.join(DATA_DIR, 'catalogue.sqlite');
 
 export const db = new Database(DB_PATH);
@@ -78,6 +82,9 @@ db.exec(`
     id TEXT PRIMARY KEY,
     deck_id TEXT NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
     text TEXT NOT NULL,
+    -- A servable path under /title-images/*, or NULL — most titles never
+    -- get a picture; it's an optional bonus, not every title needs one.
+    image_path TEXT,
     created_at INTEGER NOT NULL
   );
 
@@ -161,6 +168,7 @@ ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REF
 // content, so 'ar' is the correct value for existing rows, not just a
 // placeholder — new decks pass their own language explicitly (see createDeck).
 ensureColumn('decks', 'language', "language TEXT NOT NULL DEFAULT 'ar'");
+ensureColumn('titles', 'image_path', 'image_path TEXT');
 
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
 
@@ -198,6 +206,7 @@ function rowToTitle(r: any): TitleRow {
     id: r.id,
     deckId: r.deck_id,
     text: r.text,
+    imagePath: r.image_path ?? null,
     createdAt: r.created_at,
   };
 }
@@ -288,9 +297,77 @@ export function addTitlesToDeck(deckId: string, titles: string[]): { added: numb
   return { added, skipped: titles.length - added };
 }
 
-export function deleteTitle(deckId: string, titleId: string): void {
-  const result = db.prepare('DELETE FROM titles WHERE id = ? AND deck_id = ?').run(titleId, deckId);
-  if (result.changes === 0) throw new TitleNotFoundError(`title "${titleId}" not found in deck "${deckId}"`);
+export interface TitleWithImage {
+  text: string;
+  /** A servable path already written to disk (see routes/adminDecks.ts) — null when this row's image was missing or invalid. */
+  imagePath: string | null;
+}
+
+/**
+ * Same dedup-by-trimmed-text rule as `addTitlesToDeck`, plus each row's own
+ * picture — used by the bulk "import with images" route (a spreadsheet
+ * pairing each title with an image filename, plus a zip of the images
+ * themselves). A row whose image didn't resolve still adds its title text;
+ * it just has no picture, exactly like any other title.
+ */
+export function addTitlesToDeckWithImages(
+  deckId: string,
+  rows: TitleWithImage[]
+): { added: number; skipped: number } {
+  const deck = getDeck(deckId);
+  if (!deck) throw new DeckNotFoundError(`deck "${deckId}" not found`);
+
+  const existing = new Set(deck.titles.map((t) => t.text.trim()));
+  const stmt = db.prepare(
+    'INSERT INTO titles (id, deck_id, text, image_path, created_at) VALUES (@id, @deckId, @text, @imagePath, @now)'
+  );
+  let added = 0;
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      const text = row.text.trim();
+      if (!text || existing.has(text)) continue;
+      existing.add(text);
+      stmt.run({ id: crypto.randomUUID(), deckId, text, imagePath: row.imagePath, now: Date.now() });
+      added++;
+    }
+    db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
+  });
+  tx();
+
+  return { added, skipped: rows.length - added };
+}
+
+export function getTitle(deckId: string, titleId: string): TitleRow | null {
+  const row = db.prepare('SELECT * FROM titles WHERE id = ? AND deck_id = ?').get(titleId, deckId);
+  return row ? rowToTitle(row) : null;
+}
+
+export interface UpdateTitleInput {
+  text?: string;
+  /** `null` explicitly clears the picture; `undefined` (the default, when omitted) leaves it as-is. */
+  imagePath?: string | null;
+}
+
+export function updateTitle(deckId: string, titleId: string, input: UpdateTitleInput): TitleRow {
+  const existing = getTitle(deckId, titleId);
+  if (!existing) throw new TitleNotFoundError(`title "${titleId}" not found in deck "${deckId}"`);
+  const next = {
+    id: titleId,
+    deckId,
+    text: input.text !== undefined ? input.text.trim() : existing.text,
+    imagePath: input.imagePath !== undefined ? input.imagePath : existing.imagePath,
+  };
+  db.prepare('UPDATE titles SET text=@text, image_path=@imagePath WHERE id=@id AND deck_id=@deckId').run(next);
+  db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
+  return getTitle(deckId, titleId)!;
+}
+
+/** Returns the removed title so callers (the route) can delete its image file from disk too — the DB itself doesn't touch the filesystem. */
+export function deleteTitle(deckId: string, titleId: string): TitleRow {
+  const existing = getTitle(deckId, titleId);
+  if (!existing) throw new TitleNotFoundError(`title "${titleId}" not found in deck "${deckId}"`);
+  db.prepare('DELETE FROM titles WHERE id = ? AND deck_id = ?').run(titleId, deckId);
+  return existing;
 }
 
 /**
@@ -677,7 +754,14 @@ function dealTitles(count: number, lang: Lang): DealtTitle[] {
         const text = title.text.trim();
         if (seenText.has(text)) continue;
         seenText.add(text);
-        titles.push({ id: title.id, text: title.text, deckId: deck.id, deckNameAr: deck.nameAr, deckNameEn: deck.nameEn });
+        titles.push({
+          id: title.id,
+          text: title.text,
+          deckId: deck.id,
+          deckNameAr: deck.nameAr,
+          deckNameEn: deck.nameEn,
+          imageUrl: title.imagePath ?? undefined,
+        });
       }
       return shuffled(titles);
     })

@@ -69,5 +69,10 @@ describe('the player app, served from the root', () => {
       const res = await request(app).get('/players/does-not-exist');
       expect(res.text).not.toMatch(/player app shell/);
     });
+
+    it('a missing title picture 404s rather than falling back to the SPA shell', async () => {
+      const res = await request(app).get('/title-images/does-not-exist.png');
+      expect(res.text).not.toMatch(/player app shell/);
+    });
   });
 });

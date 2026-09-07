@@ -133,8 +133,19 @@
         </div>
 
         <div class="card">
+          <h3 style="margin-top:0">Import titles with pictures</h3>
+          <p class="muted">Two files: a .xlsx with two columns (title, image filename — row 1 is a header and is skipped), and a .zip containing those image files (.png/.jpg/.webp, 5 MB max each). Titles are matched to pictures by filename; a title whose filename isn't found still gets added, just without a picture.</p>
+          <div class="row">
+            <div class="field"><label>Manifest (.xlsx)</label><input id="imageManifestFile" type="file" accept=".xlsx" /></div>
+            <div class="field"><label>Images (.zip)</label><input id="imageZipFile" type="file" accept=".zip" /></div>
+          </div>
+          <button id="importWithImagesBtn" class="secondary">Import with pictures</button>
+          <p id="importWithImagesResult" class="muted"></p>
+        </div>
+
+        <div class="card">
           <h3 style="margin-top:0">Titles (<span id="titleCount">0</span>)</h3>
-          <div id="titleRows" style="max-height:400px;overflow-y:auto"></div>
+          <div id="titleRows" style="max-height:520px;overflow-y:auto"></div>
         </div>
       </div>
     </div>
@@ -346,16 +357,31 @@ function renderDeckEdit() {
   $('importResult').textContent = '';
   $('importFile').value = '';
   $('importBtn').disabled = !currentDeckId;
+  $('importWithImagesResult').textContent = '';
+  $('imageManifestFile').value = '';
+  $('imageZipFile').value = '';
+  $('importWithImagesBtn').disabled = !currentDeckId;
 
   $('titleCount').textContent = d.titles.length;
   $('titleRows').innerHTML = d.titles.map((t) => `
-    <div class="row" style="align-items:center;padding:4px 0;border-bottom:1px solid #EAE0C4">
-      <span dir="rtl" style="flex:1">${escapeHtml(t.text)}</span>
+    <div class="row" style="align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #EAE0C4">
+      <img src="${t.imagePath ? escapeHtml(t.imagePath) : ''}" alt=""
+        style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:#EAE0C4;flex:0 0 auto;${t.imagePath ? '' : 'visibility:hidden'}" />
+      <input dir="rtl" style="flex:1;min-width:120px" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" />
+      <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" style="width:130px;font-size:11px" />
+      ${t.imagePath ? `<button class="secondary" data-remove-image="${escapeHtml(t.id)}">No picture</button>` : ''}
+      <button class="secondary" data-save-title="${escapeHtml(t.id)}">Save</button>
       <button class="danger" data-remove-title="${escapeHtml(t.id)}">Remove</button>
     </div>
   `).join('') || '<p class="muted">No titles yet — import a list below.</p>';
   $('titleRows').querySelectorAll('[data-remove-title]').forEach((btn) => {
     btn.addEventListener('click', () => removeTitle(btn.dataset.removeTitle));
+  });
+  $('titleRows').querySelectorAll('[data-save-title]').forEach((btn) => {
+    btn.addEventListener('click', () => saveTitleEdit(btn.dataset.saveTitle));
+  });
+  $('titleRows').querySelectorAll('[data-remove-image]').forEach((btn) => {
+    btn.addEventListener('click', () => removeTitleImage(btn.dataset.removeImage));
   });
 }
 
@@ -420,6 +446,64 @@ async function importTitles() {
     renderDeckEdit();
   } catch (e) {
     alert('Import failed: ' + e.message);
+  }
+}
+
+async function importTitlesWithImages() {
+  const manifest = $('imageManifestFile').files[0];
+  const images = $('imageZipFile').files[0];
+  if (!manifest || !images || !currentDeckId) { alert('Choose both a manifest (.xlsx) and an images (.zip) file first'); return; }
+  const form = new FormData();
+  form.append('manifest', manifest);
+  form.append('images', images);
+  $('importWithImagesResult').textContent = '';
+  try {
+    const result = await api(
+      '/admin/decks/' + encodeURIComponent(currentDeckId) + '/import-with-images',
+      { method: 'POST', body: form }
+    );
+    let msg = `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped.`;
+    if (result.imageIssues.length) {
+      msg += ` ${result.imageIssues.length} picture issue(s): ${result.imageIssues.join('; ')}`;
+    }
+    $('importWithImagesResult').textContent = msg;
+    $('imageManifestFile').value = '';
+    $('imageZipFile').value = '';
+    currentDeck = result.deck;
+    renderDeckEdit();
+  } catch (e) {
+    alert('Import failed: ' + e.message);
+  }
+}
+
+async function saveTitleEdit(titleId) {
+  const textInput = document.querySelector('[data-title-text="' + titleId + '"]');
+  const fileInput = document.querySelector('[data-title-image="' + titleId + '"]');
+  const form = new FormData();
+  form.append('text', textInput.value.trim());
+  if (fileInput.files[0]) form.append('image', fileInput.files[0]);
+  try {
+    await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), {
+      method: 'PUT', body: form,
+    });
+    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId));
+    renderDeckEdit();
+  } catch (e) {
+    alert('Could not save: ' + e.message);
+  }
+}
+
+async function removeTitleImage(titleId) {
+  const form = new FormData();
+  form.append('removeImage', 'true');
+  try {
+    await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), {
+      method: 'PUT', body: form,
+    });
+    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId));
+    renderDeckEdit();
+  } catch (e) {
+    alert('Could not remove picture: ' + e.message);
   }
 }
 
@@ -582,6 +666,7 @@ $('deckBackLink').addEventListener('click', showDeckList);
 $('saveDeckBtn').addEventListener('click', saveDeck);
 $('deleteDeckBtn').addEventListener('click', deleteDeck);
 $('importBtn').addEventListener('click', importTitles);
+$('importWithImagesBtn').addEventListener('click', importTitlesWithImages);
 $('addAdminBtn').addEventListener('click', addAdmin);
 
 if (token) enterApp();

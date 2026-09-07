@@ -165,6 +165,33 @@ English-content title or vice versa. Each dealt title carries its own deck's
 id and bilingual name (`DealtTitle` in `src/types.ts`) so the
 app can show which category it came from once revealed.
 
+### Title pictures (optional)
+
+A title can carry a picture — entirely optional, most titles never need
+one. Two ways to attach one:
+
+- **One at a time**: `PUT /admin/decks/:deckId/titles/:titleId` (multipart)
+  renames a title, replaces its picture (`image` field), and/or clears it
+  (`removeImage: 'true'`) — whatever's given; whatever's omitted is left
+  alone.
+- **In bulk, alongside a normal import**: `POST
+  /admin/decks/:id/import-with-images` takes a two-column `.xlsx` manifest
+  (title, image filename — row 1 is always a header and is skipped) plus a
+  `.zip` of the actual image files, matched by filename. A row whose
+  filename isn't found in the zip, or whose image is an unsupported type
+  (only `.png`/`.jpg`/`.jpeg`/`.webp`) or over 5 MB, still adds its title
+  text — it just has no picture, reported back in `imageIssues` rather than
+  failing the whole import or silently dropping the row.
+
+Pictures are written to `DATA_DIR/title-images/` and served publicly,
+unauthenticated, at `/title-images/*` (`server/src/app.ts`) — same
+reasoning as everything else in Charades that has to work with no session
+at all: the reveal page (see below) is opened by a plain camera scan, and
+needs to render a title's picture with no API access of its own. Deleting a
+title (or replacing/removing its picture) also deletes the old file from
+disk — best-effort, since a title with no picture, or one whose file is
+already gone, is not an error.
+
 ## Audit log
 
 Every sensitive admin action — deck create/update/delete, title import/
@@ -259,7 +286,11 @@ reveal page picks whichever deck name matches its own language setting. The
 link's base URL is whatever the shared screen's own page is served from when
 that screen is a browser (`window.location.origin`), or
 `EXPO_PUBLIC_REVEAL_BASE_URL` when it isn't (e.g. a native app mirrored to
-the TV, where there's no page origin to read).
+the TV, where there's no page origin to read). When the title has a picture,
+its fully-qualified URL rides along in the same query string (the reveal
+page has no API access of its own to fetch it separately) and renders above
+the title; the round-end "answer reveal" screen everyone sees on the shared
+screen shows the same picture, since the round is already over by then.
 
 ## Deployment
 
