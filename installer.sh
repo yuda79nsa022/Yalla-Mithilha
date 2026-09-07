@@ -16,8 +16,17 @@
 #          schema-creation code via `db.ts`, which is idempotent), then
 #          optionally seeds the starter decks and creates the first admin
 #          account.
-#   4. Builds the server and attaches it to pm2 as process "yalla" (starts
-#      it if not already running, restarts it if it is), unless skipped.
+#   4. Builds the server, exports the player app for web, and attaches the
+#      one process serving both to pm2 as "yalla" (starts it if not already
+#      running, restarts it if it is), unless skipped. Both portals —
+#      admin tool and player app — end up served by this single process, on
+#      the one port: /admin-ui for the admin tool, everything else for the
+#      player app. There is no separate process or port for the player web
+#      build; if one exists from an earlier deployment, stop it, since a
+#      mismatched second copy is exactly what causes "could not reach the
+#      server" for players (the player app must be served from the same
+#      origin as this API, or EXPO_PUBLIC_CATALOGUE_API_URL must be set to
+#      wherever this API actually is — see src/config.ts).
 #
 # Usage:
 #   ./installer.sh [options]
@@ -28,7 +37,7 @@
 #   --seed                 Load the bundled starter decks (safe to re-run)
 #   --non-interactive       Never prompt (skip admin-account creation prompt)
 #   --port <n>              Server port to write into server/.env (default: 8096)
-#   --skip-pm2              Don't build or attach the server to pm2
+#   --skip-pm2              Don't build either portal or attach to pm2
 #   -h, --help              Show this help and exit
 #
 set -euo pipefail
@@ -263,15 +272,29 @@ if [[ "$SKIP_PM2" == false ]]; then
     info "Building server (npm run build)…"
     (cd "$SERVER_DIR" && npm run build)
     # tsc only compiles .ts -> dist/; it never copies static assets, so the
-    # admin UI's public/index.html has to be mirrored into dist/public by
-    # hand or app.ts's `express.static(path.join(__dirname, '..', 'public'))`
-    # (which resolves to dist/public from the compiled dist/src/app.js)
-    # finds nothing there and every route falls through to Express's own
-    # 404 handler — "Cannot GET /". Re-copied on every build so edits to
-    # public/ aren't silently left stale in dist/.
+    # admin tool's public/index.html has to be mirrored into dist/public by
+    # hand or app.ts's ADMIN_UI_DIR (which resolves to dist/public from the
+    # compiled dist/src/app.js) finds nothing there and /admin-ui 404s.
+    # Re-copied on every build so edits to public/ aren't silently left
+    # stale in dist/.
     rm -rf "$SERVER_DIR/dist/public"
     cp -r "$SERVER_DIR/public" "$SERVER_DIR/dist/public"
-    ok "Server built (static assets synced to dist/public)."
+    ok "Admin tool built (static assets synced to dist/public)."
+
+    # The player app (this repo's root Expo project) and its API are one
+    # deployment now, so its build happens here too. No
+    # EXPO_PUBLIC_CATALOGUE_API_URL is set for this export on purpose:
+    # src/config.ts falls back to the page's own origin on web when it's
+    # unset, and that origin is exactly this same server once both are
+    # served from the one process below — see the comment in config.ts for
+    # why that's specifically safe for this deployment shape. Set the env
+    # var before this command instead if the player app and its API
+    # genuinely need to be on different origins.
+    info "Building player app for web (npx expo export -p web)…"
+    (cd "$ROOT_DIR" && npx expo export -p web)
+    rm -rf "$SERVER_DIR/dist/public-player"
+    cp -r "$ROOT_DIR/dist" "$SERVER_DIR/dist/public-player"
+    ok "Player app built (synced to dist/public-player)."
 
     info 'Attaching server to pm2 as "yalla"…'
     if pm2 describe yalla >/dev/null 2>&1; then
@@ -294,12 +317,16 @@ fi
 echo
 ok "Setup complete."
 if [[ "$PM2_ATTACHED" == true ]]; then
-  echo "  Server running under pm2 as \"yalla\": http://localhost:${SERVER_PORT}"
-  echo "    Logs:     pm2 logs yalla"
-  echo "    Status:   pm2 status"
-  echo "    Restart:  pm2 restart yalla"
+  echo "  Running under pm2 as \"yalla\", both portals on one port:"
+  echo "    Player app:  http://localhost:${SERVER_PORT}/landing"
+  echo "    Admin tool:  http://localhost:${SERVER_PORT}/admin-ui"
+  echo "    Logs:        pm2 logs yalla   (both portals' errors land here)"
+  echo "    Status:      pm2 status"
+  echo "    Restart:     pm2 restart yalla"
 else
-  echo "  Start the admin server:  (cd server && npm run dev)     -> http://localhost:${SERVER_PORT}"
+  echo "  Start the server:  (cd server && npm run dev)     -> http://localhost:${SERVER_PORT}"
+  echo "    (serves both the player app at /landing and the admin tool at /admin-ui,"
+  echo "     but only once each has been built — see the pm2 branch of this script"
+  echo "     for the build commands, or pass --skip-pm2 only if you don't need either yet)"
 fi
-echo "  Start the Expo app:      npm start"
 [[ "$DO_SEED" == false ]] && echo "  Load starter decks:      (cd server && npm run seed-decks)"

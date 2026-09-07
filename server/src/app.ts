@@ -1,4 +1,5 @@
 import express from 'express';
+import fs from 'fs';
 import helmet from 'helmet';
 import path from 'path';
 import { requireAdminSession } from './auth';
@@ -10,10 +11,19 @@ import { authRouter } from './routes/auth';
 import { charadesRouter } from './routes/charades';
 import { playerAuthRouter } from './routes/playerAuth';
 
+// Both portals — the admin tool and the player-facing web app — are served
+// by this one process, deployed as the single pm2 process "yalla" (see
+// installer.sh). Two separate static roots mounted at two separate paths,
+// so neither one's files can collide with the other's:
+//   /admin-ui/*      -> public         (the admin tool, one inline-script page)
+//   everything else  -> public-player  (the player app, an Expo web export)
+const ADMIN_UI_DIR = path.join(__dirname, '..', 'public');
+const PLAYER_APP_DIR = path.join(__dirname, '..', 'public-player');
+
 export function createApp(): express.Express {
   const app = express();
-  // contentSecurityPolicy is off for now: the admin UI (public/index.html) is
-  // a single inline <script>, which a default CSP would block outright.
+  // contentSecurityPolicy is off for now: the admin tool (public/index.html)
+  // is a single inline <script>, which a default CSP would block outright.
   // crossOriginResourcePolicy is off because /charades and /players are
   // deliberately fetched from a different origin (the app running as a web
   // page) — helmet's default same-origin CORP would silently block that,
@@ -36,9 +46,45 @@ export function createApp(): express.Express {
   app.use('/admin', requireAdminSession, auditLogRouter);
   app.use('/admin', requireAdminSession, adminDecksRouter);
 
-  // The admin UI logs in at runtime and holds the session token in the
-  // browser — the static page has no secrets baked into it.
-  app.use(express.static(path.join(__dirname, '..', 'public')));
+  // The admin tool logs in at runtime and holds its session token in the
+  // browser — the static page has no secrets baked into it. Deliberately
+  // not at the root: the root belongs to the player app below, so the admin
+  // tool lives at /admin-ui instead.
+  app.use('/admin-ui', express.static(ADMIN_UI_DIR));
+
+  // The player app is a client-side-routed single-page app: one JS bundle,
+  // one index.html, every route (/landing, /home, /account, ...) rendered
+  // by expo-router in the browser — see `dist/` after `npx expo export -p
+  // web`, which is what installer.sh copies into public-player. Serving it
+  // with `express.static` alone would 404 a browser opened directly on
+  // /landing (there's no such file on disk); the catch-all below falls back
+  // to that same index.html for any of those, giving the client-side router
+  // a chance to render it.
+  app.use(express.static(PLAYER_APP_DIR));
+  app.get('*', (req, res, next) => {
+    // Leave API paths, the admin tool's own path, and non-navigation
+    // requests (an XHR expecting JSON, say) alone — only a browser
+    // navigating to an unbuilt player-app route should get the SPA shell.
+    if (
+      req.method !== 'GET' ||
+      req.path.startsWith('/admin') ||
+      req.path.startsWith('/players') ||
+      req.path.startsWith('/charades') ||
+      req.path === '/health' ||
+      !req.accepts('html')
+    ) {
+      next();
+      return;
+    }
+    const indexHtml = path.join(PLAYER_APP_DIR, 'index.html');
+    if (!fs.existsSync(indexHtml)) {
+      res
+        .status(503)
+        .send('Player app build not found — run `npx expo export -p web` and copy dist/ to server/public-player (installer.sh does this).');
+      return;
+    }
+    res.sendFile(indexHtml);
+  });
 
   // Catches anything that reaches Express before a route handler — chiefly
   // express.json() rejecting a malformed body. Without this, Express's own
