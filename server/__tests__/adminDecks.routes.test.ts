@@ -58,6 +58,24 @@ describe('deck CRUD', () => {
     const res = await request(app).post('/admin/decks').set(auth).send(sample);
     expect(res.status).toBe(409);
   });
+
+  it('defaults a new deck to Arabic when no language is given', async () => {
+    const created = await request(app).post('/admin/decks').set(auth).send(sample);
+    expect(created.body.language).toBe('ar');
+  });
+
+  it('creates an English-language deck when asked, and can move it back later', async () => {
+    const created = await request(app).post('/admin/decks').set(auth).send({ ...sample, language: 'en' });
+    expect(created.body.language).toBe('en');
+
+    const updated = await request(app).put(`/admin/decks/${sample.id}`).set(auth).send({ language: 'ar' });
+    expect(updated.body.language).toBe('ar');
+  });
+
+  it('rejects a language that is neither "ar" nor "en"', async () => {
+    const res = await request(app).post('/admin/decks').set(auth).send({ ...sample, language: 'fr' });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('POST /admin/decks/:id/import', () => {

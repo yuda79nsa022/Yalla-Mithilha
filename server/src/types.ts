@@ -19,17 +19,27 @@ export interface PlayerRow {
   updatedAt: number;
 }
 
+/** The app's own UI language — also which deck pool a session deals from (see `DeckRow.language`). */
+export type Lang = 'ar' | 'en';
+
 /**
  * A charades deck: a named, unlimited-size pool of titles (movies, series,
  * plays, songs — whatever an admin imports). Unlike the old board-game
  * category, a deck has no fixed slot count and no per-tile prompt/answer
  * pair — a title is acted out silently, so the title itself is both what
  * the actor privately reads and what confirms the answer once guessed.
+ *
+ * `language` is the deck's *content* language (Kuwaiti/Khaleeji/Egyptian
+ * titles vs. Hollywood/American titles) — separate from `nameAr`/`nameEn`,
+ * which are just the deck's bilingual display name and exist regardless of
+ * which language the deck's actual titles are in. A session only ever
+ * deals from decks matching the player's current app language.
  */
 export interface DeckRow {
   id: string;
   nameAr: string;
   nameEn: string;
+  language: Lang;
   createdAt: number;
   updatedAt: number;
 }

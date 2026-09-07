@@ -54,6 +54,16 @@ describe('createDeck', () => {
     createDeck(sample);
     expect(() => createDeck(sample)).toThrow(DuplicateDeckError);
   });
+
+  it('defaults to Arabic when no language is given — every deck predating this field really is Arabic', () => {
+    const deck = createDeck(sample);
+    expect(deck.language).toBe('ar');
+  });
+
+  it('accepts an explicit English language', () => {
+    const deck = createDeck({ ...sample, language: 'en' });
+    expect(deck.language).toBe('en');
+  });
 });
 
 describe('updateDeck', () => {
@@ -67,6 +77,12 @@ describe('updateDeck', () => {
 
   it('throws for an unknown deck', () => {
     expect(() => updateDeck('nope', { nameEn: 'x' })).toThrow(DeckNotFoundError);
+  });
+
+  it('can move a deck to the other language pool', () => {
+    createDeck(sample);
+    const updated = updateDeck(sample.id, { language: 'en' });
+    expect(updated.language).toBe('en');
   });
 });
 
@@ -137,6 +153,23 @@ describe('listPlayableDecks', () => {
     createDeck(sample);
     addTitlesToDeck(sample.id, ['a']);
     expect(listPlayableDecks().map((d) => d.id)).toEqual([sample.id]);
+  });
+
+  it('with no lang filter, returns playable decks in either language', () => {
+    createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
+    addTitlesToDeck('ar-deck', ['a']);
+    createDeck({ ...sample, id: 'en-deck', language: 'en' });
+    addTitlesToDeck('en-deck', ['b']);
+    expect(listPlayableDecks().map((d) => d.id).sort()).toEqual(['ar-deck', 'en-deck']);
+  });
+
+  it('given a lang, only returns playable decks in that language', () => {
+    createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
+    addTitlesToDeck('ar-deck', ['a']);
+    createDeck({ ...sample, id: 'en-deck', language: 'en' });
+    addTitlesToDeck('en-deck', ['b']);
+    expect(listPlayableDecks('ar').map((d) => d.id)).toEqual(['ar-deck']);
+    expect(listPlayableDecks('en').map((d) => d.id)).toEqual(['en-deck']);
   });
 });
 

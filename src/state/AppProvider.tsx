@@ -187,7 +187,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const unlockCurrentCharades = useCallback(async () => {
     if (!charades || !playerSession) return false;
     try {
-      const { titles, balance } = await startGameSession(playerSession.token, charades.id);
+      const { titles, balance } = await startGameSession(playerSession.token, charades.id, lang);
       setWalletBalance(balance);
       updateCharades(unlockCharadesState(charades, titles));
       track({ name: 'charades_unlocked' });
@@ -196,7 +196,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setWalletError(err instanceof WalletError ? err.message : 'could not reach the server');
       return false;
     }
-  }, [charades, playerSession, updateCharades]);
+  }, [charades, playerSession, updateCharades, lang]);
 
   const startTopUp = useCallback(async () => {
     if (!playerSession) return null;

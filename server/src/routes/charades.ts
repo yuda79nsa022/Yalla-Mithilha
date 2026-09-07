@@ -95,8 +95,8 @@ charadesRouter.post('/checkout/:paymentId/fail', requirePlayerSession, (req, res
  */
 charadesRouter.post('/sessions', requirePlayerSession, (req, res) => {
   try {
-    const { sessionId } = parseStartSessionBody(req.body);
-    const { session, balance } = startGameSession(req.player!.sub, sessionId);
+    const { sessionId, lang } = parseStartSessionBody(req.body);
+    const { session, balance } = startGameSession(req.player!.sub, sessionId, lang);
     res.status(201).json({ session, balance });
   } catch (err) {
     handleError(err, res);

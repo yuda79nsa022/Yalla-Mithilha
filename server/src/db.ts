@@ -9,6 +9,7 @@ import type {
   DeckRow,
   DeckWithTitles,
   GameSessionRow,
+  Lang,
   PaymentRow,
   PlayerRow,
   TitleRow,
@@ -61,6 +62,10 @@ db.exec(`
     id TEXT PRIMARY KEY,
     name_ar TEXT NOT NULL,
     name_en TEXT NOT NULL,
+    -- Content language ('ar'/'en') a session must match to deal from this
+    -- deck — separate from name_ar/name_en, the deck's bilingual display
+    -- name, which exists regardless of which language its titles are in.
+    language TEXT NOT NULL DEFAULT 'ar',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -152,6 +157,10 @@ function ensureColumn(table: string, column: string, definition: string): void {
 }
 
 ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REFERENCES game_sessions(id)');
+// Every deck predating language-gated decks is real Kuwaiti/Khaleeji/Egyptian
+// content, so 'ar' is the correct value for existing rows, not just a
+// placeholder — new decks pass their own language explicitly (see createDeck).
+ensureColumn('decks', 'language', "language TEXT NOT NULL DEFAULT 'ar'");
 
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
 
@@ -178,6 +187,7 @@ function rowToDeck(r: any): DeckRow {
     id: r.id,
     nameAr: r.name_ar,
     nameEn: r.name_en,
+    language: r.language as Lang,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -215,27 +225,34 @@ export interface CreateDeckInput {
   id: string;
   nameAr: string;
   nameEn: string;
+  /** Which player-language pool this deck's titles belong to. Defaults to 'ar' — every deck that predates this field really is Arabic content. */
+  language?: Lang;
 }
 
 export function createDeck(input: CreateDeckInput): DeckWithTitles {
   if (getDeck(input.id)) throw new DuplicateDeckError(`deck "${input.id}" already exists`);
   const now = Date.now();
+  const language: Lang = input.language ?? 'ar';
   db.prepare(
-    `INSERT INTO decks (id, name_ar, name_en, created_at, updated_at) VALUES (@id, @nameAr, @nameEn, @now, @now)`
-  ).run({ ...input, now });
+    `INSERT INTO decks (id, name_ar, name_en, language, created_at, updated_at)
+     VALUES (@id, @nameAr, @nameEn, @language, @now, @now)`
+  ).run({ ...input, language, now });
   return getDeck(input.id)!;
 }
 
 export interface UpdateDeckInput {
   nameAr?: string;
   nameEn?: string;
+  language?: Lang;
 }
 
 export function updateDeck(id: string, input: UpdateDeckInput): DeckWithTitles {
   const existing = getDeck(id);
   if (!existing) throw new DeckNotFoundError(`deck "${id}" not found`);
   const next = { ...existing, ...input, updatedAt: Date.now() };
-  db.prepare('UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, updated_at=@updatedAt WHERE id=@id').run(next);
+  db.prepare(
+    'UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, language=@language, updated_at=@updatedAt WHERE id=@id'
+  ).run(next);
   return getDeck(id)!;
 }
 
@@ -276,9 +293,15 @@ export function deleteTitle(deckId: string, titleId: string): void {
   if (result.changes === 0) throw new TitleNotFoundError(`title "${titleId}" not found in deck "${deckId}"`);
 }
 
-/** Decks the app is ever allowed to draft from — nothing to publish/complete separately, a deck with at least one title is playable. */
-export function listPlayableDecks(): DeckWithTitles[] {
-  return listDecks().filter((d) => d.titles.length > 0);
+/**
+ * Decks the app is ever allowed to draft from — nothing to publish/complete
+ * separately, a deck with at least one title is playable. `lang`, when
+ * given, additionally restricts to decks whose *content* language matches —
+ * an Arabic-language player only ever draws from Arabic decks, and likewise
+ * for English, so the two content pools never mix within a session.
+ */
+export function listPlayableDecks(lang?: Lang): DeckWithTitles[] {
+  return listDecks().filter((d) => d.titles.length > 0 && (lang === undefined || d.language === lang));
 }
 
 /* --------------------------------------------------------------- players */
@@ -637,17 +660,17 @@ function shuffled<T>(items: T[]): T[] {
 const TITLES_PER_SESSION = 20;
 
 /**
- * Deals up to `count` titles round-robin across every playable deck, so two
- * consecutive rounds never share a category unless only one deck still has
- * titles left (unavoidable once every other category is exhausted).
- * Deduplicated by trimmed text so the same title text appearing in two
- * different decks still only ever occupies one slot in a session (see
+ * Deals up to `count` titles round-robin across every playable deck *in
+ * `lang`*, so two consecutive rounds never share a category unless only one
+ * deck still has titles left (unavoidable once every other category is
+ * exhausted). Deduplicated by trimmed text so the same title text appearing
+ * in two different decks still only ever occupies one slot in a session (see
  * "never repeated in the same game" on `startGameSession`). Which deck goes
  * first, and which title comes out of each deck, are both random.
  */
-function dealTitles(count: number): DealtTitle[] {
+function dealTitles(count: number, lang: Lang): DealtTitle[] {
   const seenText = new Set<string>();
-  let queues = shuffled(listPlayableDecks())
+  let queues = shuffled(listPlayableDecks(lang))
     .map((deck) => {
       const titles: DealtTitle[] = [];
       for (const title of deck.titles) {
@@ -680,15 +703,18 @@ function dealTitles(count: number): DealtTitle[] {
  * twice.
  *
  * The player never picks a category: each of the 20 titles is drawn at
- * random from every playable deck combined, without replacement, so no
- * title repeats within the same session even across decks — and dealt
- * round-robin across decks, so consecutive rounds don't share a category
- * either (see `dealTitles`). Fewer than 20 titles exist across every deck
- * combined? Deals all of it.
+ * random from every playable deck combined *in `lang`*, without
+ * replacement, so no title repeats within the same session even across
+ * decks — and dealt round-robin across decks, so consecutive rounds don't
+ * share a category either (see `dealTitles`). Fewer than 20 titles exist
+ * across every deck combined? Deals all of it. `lang` defaults to 'ar' only
+ * for direct callers that predate this parameter (tests, scripts) — the
+ * real route always passes the player's actual app language explicitly.
  */
 export function startGameSession(
   playerId: string,
-  sessionId: string
+  sessionId: string,
+  lang: Lang = 'ar'
 ): { session: GameSessionRow; balance: number } {
   const existing = getGameSession(sessionId);
   if (existing) {
@@ -696,7 +722,7 @@ export function startGameSession(
     return { session: existing, balance: creditBalance(playerId) };
   }
 
-  const dealt = dealTitles(TITLES_PER_SESSION);
+  const dealt = dealTitles(TITLES_PER_SESSION, lang);
   if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
 
   const tx = db.transaction(() => {

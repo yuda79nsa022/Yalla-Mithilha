@@ -26,7 +26,8 @@ function main() {
     const seed = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8')) as DeckSeed;
 
     if (!getDeck(seed.id)) {
-      createDeck({ id: seed.id, nameAr: seed.nameAr, nameEn: seed.nameEn });
+      // Every bundled starter deck is real Kuwaiti/Khaleeji/Egyptian content.
+      createDeck({ id: seed.id, nameAr: seed.nameAr, nameEn: seed.nameEn, language: 'ar' });
       console.log(`Created deck "${seed.id}" (${seed.nameEn}).`);
     }
 

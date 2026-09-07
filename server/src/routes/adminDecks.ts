@@ -56,7 +56,7 @@ adminDecksRouter.post('/decks', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'deck.create',
       target: deck.id,
-      after: { nameAr: deck.nameAr, nameEn: deck.nameEn },
+      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language },
     });
     res.status(201).json(deck);
   } catch (err) {
@@ -74,8 +74,8 @@ adminDecksRouter.put('/decks/:id', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'deck.update',
       target: req.params.id,
-      before: before ? { nameAr: before.nameAr, nameEn: before.nameEn } : undefined,
-      after: { nameAr: deck.nameAr, nameEn: deck.nameEn },
+      before: before ? { nameAr: before.nameAr, nameEn: before.nameEn, language: before.language } : undefined,
+      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language },
     });
     res.json(deck);
   } catch (err) {
@@ -92,7 +92,9 @@ adminDecksRouter.delete('/decks/:id', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'deck.delete',
       target: req.params.id,
-      before: before ? { nameAr: before.nameAr, nameEn: before.nameEn, titleCount: before.titles.length } : undefined,
+      before: before
+        ? { nameAr: before.nameAr, nameEn: before.nameEn, language: before.language, titleCount: before.titles.length }
+        : undefined,
     });
     res.status(204).end();
   } catch (err) {

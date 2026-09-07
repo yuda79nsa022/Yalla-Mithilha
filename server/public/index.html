@@ -93,7 +93,7 @@
         <div class="card">
           <table>
             <thead>
-              <tr><th>ID</th><th>Name</th><th>Titles</th><th></th></tr>
+              <tr><th>ID</th><th>Name</th><th>Language</th><th>Titles</th><th></th></tr>
             </thead>
             <tbody id="deckRows"></tbody>
           </table>
@@ -110,6 +110,15 @@
           <div class="row">
             <div class="field"><label>Name (Arabic)</label><input id="dNameAr" dir="rtl" /></div>
             <div class="field"><label>Name (English)</label><input id="dNameEn" /></div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Language</label>
+              <select id="dLanguage">
+                <option value="ar">Arabic — Kuwaiti, Khaleeji, Egyptian content</option>
+                <option value="en">English — Hollywood, American content</option>
+              </select>
+            </div>
           </div>
           <button id="saveDeckBtn">Save deck</button>
           <button class="danger" id="deleteDeckBtn">Delete deck</button>
@@ -289,10 +298,11 @@ async function showDeckList() {
   const rows = decks.map((d) => `<tr>
       <td>${escapeHtml(d.id)}</td>
       <td>${escapeHtml(d.nameEn)} <span class="muted">/ ${escapeHtml(d.nameAr)}</span></td>
+      <td>${d.language === 'en' ? 'English' : 'Arabic'}</td>
       <td>${d.titles.length}</td>
       <td><button class="secondary" data-open="${escapeHtml(d.id)}">Open</button></td>
     </tr>`).join('');
-  $('deckRows').innerHTML = rows || '<tr><td colspan="4" class="muted">No decks yet.</td></tr>';
+  $('deckRows').innerHTML = rows || '<tr><td colspan="5" class="muted">No decks yet.</td></tr>';
   $('deckRows').querySelectorAll('[data-open]').forEach((btn) => {
     btn.addEventListener('click', () => openDeck(btn.dataset.open));
   });
@@ -313,7 +323,7 @@ async function saveGamePrice() {
 }
 
 function newDeckDraft() {
-  return { id: '', nameAr: '', nameEn: '', titles: [] };
+  return { id: '', nameAr: '', nameEn: '', language: 'ar', titles: [] };
 }
 
 async function openDeck(id) {
@@ -331,6 +341,7 @@ function renderDeckEdit() {
   $('dId').disabled = Boolean(currentDeckId);
   $('dNameAr').value = d.nameAr;
   $('dNameEn').value = d.nameEn;
+  $('dLanguage').value = d.language;
   $('deleteDeckBtn').classList.toggle('hidden', !currentDeckId);
   $('importResult').textContent = '';
   $('importFile').value = '';
@@ -353,7 +364,11 @@ function escapeHtml(s) {
 }
 
 async function saveDeck() {
-  const body = { nameAr: $('dNameAr').value.trim(), nameEn: $('dNameEn').value.trim() };
+  const body = {
+    nameAr: $('dNameAr').value.trim(),
+    nameEn: $('dNameEn').value.trim(),
+    language: $('dLanguage').value,
+  };
   try {
     if (currentDeckId) {
       currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId), {

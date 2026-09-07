@@ -130,7 +130,13 @@ handled explicitly, not just by convention:
 
 ## Decks and titles
 
-A deck (`decks` table) is just an id and a bilingual name. Its titles
+A deck (`decks` table) is an id, a bilingual display name, and a content
+`language` (`'ar'` or `'en'`) — separate concepts: `nameAr`/`nameEn` are just
+how the deck's name is *shown*, in either UI language, while `language` is
+which language pool the deck's actual titles belong to (Kuwaiti/Khaleeji/
+Egyptian plays, series and movies for `'ar'`; Hollywood movies, American
+series and English songs for `'en'`). Defaults to `'ar'` when omitted —
+every deck created before this field really is Arabic content. Its titles
 (`titles` table) are a flat, unlimited-size list — no fixed slot count like
 the old board-game category's six tiles, and no separate written
 prompt/answer pair per title: charades is silent acting, so the title
@@ -143,16 +149,20 @@ slot count an import could accidentally overrun or need to protect.
 title is the one cell per row that's neither numeric nor a highly-repeated
 label like a year or category column).
 
-The player never picks a deck. `startGameSession` deals 20 titles
-(`TITLES_PER_SESSION` in `src/db.ts`) at random from every playable deck
-*combined* (`dealTitles()`), without replacement within that session — so
-the category and the title are both a surprise, and the same title text
-can never appear twice in one session even if it exists in two different
-decks (deduplicated by trimmed text before dealing). Dealing is also
-round-robin across decks, so two consecutive rounds never share a category
-unless only one deck has titles left. Fewer than 20 titles across every
-deck combined? Deals all of it. Each dealt title carries its own deck's id
-and bilingual name (`DealtTitle` in `src/types.ts`) so the
+The player never picks a deck — only a language, via the app's own UI
+language toggle. `startGameSession(playerId, sessionId, lang)` deals 20
+titles (`TITLES_PER_SESSION` in `src/db.ts`) at random from every playable
+deck *in that language, combined* (`dealTitles()`), without replacement
+within that session — so the category and the title are both a surprise,
+and the same title text can never appear twice in one session even if it
+exists in two different decks (deduplicated by trimmed text before
+dealing). Dealing is also round-robin across decks, so two consecutive
+rounds never share a category unless only one deck has titles left. Fewer
+than 20 titles across every deck combined? Deals all of it. `POST
+/charades/sessions` requires `lang` in the body — the client always sends
+its current app language, so an Arabic-language player never gets an
+English-content title or vice versa. Each dealt title carries its own deck's
+id and bilingual name (`DealtTitle` in `src/types.ts`) so the
 app can show which category it came from once revealed.
 
 ## Audit log
