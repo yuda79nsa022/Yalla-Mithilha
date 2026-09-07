@@ -2,9 +2,12 @@
  * The actor's phone is a separate device from whatever is showing the game
  * (a laptop mirrored to a TV, a tablet propped up, or just the phone being
  * passed around). Instead of the title ever appearing on that shared
- * screen, it renders a QR code linking to this app's own `/charades/reveal`
- * page with the title in the query string — any phone's stock camera
- * recognises the link and offers to open it, no app install required.
+ * screen, it renders a QR code linking to this app's own `/reveal` page with
+ * the title in the query string — any phone's stock camera recognises the
+ * link and offers to open it, no app install required. Deliberately not
+ * under `/charades`: the server claims that whole path prefix for its API
+ * and requires a player session for everything under it, which would 401 a
+ * plain camera scan that carries no session at all.
  */
 
 /**
@@ -22,5 +25,5 @@ export function resolveRevealBaseUrl(configured: string | null, webOrigin: strin
 
 export function buildRevealUrl(baseUrl: string, title: string, categoryAr: string, categoryEn: string): string {
   const params = new URLSearchParams({ t: title, ca: categoryAr, ce: categoryEn });
-  return `${baseUrl}/charades/reveal?${params.toString()}`;
+  return `${baseUrl}/reveal?${params.toString()}`;
 }
