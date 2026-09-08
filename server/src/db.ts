@@ -117,15 +117,20 @@ db.exec(`
     updated_at INTEGER NOT NULL
   );
 
-  -- One row per purchased charades session — 20 titles dealt from one deck
-  -- the moment a wallet credit was spent. Its id is the client's own
-  -- locally-generated session id, generated once at "start game" time — that
-  -- shared identity is what makes spending idempotent: resuming an
-  -- interrupted session replays the same id and never spends a second credit.
+  -- One row per purchased charades session — 20 titles dealt across every
+  -- playable deck the moment a wallet credit was spent. Its id is the
+  -- client's own locally-generated session id, generated once at "start
+  -- game" time — that shared identity is what makes spending idempotent:
+  -- resuming an interrupted session replays the same id and never spends a
+  -- second credit. deck_id is nullable with ON DELETE SET NULL, not
+  -- NOT NULL/RESTRICT: it's a schema leftover from when a session belonged
+  -- to one deck (see startGameSession) that nothing reads back, so a deck
+  -- being deleted later must never be blocked by an old session's now-
+  -- meaningless reference to it.
   CREATE TABLE IF NOT EXISTS game_sessions (
     id TEXT PRIMARY KEY,
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-    deck_id TEXT NOT NULL REFERENCES decks(id),
+    deck_id TEXT REFERENCES decks(id) ON DELETE SET NULL,
     titles_json TEXT NOT NULL,
     created_at INTEGER NOT NULL
   );
@@ -176,6 +181,39 @@ function ensureColumn(table: string, column: string, definition: string): void {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
   }
 }
+
+/**
+ * `ensureColumn` only adds columns — it can't change an existing column's
+ * constraints, and SQLite has no `ALTER TABLE ... ALTER COLUMN` to do that
+ * directly either, so loosening one takes recreating the table. This was a
+ * real bug found by hand: `game_sessions.deck_id` used to be `NOT NULL
+ * REFERENCES decks(id)` with no `ON DELETE` behavior, so deleting any deck
+ * a session had ever been dealt from (the `deck_id` is unused bookkeeping —
+ * see the comment on the table) failed with a foreign key constraint error,
+ * silently, since the admin UI's delete button had no error handling either.
+ * Idempotent: does nothing once `deck_id` is already nullable.
+ */
+function migrateGameSessionsDeckIdNullable(): void {
+  const columns = db.prepare(`PRAGMA table_info(game_sessions)`).all() as { name: string; notnull: number }[];
+  const deckIdColumn = columns.find((c) => c.name === 'deck_id');
+  if (!deckIdColumn || deckIdColumn.notnull === 0) return;
+  db.pragma('foreign_keys = OFF');
+  db.exec(`
+    CREATE TABLE game_sessions_new (
+      id TEXT PRIMARY KEY,
+      player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      deck_id TEXT REFERENCES decks(id) ON DELETE SET NULL,
+      titles_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    INSERT INTO game_sessions_new (id, player_id, deck_id, titles_json, created_at)
+      SELECT id, player_id, deck_id, titles_json, created_at FROM game_sessions;
+    DROP TABLE game_sessions;
+    ALTER TABLE game_sessions_new RENAME TO game_sessions;
+  `);
+  db.pragma('foreign_keys = ON');
+}
+migrateGameSessionsDeckIdNullable();
 
 ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REFERENCES game_sessions(id)');
 // Every deck predating language-gated decks is real Kuwaiti/Khaleeji/Egyptian

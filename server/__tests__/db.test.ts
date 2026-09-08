@@ -35,6 +35,7 @@ import {
   listPlayers,
   resetDbForTests,
   setGamePriceFils,
+  startGameSession,
   updateAdminUser,
   updateDeck,
   updateHomeContent,
@@ -101,6 +102,20 @@ describe('deleteDeck', () => {
 
   it('throws for an unknown deck', () => {
     expect(() => deleteDeck('nope')).toThrow(DeckNotFoundError);
+  });
+
+  it('still deletes a deck that a past game session was dealt from', () => {
+    // Found by hand: game_sessions.deck_id used to be a NOT NULL foreign key
+    // with no ON DELETE behavior, so deleting a deck any session had ever
+    // been dealt from failed with a raw foreign key constraint error.
+    createDeck(sample);
+    addTitlesToDeck(sample.id, ['a', 'b', 'c']);
+    const player = createPlayer({ username: 'played-here', passwordHash: 'hashed' });
+    grantCredits(player.id, 1);
+    startGameSession(player.id, 'sess-for-delete-test', 'mixed');
+
+    expect(() => deleteDeck(sample.id)).not.toThrow();
+    expect(getDeck(sample.id)).toBeNull();
   });
 });
 
