@@ -149,20 +149,23 @@ slot count an import could accidentally overrun or need to protect.
 title is the one cell per row that's neither numeric nor a highly-repeated
 label like a year or category column).
 
-The player never picks a deck — only a language, via the app's own UI
-language toggle. `startGameSession(playerId, sessionId, lang)` deals 20
-titles (`TITLES_PER_SESSION` in `src/db.ts`) at random from every playable
-deck *in that language, combined* (`dealTitles()`), without replacement
-within that session — so the category and the title are both a surprise,
-and the same title text can never appear twice in one session even if it
-exists in two different decks (deduplicated by trimmed text before
-dealing). Dealing is also round-robin across decks, so two consecutive
-rounds never share a category unless only one deck has titles left. Fewer
-than 20 titles across every deck combined? Deals all of it. `POST
-/charades/sessions` requires `lang` in the body — the client always sends
-its current app language, so an Arabic-language player never gets an
-English-content title or vice versa. Each dealt title carries its own deck's
-id and bilingual name (`DealtTitle` in `src/types.ts`) so the
+The player never picks a deck directly — only a *deck-language pool*, chosen
+at checkout (`'ar'`, `'en'`, or `'mixed'` — `DeckLang` in `src/types.ts`),
+entirely separate from the app's own UI language toggle (which only affects
+displayed text/direction, nothing about which decks get dealt).
+`startGameSession(playerId, sessionId, deckLang)` deals 20 titles
+(`TITLES_PER_SESSION` in `src/db.ts`) at random from every playable deck *in
+that pool, combined* (`dealTitles()`), without replacement within that
+session — so the category and the title are both a surprise, and the same
+title text can never appear twice in one session even if it exists in two
+different decks (deduplicated by trimmed text before dealing). Dealing is
+also round-robin across decks, so two consecutive rounds never share a
+category unless only one deck has titles left. Fewer than 20 titles across
+every deck combined? Deals all of it. `POST /charades/sessions` accepts an
+optional `lang` in the body (`'ar'`/`'en'`/`'mixed'`, defaulting to
+`'mixed'` when omitted) — the client sends the player's own explicit
+checkout choice, never inferred from anything else. Each dealt title carries
+its own deck's id and bilingual name (`DealtTitle` in `src/types.ts`) so the
 app can show which category it came from once revealed.
 
 ### Title pictures (optional)
@@ -191,6 +194,22 @@ needs to render a title's picture with no API access of its own. Deleting a
 title (or replacing/removing its picture) also deletes the old file from
 disk — best-effort, since a title with no picture, or one whose file is
 already gone, is not an error.
+
+## Home page content (mini CMS)
+
+The player app's home screen tagline and longer explanatory write-up are
+admin-editable, in both languages, rather than hardcoded — a single row in
+the `settings` table (`home_tagline_ar`/`home_tagline_en`/
+`home_writeup_ar`/`home_writeup_en`, same table and pattern as the game
+price). `getHomeContent()`/`updateHomeContent()` in `src/db.ts` read and
+partially update it; a fresh database seeds it with the same copy that
+ships in the app's own `src/i18n/{ar,en}.ts` as `app.tagline`/`app.writeup`,
+so an un-configured install still shows sensible text. The admin UI's
+Decks tab has a "Home page content" card (four fields, one Save button)
+that calls the settings route below. The player app fetches
+`GET /charades/home-content` on startup and falls back to its bundled i18n
+strings if the fetch fails or hasn't completed yet — see `homeContent` in
+`src/state/AppProvider.tsx`.
 
 ## Audit log
 
@@ -232,6 +251,13 @@ own errors rather than throwing.
 - `DELETE /admin/decks/:deckId/titles/:titleId` — removes one title.
 - `GET/PUT /admin/settings/game-price` — bearer-token protected.
   `{ fils }`, a positive integer, at most 100000 (100 KD).
+- `GET /charades/home-content` — public. `{ taglineAr, taglineEn, writeupAr,
+  writeupEn }`, the admin-editable copy shown on the player app's home
+  screen (the mini CMS — see below).
+- `GET/PUT /admin/settings/home-content` — bearer-token protected. `PUT`
+  takes any subset of `{ taglineAr, taglineEn, writeupAr, writeupEn }` —
+  fields left out are unchanged. Each tagline is capped at 200 characters,
+  each write-up at 2000.
 - `GET /charades/wallet` — bearer-token protected (player session). Current
   credit balance for the signed-in player.
 - `POST /charades/checkout` — player session required. Starts a top-up for
@@ -241,11 +267,12 @@ own errors rather than throwing.
   session required, and the payment must belong to the caller (404
   otherwise). Stand in for a real payment provider's success/failure
   callback; confirm is idempotent (see above).
-- `POST /charades/sessions` — player session required. `{ sessionId }`
+- `POST /charades/sessions` — player session required. `{ sessionId, lang }`
   spends one credit and deals 20 titles at random across every playable
-  deck combined — no `deckId`, the player never chooses one; idempotent on
-  `sessionId` (see above). 402 when the balance is empty, 409 when no deck
-  has any titles at all.
+  deck combined *in the given deck-language pool* — no `deckId`, the player
+  never chooses one directly; idempotent on `sessionId` (see above). `lang`
+  is `'ar'`, `'en'` or `'mixed'`, defaulting to `'mixed'` when omitted. 402
+  when the balance is empty, 409 when no deck in that pool has any titles.
 - `GET /charades/sessions/:id` — player session required, and the session
   must belong to the caller. Re-fetches a previously dealt session.
 - `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit

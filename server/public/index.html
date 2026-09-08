@@ -91,6 +91,20 @@
           <p id="gamePriceResult" class="muted"></p>
         </div>
         <div class="card">
+          <h3 style="margin-top:0">Home page content</h3>
+          <p class="muted">The tagline and explanatory paragraph shown on the player app's home screen, in both languages.</p>
+          <div class="row">
+            <div class="field"><label>Tagline (English)</label><input id="homeTaglineEn" /></div>
+            <div class="field"><label>Tagline (Arabic)</label><input id="homeTaglineAr" dir="rtl" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Write-up (English)</label><textarea id="homeWriteupEn" rows="4"></textarea></div>
+            <div class="field"><label>Write-up (Arabic)</label><textarea id="homeWriteupAr" dir="rtl" rows="4"></textarea></div>
+          </div>
+          <button id="saveHomeContentBtn" class="secondary">Save home content</button>
+          <p id="homeContentResult" class="muted"></p>
+        </div>
+        <div class="card">
           <table>
             <thead>
               <tr><th>ID</th><th>Name</th><th>Language</th><th>Titles</th><th></th></tr>
@@ -302,9 +316,18 @@ function showAuditLogSection() {
 async function showDeckList() {
   $('deckEditView').classList.add('hidden');
   $('deckListView').classList.remove('hidden');
-  const [decks, price] = await Promise.all([api('/admin/decks'), api('/admin/settings/game-price')]);
+  const [decks, price, homeContent] = await Promise.all([
+    api('/admin/decks'),
+    api('/admin/settings/game-price'),
+    api('/admin/settings/home-content'),
+  ]);
   $('gamePriceInput').value = (price.fils / 1000).toFixed(3);
   $('gamePriceResult').textContent = '';
+  $('homeTaglineEn').value = homeContent.taglineEn;
+  $('homeTaglineAr').value = homeContent.taglineAr;
+  $('homeWriteupEn').value = homeContent.writeupEn;
+  $('homeWriteupAr').value = homeContent.writeupAr;
+  $('homeContentResult').textContent = '';
 
   const rows = decks.map((d) => `<tr>
       <td>${escapeHtml(d.id)}</td>
@@ -330,6 +353,28 @@ async function saveGamePrice() {
     $('gamePriceResult').textContent = 'Saved.';
   } catch (e) {
     alert('Could not save price: ' + e.message);
+  }
+}
+
+async function saveHomeContent() {
+  try {
+    const result = await api('/admin/settings/home-content', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        taglineEn: $('homeTaglineEn').value,
+        taglineAr: $('homeTaglineAr').value,
+        writeupEn: $('homeWriteupEn').value,
+        writeupAr: $('homeWriteupAr').value,
+      }),
+    });
+    $('homeTaglineEn').value = result.taglineEn;
+    $('homeTaglineAr').value = result.taglineAr;
+    $('homeWriteupEn').value = result.writeupEn;
+    $('homeWriteupAr').value = result.writeupAr;
+    $('homeContentResult').textContent = 'Saved.';
+  } catch (e) {
+    alert('Could not save home content: ' + e.message);
   }
 }
 
@@ -662,6 +707,7 @@ $('navAdmins').addEventListener('click', showAdminsSection);
 $('navAuditLog').addEventListener('click', showAuditLogSection);
 $('newDeckBtn').addEventListener('click', () => openDeck(null));
 $('saveGamePriceBtn').addEventListener('click', saveGamePrice);
+$('saveHomeContentBtn').addEventListener('click', saveHomeContent);
 $('deckBackLink').addEventListener('click', showDeckList);
 $('saveDeckBtn').addEventListener('click', saveDeck);
 $('deleteDeckBtn').addEventListener('click', deleteDeck);

@@ -13,11 +13,13 @@ import {
   deleteTitle,
   getDeck,
   getGamePriceFils,
+  getHomeContent,
   getTitle,
   listDecks,
   recordAudit,
   setGamePriceFils,
   updateDeck,
+  updateHomeContent,
   updateTitle,
 } from '../db';
 import { handleError } from '../errors';
@@ -27,7 +29,13 @@ import {
   parseTitleImageManifestXlsx,
   parseXlsxTitles,
 } from '../import/parseTitles';
-import { parseCreateDeckBody, parseImportTitlesBody, parseSetGamePriceBody, parseUpdateDeckBody } from '../validate';
+import {
+  parseCreateDeckBody,
+  parseImportTitlesBody,
+  parseSetGamePriceBody,
+  parseUpdateDeckBody,
+  parseUpdateHomeContentBody,
+} from '../validate';
 
 export const adminDecksRouter = Router();
 
@@ -339,6 +347,29 @@ adminDecksRouter.put('/settings/game-price', (req, res) => {
       after: { fils: after },
     });
     res.json({ fils: after });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+adminDecksRouter.get('/settings/home-content', (_req, res) => {
+  res.json(getHomeContent());
+});
+
+adminDecksRouter.put('/settings/home-content', (req, res) => {
+  try {
+    const input = parseUpdateHomeContentBody(req.body);
+    const before = getHomeContent();
+    const after = updateHomeContent(input);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'settings.home-content.update',
+      target: 'home-content',
+      before,
+      after,
+    });
+    res.json(after);
   } catch (err) {
     handleError(err, res);
   }

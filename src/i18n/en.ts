@@ -4,7 +4,7 @@ export const en: Record<TranslationKey, string> = {
   'app.name': 'Yalla Mithilha',
   'app.tagline': 'You do not need to know the answer. You need your friends to understand you.',
   'app.writeup':
-    'Yalla Mithilha is Charades — two teams act out real titles while the other guesses, no words allowed. What you act out follows this screen’s language: Arabic means Kuwaiti, Khaleeji and Egyptian plays, series and movies; English means Hollywood movies, American series and English songs. Twenty rounds, picked at random by the server every time.',
+    'Yalla Mithilha is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
 
   'common.next': 'Next',
   'common.back': 'Back',
@@ -54,6 +54,13 @@ export const en: Record<TranslationKey, string> = {
     'Your wallet belongs to your account, not this device, so you can find it again later. Guest play and setting up a game never need this.',
   'charades.checkout.signInButton': 'Sign in or create an account',
   'charades.checkout.simulateFailure': 'Simulate a failed payment (dev)',
+  'charades.checkout.deckLanguageTitle': 'Which titles do you want to play?',
+  'charades.checkout.deckLanguageArTitle': 'Arabic only',
+  'charades.checkout.deckLanguageArSubtitle': 'Kuwaiti, Khaleeji and Egyptian plays, series and movies',
+  'charades.checkout.deckLanguageEnTitle': 'English only',
+  'charades.checkout.deckLanguageEnSubtitle': 'Hollywood movies and American series',
+  'charades.checkout.deckLanguageMixedTitle': 'Mixed',
+  'charades.checkout.deckLanguageMixedSubtitle': 'A random blend of Arabic and English titles',
   'charades.play.round': 'Round {{round}} of {{total}}',
   'charades.play.turn': '{{team}}’s turn',
   'charades.play.scanInstruction': 'Have {{team}}’s actor scan this with their phone’s camera to see the title — it never shows here',

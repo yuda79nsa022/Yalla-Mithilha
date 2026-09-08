@@ -6,9 +6,11 @@ import type {
   AdminUserRow,
   AuditLogRow,
   DealtTitle,
+  DeckLang,
   DeckRow,
   DeckWithTitles,
   GameSessionRow,
+  HomeContent,
   Lang,
   PaymentRow,
   PlayerRow,
@@ -29,6 +31,18 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 const DEFAULT_GAME_PRICE_FILS = 1500; // 1.500 KD, the admin's own starting price
+
+// The home screen's own starting copy — what a fresh install shows before
+// any admin has edited it. Also what `resetDbForTests` restores between
+// tests, same as the game price above.
+const DEFAULT_HOME_CONTENT: HomeContent = {
+  taglineAr: 'ما تحتاج تعرف الجواب، تحتاج ربعك يفهمونك',
+  taglineEn: 'You do not need to know the answer. You need your friends to understand you.',
+  writeupAr:
+    'يلا مثّلها لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
+  writeupEn:
+    'Yalla Mithilha is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
+};
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS admin_users (
@@ -169,8 +183,24 @@ ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REF
 // placeholder — new decks pass their own language explicitly (see createDeck).
 ensureColumn('decks', 'language', "language TEXT NOT NULL DEFAULT 'ar'");
 ensureColumn('titles', 'image_path', 'image_path TEXT');
+ensureColumn('settings', 'home_tagline_ar', 'home_tagline_ar TEXT');
+ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
+ensureColumn('settings', 'home_writeup_ar', 'home_writeup_ar TEXT');
+ensureColumn('settings', 'home_writeup_en', 'home_writeup_en TEXT');
 
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
+// Bound params rather than a literal in the ALTER TABLE's own DEFAULT, so
+// the Arabic text and any apostrophes in the English text never need manual
+// SQL-escaping — only fills in a column that's still NULL, so this never
+// overwrites content an admin already edited.
+db.prepare(
+  `UPDATE settings SET
+     home_tagline_ar = COALESCE(home_tagline_ar, @taglineAr),
+     home_tagline_en = COALESCE(home_tagline_en, @taglineEn),
+     home_writeup_ar = COALESCE(home_writeup_ar, @writeupAr),
+     home_writeup_en = COALESCE(home_writeup_en, @writeupEn)
+   WHERE id = 1`
+).run(DEFAULT_HOME_CONTENT);
 
 /* --------------------------------------------------------------- settings */
 
@@ -182,6 +212,33 @@ export function getGamePriceFils(): number {
 export function setGamePriceFils(fils: number): number {
   db.prepare('UPDATE settings SET game_price_fils = ? WHERE id = 1').run(fils);
   return getGamePriceFils();
+}
+
+export function getHomeContent(): HomeContent {
+  const row = db
+    .prepare('SELECT home_tagline_ar, home_tagline_en, home_writeup_ar, home_writeup_en FROM settings WHERE id = 1')
+    .get() as { home_tagline_ar: string; home_tagline_en: string; home_writeup_ar: string; home_writeup_en: string };
+  return {
+    taglineAr: row.home_tagline_ar,
+    taglineEn: row.home_tagline_en,
+    writeupAr: row.home_writeup_ar,
+    writeupEn: row.home_writeup_en,
+  };
+}
+
+/** Partial update — only the given fields change, same pattern as `updateDeck`. */
+export function updateHomeContent(input: Partial<HomeContent>): HomeContent {
+  const current = getHomeContent();
+  const next: HomeContent = { ...current, ...input };
+  db.prepare(
+    `UPDATE settings SET
+       home_tagline_ar = @taglineAr,
+       home_tagline_en = @taglineEn,
+       home_writeup_ar = @writeupAr,
+       home_writeup_en = @writeupEn
+     WHERE id = 1`
+  ).run(next);
+  return next;
 }
 
 /* ------------------------------------------------------------------ decks */
@@ -372,13 +429,16 @@ export function deleteTitle(deckId: string, titleId: string): TitleRow {
 
 /**
  * Decks the app is ever allowed to draft from — nothing to publish/complete
- * separately, a deck with at least one title is playable. `lang`, when
- * given, additionally restricts to decks whose *content* language matches —
- * an Arabic-language player only ever draws from Arabic decks, and likewise
- * for English, so the two content pools never mix within a session.
+ * separately, a deck with at least one title is playable. `deckLang`, when
+ * given as `'ar'` or `'en'`, additionally restricts to decks whose *content*
+ * language matches — the player's own explicit choice at checkout, not the
+ * app's UI language. Omitted, or `'mixed'`, includes every playable deck
+ * regardless of content language.
  */
-export function listPlayableDecks(lang?: Lang): DeckWithTitles[] {
-  return listDecks().filter((d) => d.titles.length > 0 && (lang === undefined || d.language === lang));
+export function listPlayableDecks(deckLang?: DeckLang): DeckWithTitles[] {
+  return listDecks().filter(
+    (d) => d.titles.length > 0 && (deckLang === undefined || deckLang === 'mixed' || d.language === deckLang)
+  );
 }
 
 /* --------------------------------------------------------------- players */
@@ -738,16 +798,16 @@ const TITLES_PER_SESSION = 20;
 
 /**
  * Deals up to `count` titles round-robin across every playable deck *in
- * `lang`*, so two consecutive rounds never share a category unless only one
- * deck still has titles left (unavoidable once every other category is
+ * `deckLang`*, so two consecutive rounds never share a category unless only
+ * one deck still has titles left (unavoidable once every other category is
  * exhausted). Deduplicated by trimmed text so the same title text appearing
  * in two different decks still only ever occupies one slot in a session (see
  * "never repeated in the same game" on `startGameSession`). Which deck goes
  * first, and which title comes out of each deck, are both random.
  */
-function dealTitles(count: number, lang: Lang): DealtTitle[] {
+function dealTitles(count: number, deckLang: DeckLang): DealtTitle[] {
   const seenText = new Set<string>();
-  let queues = shuffled(listPlayableDecks(lang))
+  let queues = shuffled(listPlayableDecks(deckLang))
     .map((deck) => {
       const titles: DealtTitle[] = [];
       for (const title of deck.titles) {
@@ -787,18 +847,20 @@ function dealTitles(count: number, lang: Lang): DealtTitle[] {
  * twice.
  *
  * The player never picks a category: each of the 20 titles is drawn at
- * random from every playable deck combined *in `lang`*, without
+ * random from every playable deck combined *in `deckLang`*, without
  * replacement, so no title repeats within the same session even across
  * decks — and dealt round-robin across decks, so consecutive rounds don't
  * share a category either (see `dealTitles`). Fewer than 20 titles exist
- * across every deck combined? Deals all of it. `lang` defaults to 'ar' only
- * for direct callers that predate this parameter (tests, scripts) — the
- * real route always passes the player's actual app language explicitly.
+ * across every deck combined? Deals all of it. `deckLang` is the player's
+ * own explicit choice made at checkout — Arabic only, English only, or a
+ * mix of both — entirely independent of the app's own UI language; it
+ * defaults to `'mixed'` only for direct callers that predate this
+ * parameter (tests, scripts).
  */
 export function startGameSession(
   playerId: string,
   sessionId: string,
-  lang: Lang = 'ar'
+  deckLang: DeckLang = 'mixed'
 ): { session: GameSessionRow; balance: number } {
   const existing = getGameSession(sessionId);
   if (existing) {
@@ -806,7 +868,7 @@ export function startGameSession(
     return { session: existing, balance: creditBalance(playerId) };
   }
 
-  const dealt = dealTitles(TITLES_PER_SESSION, lang);
+  const dealt = dealTitles(TITLES_PER_SESSION, deckLang);
   if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
 
   const tx = db.transaction(() => {
@@ -889,7 +951,15 @@ export function listAuditLog(limit = 200): AuditLogRow[] {
 export function resetDbForTests(): void {
   db.exec(
     `DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM game_sessions;
-     DELETE FROM payments; DELETE FROM titles; DELETE FROM decks; DELETE FROM admin_users; DELETE FROM players;
-     UPDATE settings SET game_price_fils = ${DEFAULT_GAME_PRICE_FILS} WHERE id = 1;`
+     DELETE FROM payments; DELETE FROM titles; DELETE FROM decks; DELETE FROM admin_users; DELETE FROM players;`
   );
+  db.prepare(
+    `UPDATE settings SET
+       game_price_fils = @gamePriceFils,
+       home_tagline_ar = @taglineAr,
+       home_tagline_en = @taglineEn,
+       home_writeup_ar = @writeupAr,
+       home_writeup_en = @writeupEn
+     WHERE id = 1`
+  ).run({ gamePriceFils: DEFAULT_GAME_PRICE_FILS, ...DEFAULT_HOME_CONTENT });
 }

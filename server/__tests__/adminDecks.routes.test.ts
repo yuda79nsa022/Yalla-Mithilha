@@ -282,3 +282,45 @@ describe('game price setting', () => {
     expect((await request(app).put('/admin/settings/game-price').set(auth).send({ fils: 999_999 })).status).toBe(400);
   });
 });
+
+describe('home page content setting', () => {
+  it('requires auth', async () => {
+    expect((await request(app).get('/admin/settings/home-content')).status).toBe(401);
+  });
+
+  it('reads and partially updates the content', async () => {
+    const initial = await request(app).get('/admin/settings/home-content').set(auth);
+    expect(initial.status).toBe(200);
+    expect(initial.body).toEqual({
+      taglineAr: expect.any(String),
+      taglineEn: expect.any(String),
+      writeupAr: expect.any(String),
+      writeupEn: expect.any(String),
+    });
+
+    const updated = await request(app)
+      .put('/admin/settings/home-content')
+      .set(auth)
+      .send({ taglineEn: 'New tagline' });
+    expect(updated.status).toBe(200);
+    expect(updated.body.taglineEn).toBe('New tagline');
+    // Fields not included in the update are left untouched.
+    expect(updated.body.taglineAr).toBe(initial.body.taglineAr);
+    expect(updated.body.writeupEn).toBe(initial.body.writeupEn);
+
+    const reread = await request(app).get('/admin/settings/home-content').set(auth);
+    expect(reread.body.taglineEn).toBe('New tagline');
+  });
+
+  it('rejects an empty string or an overly long value', async () => {
+    expect(
+      (await request(app).put('/admin/settings/home-content').set(auth).send({ taglineEn: '' })).status
+    ).toBe(400);
+    expect(
+      (await request(app).put('/admin/settings/home-content').set(auth).send({ taglineEn: 'x'.repeat(300) })).status
+    ).toBe(400);
+    expect(
+      (await request(app).put('/admin/settings/home-content').set(auth).send({ writeupEn: 'x'.repeat(3000) })).status
+    ).toBe(400);
+  });
+});

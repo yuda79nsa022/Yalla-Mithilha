@@ -1,9 +1,10 @@
 import { Redirect, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Divider, Screen, Spacer, T } from '../../src/ui/components';
+import { Button, Divider, OptionCard, Screen, Spacer, T } from '../../src/ui/components';
 import { colors, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
+import type { DeckLang } from '../../src/engine/types';
 
 function formatKwd(fils: number): string {
   return `${(fils / 1000).toFixed(3)} KD`;
@@ -25,6 +26,7 @@ export default function CharadesCheckout() {
     unlockCurrentCharades,
   } = useApp();
   const [busy, setBusy] = useState<'topup' | 'start' | null>(null);
+  const [deckLang, setDeckLang] = useState<DeckLang>('mixed');
 
   useEffect(() => {
     if (player) void refreshWallet();
@@ -49,7 +51,7 @@ export default function CharadesCheckout() {
 
   const start = async () => {
     setBusy('start');
-    const unlocked = await unlockCurrentCharades();
+    const unlocked = await unlockCurrentCharades(deckLang);
     setBusy(null);
     if (unlocked) router.push('/charades/play');
   };
@@ -112,6 +114,30 @@ export default function CharadesCheckout() {
       <Spacer size={spacing.xl} />
       <Divider />
       <Spacer />
+      <T variant="heading">{t('charades.checkout.deckLanguageTitle')}</T>
+      <Spacer size={spacing.sm} />
+      <OptionCard
+        title={t('charades.checkout.deckLanguageArTitle')}
+        subtitle={t('charades.checkout.deckLanguageArSubtitle')}
+        selected={deckLang === 'ar'}
+        onPress={() => setDeckLang('ar')}
+      />
+      <Spacer size={spacing.sm} />
+      <OptionCard
+        title={t('charades.checkout.deckLanguageEnTitle')}
+        subtitle={t('charades.checkout.deckLanguageEnSubtitle')}
+        selected={deckLang === 'en'}
+        onPress={() => setDeckLang('en')}
+      />
+      <Spacer size={spacing.sm} />
+      <OptionCard
+        title={t('charades.checkout.deckLanguageMixedTitle')}
+        subtitle={t('charades.checkout.deckLanguageMixedSubtitle')}
+        selected={deckLang === 'mixed'}
+        onPress={() => setDeckLang('mixed')}
+      />
+
+      <Spacer size={spacing.lg} />
       <Button
         label={t('charades.checkout.start')}
         disabled={walletBalance < 1}

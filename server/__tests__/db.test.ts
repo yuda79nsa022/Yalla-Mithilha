@@ -25,6 +25,7 @@ import {
   getAdminUserById,
   getDeck,
   getGamePriceFils,
+  getHomeContent,
   getPlayerById,
   getTitle,
   grantCredits,
@@ -36,6 +37,7 @@ import {
   setGamePriceFils,
   updateAdminUser,
   updateDeck,
+  updateHomeContent,
   updatePlayer,
   updateTitle,
 } from '../src/db';
@@ -255,6 +257,14 @@ describe('listPlayableDecks', () => {
     expect(listPlayableDecks('ar').map((d) => d.id)).toEqual(['ar-deck']);
     expect(listPlayableDecks('en').map((d) => d.id)).toEqual(['en-deck']);
   });
+
+  it('given "mixed", returns playable decks in either language, same as no filter', () => {
+    createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
+    addTitlesToDeck('ar-deck', ['a']);
+    createDeck({ ...sample, id: 'en-deck', language: 'en' });
+    addTitlesToDeck('en-deck', ['b']);
+    expect(listPlayableDecks('mixed').map((d) => d.id).sort()).toEqual(['ar-deck', 'en-deck']);
+  });
 });
 
 describe('listDecks', () => {
@@ -273,6 +283,26 @@ describe('game price setting', () => {
   it('is admin-editable and persists', () => {
     setGamePriceFils(2000);
     expect(getGamePriceFils()).toBe(2000);
+  });
+});
+
+describe('home page content setting', () => {
+  it('has sane, non-empty defaults in both languages', () => {
+    const content = getHomeContent();
+    expect(content.taglineAr.length).toBeGreaterThan(0);
+    expect(content.taglineEn.length).toBeGreaterThan(0);
+    expect(content.writeupAr.length).toBeGreaterThan(0);
+    expect(content.writeupEn.length).toBeGreaterThan(0);
+  });
+
+  it('partially updates and persists just the given fields', () => {
+    const before = getHomeContent();
+    const after = updateHomeContent({ taglineEn: 'New tagline' });
+    expect(after.taglineEn).toBe('New tagline');
+    expect(after.taglineAr).toBe(before.taglineAr);
+    expect(after.writeupAr).toBe(before.writeupAr);
+    expect(after.writeupEn).toBe(before.writeupEn);
+    expect(getHomeContent().taglineEn).toBe('New tagline');
   });
 });
 
