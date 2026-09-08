@@ -151,7 +151,7 @@ export default function CharadesPlay() {
             <Image
               source={{ uri: absoluteImageUrl }}
               style={{ width: '100%', height: 200, borderRadius: radius.lg }}
-              resizeMode="cover"
+              resizeMode="contain"
               accessibilityLabel={currentTitle.text}
             />
           ) : null}

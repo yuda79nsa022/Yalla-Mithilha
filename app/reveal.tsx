@@ -42,7 +42,7 @@ export default function CharadesReveal() {
               <Image
                 source={{ uri: imageUrl }}
                 style={{ width: '100%', height: 220, borderRadius: radius.lg }}
-                resizeMode="cover"
+                resizeMode="contain"
                 accessibilityLabel={text}
               />
             ) : null}
