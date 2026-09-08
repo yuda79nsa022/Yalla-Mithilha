@@ -91,6 +91,7 @@ export const en: Record<TranslationKey, string> = {
   'account.signupBonus': 'Create an account and get a one-time welcome bonus of 3.000 KD in free game credits.',
   'account.logout': 'Sign out',
   'account.logoutConfirm': 'Sign out of this account? Guest play keeps working as usual.',
+  'account.sessionExpired': 'Your session expired — please sign in again.',
 
   'landing.eyebrow': 'New here?',
   'landing.intro':
