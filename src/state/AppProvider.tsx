@@ -172,6 +172,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [updateCharades]
   );
 
+  // A 401 on any of these means the stored token is dead — expired, or the
+  // server no longer recognises it — never a reason to keep retrying with
+  // the same token. Clearing the session here is what sends the player back
+  // to the sign-in screen instead of being stuck staring at a stale wallet
+  // balance and a raw "unauthorized" string forever.
+  const handleWalletError = useCallback(
+    (err: unknown): string => {
+      if (err instanceof WalletError && err.status === 401) {
+        setPlayerSession(null);
+        setWalletBalance(0);
+        void clearPlayerSession(deviceStore);
+        return t('account.sessionExpired');
+      }
+      return err instanceof WalletError ? err.message : 'could not reach the server';
+    },
+    [t]
+  );
+
   const refreshWallet = useCallback(async () => {
     if (!playerSession) {
       setWalletBalance(0);
@@ -179,10 +197,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       setWalletBalance(await getWalletBalance(playerSession.token));
-    } catch {
+    } catch (err) {
+      if (err instanceof WalletError && err.status === 401) {
+        setWalletError(handleWalletError(err));
+        return;
+      }
       // Leave the last-known balance showing rather than flash it to zero on a transient network error.
     }
-  }, [playerSession]);
+  }, [playerSession, handleWalletError]);
 
   const unlockCurrentCharades = useCallback(async () => {
     if (!charades || !playerSession) return false;
@@ -193,10 +215,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       track({ name: 'charades_unlocked' });
       return true;
     } catch (err) {
-      setWalletError(err instanceof WalletError ? err.message : 'could not reach the server');
+      setWalletError(handleWalletError(err));
       return false;
     }
-  }, [charades, playerSession, updateCharades, lang]);
+  }, [charades, playerSession, updateCharades, lang, handleWalletError]);
 
   const startTopUp = useCallback(async () => {
     if (!playerSession) return null;
@@ -205,12 +227,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       return await startCheckoutApi(playerSession.token);
     } catch (err) {
-      setWalletError(err instanceof WalletError ? err.message : 'could not reach the server');
+      setWalletError(handleWalletError(err));
       return null;
     } finally {
       setWalletBusy(false);
     }
-  }, [playerSession]);
+  }, [playerSession, handleWalletError]);
 
   const confirmTopUp = useCallback(
     async (paymentId: string) => {
@@ -223,13 +245,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         track({ name: 'wallet_topped_up', balance });
         return true;
       } catch (err) {
-        setWalletError(err instanceof WalletError ? err.message : 'could not reach the server');
+        setWalletError(handleWalletError(err));
         return false;
       } finally {
         setWalletBusy(false);
       }
     },
-    [playerSession]
+    [playerSession, handleWalletError]
   );
 
   const failTopUp = useCallback(
@@ -237,11 +259,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!playerSession) return;
       try {
         await failCheckoutApi(playerSession.token, paymentId);
-      } catch {
-        // Nothing to reconcile client-side — the payment simply never grants credits.
+      } catch (err) {
+        if (err instanceof WalletError && err.status === 401) handleWalletError(err);
+        // Otherwise nothing to reconcile client-side — the payment simply never grants credits.
       }
     },
-    [playerSession]
+    [playerSession, handleWalletError]
   );
 
   const quitCharades = useCallback(() => {

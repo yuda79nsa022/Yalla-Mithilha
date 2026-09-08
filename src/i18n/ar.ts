@@ -98,6 +98,7 @@ export const ar = {
   'account.signupBonus': 'أنشئ حساب واحصل على هدية ترحيبية لمرة وحدة بقيمة ٣٫٠٠٠ د.ك رصيد لعب مجاني.',
   'account.logout': 'تسجيل الخروج',
   'account.logoutConfirm': 'تبي تسجّل خروج من هالحساب؟ اللعب كضيف يستمر عادي.',
+  'account.sessionExpired': 'انتهت جلستك — سجّل دخولك مرة ثانية.',
 } as const;
 
 export type TranslationKey = keyof typeof ar;
