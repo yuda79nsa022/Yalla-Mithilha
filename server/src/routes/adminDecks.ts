@@ -38,9 +38,13 @@ const upload = multer({
 
 // A bundle of poster images is legitimately much bigger than a plain title
 // list — a separate limit rather than raising the one above for everything.
+// 200 MB comfortably covers a few hundred titles' worth of real photos (each
+// already capped at MAX_IMAGE_BYTES below) in one zip, without raising this
+// so far that a single request could exhaust the server's memory — the whole
+// upload is buffered in RAM before this route ever sees it.
 const uploadImages = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 200 * 1024 * 1024 },
 });
 
 class UnsupportedFileTypeError extends Error {}

@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'fs';
 import helmet from 'helmet';
+import multer from 'multer';
 import path from 'path';
 import { requireAdminSession } from './auth';
 import { TITLE_IMAGES_DIR } from './db';
@@ -109,6 +110,17 @@ export function createApp(): express.Express {
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof SyntaxError && (err as { status?: number }).status === 400 && 'body' in err) {
       res.status(400).json({ error: 'invalid JSON body' });
+      return;
+    }
+    // multer's own upload errors (a file over its field's size limit, an
+    // unexpected field name, ...) throw before any route handler's own
+    // try/catch ever runs, so without this they'd fall straight into the
+    // generic 500 below — a confusing "internal error" for what is really
+    // just an oversized upload.
+    if (err instanceof multer.MulterError) {
+      const message =
+        err.code === 'LIMIT_FILE_SIZE' ? `"${err.field}" is too large` : err.message;
+      res.status(400).json({ error: message });
       return;
     }
     // eslint-disable-next-line no-console
