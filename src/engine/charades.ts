@@ -32,6 +32,14 @@ export interface CharadesState {
   scores: [number, number];
   /** `locked` = drafted (team names chosen) but not yet paid; `unlocked` = paid, titles dealt. */
   lock: CharadesLock;
+  /**
+   * Who this game belongs to. `null` while it's an unclaimed guest draft —
+   * team names only, nothing spent yet, so anyone on this device (including
+   * whoever signs in at checkout) may pick it up. `unlockCharades` always
+   * stamps a real player id here, since spending a wallet credit always
+   * requires being signed in — see `charadesForPlayer`.
+   */
+  playerId: string | null;
 }
 
 export function makeCharadesId(): string {
@@ -41,13 +49,33 @@ export function makeCharadesId(): string {
 export function draftCharades(
   teamAName: string,
   teamBName: string,
-  id: string = makeCharadesId()
+  id: string = makeCharadesId(),
+  playerId: string | null = null
 ): CharadesState {
-  return { id, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked' };
+  return { id, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked', playerId };
 }
 
-export function unlockCharades(state: CharadesState, titles: CharadesTitle[]): CharadesState {
-  return { ...state, titles, lock: 'unlocked' };
+export function unlockCharades(state: CharadesState, titles: CharadesTitle[], playerId: string): CharadesState {
+  return { ...state, titles, lock: 'unlocked', playerId };
+}
+
+/**
+ * The gate that stops one player's game from being resumed by another.
+ * A still-`locked` draft with no player attached yet (`playerId: null`) is
+ * fair game for anyone on the device — that's the guest-drafts-then-signs-
+ * in-at-checkout flow the app is built around. Anything else — a draft
+ * already tied to a specific signed-in player, or any `unlocked` game,
+ * which always has a real payer — only that same player may resume.
+ * Returns `null` rather than the mismatched state so callers can treat it
+ * exactly like "no saved game".
+ */
+export function charadesForPlayer(
+  state: CharadesState | null,
+  playerId: string | null
+): CharadesState | null {
+  if (!state) return null;
+  if (state.playerId === null) return state;
+  return state.playerId === playerId ? state : null;
 }
 
 /** Which team is up for the current round — strictly alternating, A first. */
