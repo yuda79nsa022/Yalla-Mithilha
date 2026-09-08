@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { draftCharades, unlockCharades as unlockCharadesState } from '../engine/charades';
+import { charadesForPlayer, draftCharades, unlockCharades as unlockCharadesState } from '../engine/charades';
 import type { CharadesState } from '../engine/charades';
 import {
   DEFAULT_PREFERENCES,
@@ -117,7 +117,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
 
       setPrefsState({ ...storedPrefs, lang: storedPrefs.lang ?? deviceLanguage() });
-      setCharadesState(storedCharades);
+      // A game saved under a different player (or a paid one saved while
+      // signed out) must never resurface for whoever happens to open the
+      // app next — see charadesForPlayer.
+      const allowedCharades = charadesForPlayer(storedCharades, storedPlayerSession?.id ?? null);
+      setCharadesState(allowedCharades);
+      if (storedCharades && !allowedCharades) void clearCharades(deviceStore);
       setPlayerSession(storedPlayerSession);
       setReady(true);
 
@@ -162,14 +167,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     void saveCharades(deviceStore, next);
   }, []);
 
+  // Run whenever the signed-in identity changes (login, register, logout) so
+  // a game that belongs to someone else never lingers into the new identity
+  // — see charadesForPlayer.
+  const discardCharadesNotFor = useCallback((playerId: string | null) => {
+    setCharadesState((current) => {
+      const allowed = charadesForPlayer(current, playerId);
+      if (current && !allowed) void clearCharades(deviceStore);
+      return allowed;
+    });
+  }, []);
+
   const startCharadesDraft = useCallback(
     (teamAName: string, teamBName: string) => {
-      const next = draftCharades(teamAName, teamBName);
+      const next = draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null);
       updateCharades(next);
       track({ name: 'charades_drafted' });
       return next;
     },
-    [updateCharades]
+    [updateCharades, playerSession]
   );
 
   // A 401 on any of these means the stored token is dead — expired, or the
@@ -211,7 +227,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const { titles, balance } = await startGameSession(playerSession.token, charades.id);
       setWalletBalance(balance);
-      updateCharades(unlockCharadesState(charades, titles));
+      updateCharades(unlockCharadesState(charades, titles, playerSession.id));
       track({ name: 'charades_unlocked' });
       return true;
     } catch (err) {
@@ -280,6 +296,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const session: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
       setPlayerSession(session);
       await savePlayerSession(deviceStore, session);
+      discardCharadesNotFor(session.id);
       track({ name: 'player_account_created' });
       getWalletBalance(session.token).then(setWalletBalance).catch(() => undefined);
       return true;
@@ -289,7 +306,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setPlayerAuthBusy(false);
     }
-  }, []);
+  }, [discardCharadesNotFor]);
 
   const loginPlayerAccount = useCallback(async (username: string, password: string) => {
     setPlayerAuthBusy(true);
@@ -299,6 +316,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const session: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
       setPlayerSession(session);
       await savePlayerSession(deviceStore, session);
+      discardCharadesNotFor(session.id);
       track({ name: 'player_logged_in' });
       getWalletBalance(session.token).then(setWalletBalance).catch(() => undefined);
       return true;
@@ -308,7 +326,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setPlayerAuthBusy(false);
     }
-  }, []);
+  }, [discardCharadesNotFor]);
 
   const logoutPlayerAccount = useCallback(() => {
     setPlayerSession(null);
@@ -316,8 +334,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWalletBalance(0);
     setWalletError(null);
     void clearPlayerSession(deviceStore);
+    discardCharadesNotFor(null);
     track({ name: 'player_logout' });
-  }, []);
+  }, [discardCharadesNotFor]);
 
   const value: AppValue = {
     ready,
