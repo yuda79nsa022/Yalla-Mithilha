@@ -334,9 +334,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWalletBalance(0);
     setWalletError(null);
     void clearPlayerSession(deviceStore);
-    discardCharadesNotFor(null);
+    // Logging out always ends whatever game was in progress — even an
+    // unclaimed guest draft, which charadesForPlayer would otherwise treat
+    // as fair game for the next guest on this device. A clean break on
+    // logout is simpler and less surprising than resuming a stranger's
+    // half-set-up game.
+    setCharadesState(null);
+    void clearCharades(deviceStore);
     track({ name: 'player_logout' });
-  }, [discardCharadesNotFor]);
+  }, []);
 
   const value: AppValue = {
     ready,
