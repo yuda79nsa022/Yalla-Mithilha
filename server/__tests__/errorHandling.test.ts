@@ -8,6 +8,7 @@ process.env.PLAYER_SESSION_SECRET = 'test-player-secret';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { resetDbForTests } from '../src/db';
+import { makeAdminAuthHeader } from './helpers/testAuth';
 
 const app = createApp();
 
@@ -35,6 +36,23 @@ describe('malformed request bodies', () => {
     // path, not the parser's error branch, but confirms no HTML ever leaks.
     expect(res.status).toBe(400);
     expect(res.headers['content-type']).toMatch(/json/);
+    expect(res.text).not.toMatch(/<html/i);
+  });
+});
+
+describe('oversized uploads', () => {
+  it('replies with a clear 400, not a bare 500, when a file exceeds its field\'s size limit', async () => {
+    const auth = await makeAdminAuthHeader();
+    const oversized = Buffer.alloc(11 * 1024 * 1024, 'a'); // the /decks/:id/import route caps "file" at 10 MB
+
+    const res = await request(app)
+      .post('/admin/decks/some-deck/import')
+      .set(auth)
+      .attach('file', oversized, 'huge.docx');
+
+    expect(res.status).toBe(400);
+    expect(res.headers['content-type']).toMatch(/json/);
+    expect(res.body).toEqual({ error: '"file" is too large' });
     expect(res.text).not.toMatch(/<html/i);
   });
 });
