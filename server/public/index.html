@@ -374,8 +374,12 @@ async function saveDeck() {
 
 async function deleteDeck() {
   if (!confirm('Delete "' + currentDeckId + '" and all its titles? This cannot be undone.')) return;
-  await api('/admin/decks/' + encodeURIComponent(currentDeckId), { method: 'DELETE' });
-  showDeckList();
+  try {
+    await api('/admin/decks/' + encodeURIComponent(currentDeckId), { method: 'DELETE' });
+    showDeckList();
+  } catch (e) {
+    alert('Could not delete deck: ' + e.message);
+  }
 }
 
 async function removeTitle(titleId) {
