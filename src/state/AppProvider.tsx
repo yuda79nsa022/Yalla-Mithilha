@@ -51,16 +51,17 @@ interface AppValue {
   /** The admin-editable home-screen tagline and write-up. `null` until the first successful fetch — callers fall back to the i18n default text until then. */
   homeContent: HomeContent | null;
   charades: CharadesState | null;
-  startCharadesDraft: (teamAName: string, teamBName: string) => CharadesState;
+  /** `deckLang` is the player's choice of deck-language pool, made alongside the team names — not tied to the app's UI language. */
+  startCharadesDraft: (teamAName: string, teamBName: string, deckLang: DeckLang) => CharadesState;
   updateCharades: (next: CharadesState) => void;
   /**
    * Spends one wallet credit and deals the drafted session's 20 titles, from
-   * the given deck-language pool — the player's own choice at checkout, not
-   * tied to the app's UI language. Requires a signed-in player — wallet
-   * credits are owned by an account, never a device. False when there is no
-   * player session, no credit to spend, or no titles are available yet.
+   * whichever deck-language pool was chosen when the game was drafted.
+   * Requires a signed-in player — wallet credits are owned by an account,
+   * never a device. False when there is no player session, no credit to
+   * spend, or no titles are available yet.
    */
-  unlockCurrentCharades: (deckLang: DeckLang) => Promise<boolean>;
+  unlockCurrentCharades: () => Promise<boolean>;
   quitCharades: () => void;
 
   /**
@@ -189,8 +190,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startCharadesDraft = useCallback(
-    (teamAName: string, teamBName: string) => {
-      const next = draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null);
+    (teamAName: string, teamBName: string, deckLang: DeckLang) => {
+      const next = draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckLang);
       updateCharades(next);
       track({ name: 'charades_drafted' });
       return next;
@@ -233,10 +234,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [playerSession, handleWalletError]);
 
   const unlockCurrentCharades = useCallback(
-    async (deckLang: DeckLang) => {
+    async () => {
       if (!charades || !playerSession) return false;
       try {
-        const { titles, balance } = await startGameSession(playerSession.token, charades.id, deckLang);
+        const { titles, balance } = await startGameSession(playerSession.token, charades.id, charades.deckLang);
         setWalletBalance(balance);
         updateCharades(unlockCharadesState(charades, titles, playerSession.id));
         track({ name: 'charades_unlocked' });

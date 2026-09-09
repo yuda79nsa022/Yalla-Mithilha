@@ -9,6 +9,8 @@
  * both.
  */
 
+import type { DeckLang } from './types';
+
 export interface CharadesTitle {
   id: string;
   text: string;
@@ -40,6 +42,8 @@ export interface CharadesState {
    * requires being signed in — see `charadesForPlayer`.
    */
   playerId: string | null;
+  /** Chosen when drafting, alongside the team names — which deck-language pool `unlockCharades` deals from. */
+  deckLang: DeckLang;
 }
 
 export function makeCharadesId(): string {
@@ -50,9 +54,10 @@ export function draftCharades(
   teamAName: string,
   teamBName: string,
   id: string = makeCharadesId(),
-  playerId: string | null = null
+  playerId: string | null = null,
+  deckLang: DeckLang = 'mixed'
 ): CharadesState {
-  return { id, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked', playerId };
+  return { id, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked', playerId, deckLang };
 }
 
 export function unlockCharades(state: CharadesState, titles: CharadesTitle[], playerId: string): CharadesState {

@@ -1,18 +1,20 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, TextInput } from 'react-native';
-import { Button, Screen, Spacer, T } from '../../src/ui/components';
+import { Button, OptionCard, Screen, Spacer, T } from '../../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
+import type { DeckLang } from '../../src/engine/types';
 
 export default function CharadesDraft() {
   const { t, startCharadesDraft } = useApp();
   const [teamAName, setTeamAName] = useState('');
   const [teamBName, setTeamBName] = useState('');
+  const [deckLang, setDeckLang] = useState<DeckLang>('mixed');
 
   const confirmDraft = () => {
     if (!teamAName.trim() || !teamBName.trim()) return;
-    startCharadesDraft(teamAName.trim(), teamBName.trim());
+    startCharadesDraft(teamAName.trim(), teamBName.trim(), deckLang);
     router.push('/charades/checkout');
   };
 
@@ -43,6 +45,30 @@ export default function CharadesDraft() {
         maxLength={20}
         accessibilityLabel={t('charades.draft.teamBName')}
         style={[styles.input, { borderColor: colors.teamB }]}
+      />
+
+      <Spacer size={spacing.xl} />
+      <T variant="heading">{t('charades.draft.deckLanguageTitle')}</T>
+      <Spacer size={spacing.sm} />
+      <OptionCard
+        title={t('charades.draft.deckLanguageArTitle')}
+        subtitle={t('charades.draft.deckLanguageArSubtitle')}
+        selected={deckLang === 'ar'}
+        onPress={() => setDeckLang('ar')}
+      />
+      <Spacer size={spacing.sm} />
+      <OptionCard
+        title={t('charades.draft.deckLanguageEnTitle')}
+        subtitle={t('charades.draft.deckLanguageEnSubtitle')}
+        selected={deckLang === 'en'}
+        onPress={() => setDeckLang('en')}
+      />
+      <Spacer size={spacing.sm} />
+      <OptionCard
+        title={t('charades.draft.deckLanguageMixedTitle')}
+        subtitle={t('charades.draft.deckLanguageMixedSubtitle')}
+        selected={deckLang === 'mixed'}
+        onPress={() => setDeckLang('mixed')}
       />
 
       <Spacer size={spacing.xl} />
