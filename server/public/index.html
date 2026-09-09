@@ -216,8 +216,8 @@
 </main>
 
 <script>
-let token = localStorage.getItem('adminSessionToken') || '';
-let currentUsername = localStorage.getItem('adminUsername') || '';
+let token = sessionStorage.getItem('adminSessionToken') || '';
+let currentUsername = sessionStorage.getItem('adminUsername') || '';
 let currentDeckId = null;
 let currentDeck = null;
 
@@ -253,8 +253,8 @@ async function signIn() {
     const data = await res.json();
     token = data.token;
     currentUsername = data.user.username;
-    localStorage.setItem('adminSessionToken', token);
-    localStorage.setItem('adminUsername', currentUsername);
+    sessionStorage.setItem('adminSessionToken', token);
+    sessionStorage.setItem('adminUsername', currentUsername);
     enterApp();
   } catch (e) {
     $('gateError').textContent = e.message;
@@ -265,8 +265,8 @@ async function signIn() {
 function signOut() {
   token = '';
   currentUsername = '';
-  localStorage.removeItem('adminSessionToken');
-  localStorage.removeItem('adminUsername');
+  sessionStorage.removeItem('adminSessionToken');
+  sessionStorage.removeItem('adminUsername');
   location.reload();
 }
 
