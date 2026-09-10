@@ -15,7 +15,7 @@ import {
   type Preferences,
   type PlayerSession,
 } from '../engine/persistence';
-import type { Lang } from '../engine/types';
+import type { DeckLang, Lang } from '../engine/types';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
 import { track } from '../services/analytics';
@@ -25,10 +25,12 @@ import {
   confirmCheckout as confirmCheckoutApi,
   failCheckout as failCheckoutApi,
   getGamePrice,
+  getHomeContent,
   getWalletBalance,
   startCheckout as startCheckoutApi,
   startGameSession,
   type CheckoutPayment,
+  type HomeContent,
 } from '../services/walletApi';
 
 interface AppValue {
@@ -46,11 +48,15 @@ interface AppValue {
    * is the current admin-set price of one game.
    */
   gamePriceFils: number;
+  /** The admin-editable home-screen tagline and write-up. `null` until the first successful fetch — callers fall back to the i18n default text until then. */
+  homeContent: HomeContent | null;
   charades: CharadesState | null;
-  startCharadesDraft: (teamAName: string, teamBName: string) => CharadesState;
+  /** `deckLang` is the player's choice of deck-language pool, made alongside the team names — not tied to the app's UI language. */
+  startCharadesDraft: (teamAName: string, teamBName: string, deckLang: DeckLang) => CharadesState;
   updateCharades: (next: CharadesState) => void;
   /**
-   * Spends one wallet credit and deals the drafted session's 20 titles.
+   * Spends one wallet credit and deals the drafted session's 20 titles, from
+   * whichever deck-language pool was chosen when the game was drafted.
    * Requires a signed-in player — wallet credits are owned by an account,
    * never a device. False when there is no player session, no credit to
    * spend, or no titles are available yet.
@@ -101,6 +107,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefsState] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [charades, setCharadesState] = useState<CharadesState | null>(null);
   const [gamePriceFils, setGamePriceFils] = useState(0);
+  const [homeContent, setHomeContent] = useState<HomeContent | null>(null);
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
   const [playerAuthBusy, setPlayerAuthBusy] = useState(false);
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null);
@@ -128,6 +135,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       getGamePrice()
         .then((r) => setGamePriceFils(r.fils))
+        .catch(() => undefined);
+
+      getHomeContent()
+        .then(setHomeContent)
         .catch(() => undefined);
 
       // Wallet balance lives entirely on the server — nothing to show until a
@@ -179,8 +190,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startCharadesDraft = useCallback(
-    (teamAName: string, teamBName: string) => {
-      const next = draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null);
+    (teamAName: string, teamBName: string, deckLang: DeckLang) => {
+      const next = draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckLang);
       updateCharades(next);
       track({ name: 'charades_drafted' });
       return next;
@@ -222,19 +233,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [playerSession, handleWalletError]);
 
-  const unlockCurrentCharades = useCallback(async () => {
-    if (!charades || !playerSession) return false;
-    try {
-      const { titles, balance } = await startGameSession(playerSession.token, charades.id);
-      setWalletBalance(balance);
-      updateCharades(unlockCharadesState(charades, titles, playerSession.id));
-      track({ name: 'charades_unlocked' });
-      return true;
-    } catch (err) {
-      setWalletError(handleWalletError(err));
-      return false;
-    }
-  }, [charades, playerSession, updateCharades, handleWalletError]);
+  const unlockCurrentCharades = useCallback(
+    async () => {
+      if (!charades || !playerSession) return false;
+      try {
+        const { titles, balance } = await startGameSession(playerSession.token, charades.id, charades.deckLang);
+        setWalletBalance(balance);
+        updateCharades(unlockCharadesState(charades, titles, playerSession.id));
+        track({ name: 'charades_unlocked' });
+        return true;
+      } catch (err) {
+        setWalletError(handleWalletError(err));
+        return false;
+      }
+    },
+    [charades, playerSession, updateCharades, handleWalletError]
+  );
 
   const startTopUp = useCallback(async () => {
     if (!playerSession) return null;
@@ -352,6 +366,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPrefs,
     wipeEverything,
     gamePriceFils,
+    homeContent,
     charades,
     startCharadesDraft,
     updateCharades,

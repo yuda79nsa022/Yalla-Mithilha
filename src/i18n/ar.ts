@@ -6,6 +6,8 @@
 export const ar = {
   'app.name': 'يلا مثّلها',
   'app.tagline': 'ما تحتاج تعرف الجواب، تحتاج ربعك يفهمونك',
+  'app.writeup':
+    'يلا مثّلها لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
 
   'common.next': 'التالي',
   'common.back': 'رجوع',
@@ -18,6 +20,7 @@ export const ar = {
 
   'home.settings': 'الإعدادات',
   'home.about': 'عن اللعبة والخصوصية',
+  'home.adminSignIn': 'تسجيل دخول الإدارة',
 
   'settings.title': 'الإعدادات',
   'settings.language': 'اللغة',
@@ -55,6 +58,13 @@ export const ar = {
     'الرصيد المدفوع مرتبط بحسابك مو بهالجهاز، عشان تلقاه مرة ثانية وين ما كنت. اللعب كضيف وتجهيز اللعبة ما يحتاجون هذا.',
   'charades.checkout.signInButton': 'سجّل دخولك أو أنشئ حساب',
   'charades.checkout.simulateFailure': 'حاكِ عملية دفع فاشلة (تجريبي)',
+  'charades.draft.deckLanguageTitle': 'أي عناوين تبي تلعب؟',
+  'charades.draft.deckLanguageArTitle': 'عربي بس',
+  'charades.draft.deckLanguageArSubtitle': 'مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية',
+  'charades.draft.deckLanguageEnTitle': 'إنجليزي بس',
+  'charades.draft.deckLanguageEnSubtitle': 'أفلام هوليوود ومسلسلات أمريكية',
+  'charades.draft.deckLanguageMixedTitle': 'مزيج',
+  'charades.draft.deckLanguageMixedSubtitle': 'خليط عشوائي من العناوين العربية والإنجليزية',
   'charades.play.round': 'الجولة {{round}} من {{total}}',
   'charades.play.turn': 'دور {{team}}',
   'charades.play.scanInstruction': 'خلّي اللي بيمثّل من {{team}} يصوّر هذا الرمز بكاميرا جواله عشان يوضّح له العنوان — ما بيظهر هنا',
@@ -96,20 +106,6 @@ export const ar = {
   'account.logout': 'تسجيل الخروج',
   'account.logoutConfirm': 'تبي تسجّل خروج من هالحساب؟ اللعب كضيف يستمر عادي.',
   'account.sessionExpired': 'انتهت جلستك — سجّل دخولك مرة ثانية.',
-
-  'landing.eyebrow': 'أول مرة تزورنا؟',
-  'landing.intro':
-    'يلا مثّلها لعبة "مثّلها" — تمثيل صامت على عناوين حقيقية: مسرحيات ومسلسلات كويتية وخليجية ومصرية. تشتغل بالكامل بالعربي والإنجليزي.',
-  'landing.charadesTitle': 'مثّلها',
-  'landing.charadesBody':
-    'فريقين يسمّون نفسهم ويتناوبون يمثّلون عناوين حقيقية — مسرحيات كويتية ومصرية، مسلسلات مصرية وخليجية — يختارها السيرفر عشوائي كل جولة، عشرين جولة، بدون كلام. اشحن رصيدك مرة وحدة عشان تلعب لعبة.',
-  'landing.charadesCta': 'العب مثّلها',
-  'landing.bilingualTitle': 'عربي وإنجليزي',
-  'landing.bilingualBody': 'كل شاشة، باللغتين — بدّل أي وقت من الإعدادات.',
-  'landing.privacyTitle': 'الخصوصية',
-  'landing.privacyBody': 'اقرأ بالضبط وش ترسل لعبة "مثّلها" ومتى — تحتاج حساب ومحفظة عشان تلعب.',
-  'landing.privacyLink': 'اقرأ صفحة الخصوصية',
-  'landing.fullMenu': 'شوف القائمة الكاملة',
 } as const;
 
 export type TranslationKey = keyof typeof ar;

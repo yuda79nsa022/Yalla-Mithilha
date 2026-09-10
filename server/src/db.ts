@@ -6,9 +6,12 @@ import type {
   AdminUserRow,
   AuditLogRow,
   DealtTitle,
+  DeckLang,
   DeckRow,
   DeckWithTitles,
   GameSessionRow,
+  HomeContent,
+  Lang,
   PaymentRow,
   PlayerRow,
   TitleRow,
@@ -17,6 +20,10 @@ import type {
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
+/** Where uploaded title pictures live on disk — served publicly at `/title-images/*` (see app.ts), unauthenticated like any other game asset. */
+export const TITLE_IMAGES_DIR = path.join(DATA_DIR, 'title-images');
+if (!fs.existsSync(TITLE_IMAGES_DIR)) fs.mkdirSync(TITLE_IMAGES_DIR, { recursive: true });
+
 const DB_PATH = process.env.DB_PATH ?? path.join(DATA_DIR, 'catalogue.sqlite');
 
 export const db = new Database(DB_PATH);
@@ -24,6 +31,18 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 const DEFAULT_GAME_PRICE_FILS = 1500; // 1.500 KD, the admin's own starting price
+
+// The home screen's own starting copy — what a fresh install shows before
+// any admin has edited it. Also what `resetDbForTests` restores between
+// tests, same as the game price above.
+const DEFAULT_HOME_CONTENT: HomeContent = {
+  taglineAr: 'ما تحتاج تعرف الجواب، تحتاج ربعك يفهمونك',
+  taglineEn: 'You do not need to know the answer. You need your friends to understand you.',
+  writeupAr:
+    'يلا مثّلها لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
+  writeupEn:
+    'Yalla Mithilha is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
+};
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS admin_users (
@@ -61,6 +80,10 @@ db.exec(`
     id TEXT PRIMARY KEY,
     name_ar TEXT NOT NULL,
     name_en TEXT NOT NULL,
+    -- Content language ('ar'/'en') a session must match to deal from this
+    -- deck — separate from name_ar/name_en, the deck's bilingual display
+    -- name, which exists regardless of which language its titles are in.
+    language TEXT NOT NULL DEFAULT 'ar',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -73,6 +96,9 @@ db.exec(`
     id TEXT PRIMARY KEY,
     deck_id TEXT NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
     text TEXT NOT NULL,
+    -- A servable path under /title-images/*, or NULL — most titles never
+    -- get a picture; it's an optional bonus, not every title needs one.
+    image_path TEXT,
     created_at INTEGER NOT NULL
   );
 
@@ -91,14 +117,14 @@ db.exec(`
     updated_at INTEGER NOT NULL
   );
 
-  -- One row per purchased charades session — 20 titles dealt from one deck
-  -- the moment a wallet credit was spent. Its id is the client's own
-  -- locally-generated session id, generated once at "start game" time — that
-  -- shared identity is what makes spending idempotent: resuming an
-  -- interrupted session replays the same id and never spends a second
-  -- credit. deck_id is nullable with ON DELETE SET NULL, not NOT
-  -- NULL/RESTRICT: it's a schema leftover from when a session belonged to
-  -- one deck (see startGameSession) that nothing reads back, so a deck
+  -- One row per purchased charades session — 20 titles dealt across every
+  -- playable deck the moment a wallet credit was spent. Its id is the
+  -- client's own locally-generated session id, generated once at "start
+  -- game" time — that shared identity is what makes spending idempotent:
+  -- resuming an interrupted session replays the same id and never spends a
+  -- second credit. deck_id is nullable with ON DELETE SET NULL, not
+  -- NOT NULL/RESTRICT: it's a schema leftover from when a session belonged
+  -- to one deck (see startGameSession) that nothing reads back, so a deck
   -- being deleted later must never be blocked by an old session's now-
   -- meaningless reference to it.
   CREATE TABLE IF NOT EXISTS game_sessions (
@@ -190,8 +216,29 @@ function migrateGameSessionsDeckIdNullable(): void {
 migrateGameSessionsDeckIdNullable();
 
 ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REFERENCES game_sessions(id)');
+// Every deck predating language-gated decks is real Kuwaiti/Khaleeji/Egyptian
+// content, so 'ar' is the correct value for existing rows, not just a
+// placeholder — new decks pass their own language explicitly (see createDeck).
+ensureColumn('decks', 'language', "language TEXT NOT NULL DEFAULT 'ar'");
+ensureColumn('titles', 'image_path', 'image_path TEXT');
+ensureColumn('settings', 'home_tagline_ar', 'home_tagline_ar TEXT');
+ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
+ensureColumn('settings', 'home_writeup_ar', 'home_writeup_ar TEXT');
+ensureColumn('settings', 'home_writeup_en', 'home_writeup_en TEXT');
 
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
+// Bound params rather than a literal in the ALTER TABLE's own DEFAULT, so
+// the Arabic text and any apostrophes in the English text never need manual
+// SQL-escaping — only fills in a column that's still NULL, so this never
+// overwrites content an admin already edited.
+db.prepare(
+  `UPDATE settings SET
+     home_tagline_ar = COALESCE(home_tagline_ar, @taglineAr),
+     home_tagline_en = COALESCE(home_tagline_en, @taglineEn),
+     home_writeup_ar = COALESCE(home_writeup_ar, @writeupAr),
+     home_writeup_en = COALESCE(home_writeup_en, @writeupEn)
+   WHERE id = 1`
+).run(DEFAULT_HOME_CONTENT);
 
 /* --------------------------------------------------------------- settings */
 
@@ -205,6 +252,33 @@ export function setGamePriceFils(fils: number): number {
   return getGamePriceFils();
 }
 
+export function getHomeContent(): HomeContent {
+  const row = db
+    .prepare('SELECT home_tagline_ar, home_tagline_en, home_writeup_ar, home_writeup_en FROM settings WHERE id = 1')
+    .get() as { home_tagline_ar: string; home_tagline_en: string; home_writeup_ar: string; home_writeup_en: string };
+  return {
+    taglineAr: row.home_tagline_ar,
+    taglineEn: row.home_tagline_en,
+    writeupAr: row.home_writeup_ar,
+    writeupEn: row.home_writeup_en,
+  };
+}
+
+/** Partial update — only the given fields change, same pattern as `updateDeck`. */
+export function updateHomeContent(input: Partial<HomeContent>): HomeContent {
+  const current = getHomeContent();
+  const next: HomeContent = { ...current, ...input };
+  db.prepare(
+    `UPDATE settings SET
+       home_tagline_ar = @taglineAr,
+       home_tagline_en = @taglineEn,
+       home_writeup_ar = @writeupAr,
+       home_writeup_en = @writeupEn
+     WHERE id = 1`
+  ).run(next);
+  return next;
+}
+
 /* ------------------------------------------------------------------ decks */
 
 export class DuplicateDeckError extends Error {}
@@ -216,6 +290,7 @@ function rowToDeck(r: any): DeckRow {
     id: r.id,
     nameAr: r.name_ar,
     nameEn: r.name_en,
+    language: r.language as Lang,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -226,6 +301,7 @@ function rowToTitle(r: any): TitleRow {
     id: r.id,
     deckId: r.deck_id,
     text: r.text,
+    imagePath: r.image_path ?? null,
     createdAt: r.created_at,
   };
 }
@@ -253,27 +329,34 @@ export interface CreateDeckInput {
   id: string;
   nameAr: string;
   nameEn: string;
+  /** Which player-language pool this deck's titles belong to. Defaults to 'ar' — every deck that predates this field really is Arabic content. */
+  language?: Lang;
 }
 
 export function createDeck(input: CreateDeckInput): DeckWithTitles {
   if (getDeck(input.id)) throw new DuplicateDeckError(`deck "${input.id}" already exists`);
   const now = Date.now();
+  const language: Lang = input.language ?? 'ar';
   db.prepare(
-    `INSERT INTO decks (id, name_ar, name_en, created_at, updated_at) VALUES (@id, @nameAr, @nameEn, @now, @now)`
-  ).run({ ...input, now });
+    `INSERT INTO decks (id, name_ar, name_en, language, created_at, updated_at)
+     VALUES (@id, @nameAr, @nameEn, @language, @now, @now)`
+  ).run({ ...input, language, now });
   return getDeck(input.id)!;
 }
 
 export interface UpdateDeckInput {
   nameAr?: string;
   nameEn?: string;
+  language?: Lang;
 }
 
 export function updateDeck(id: string, input: UpdateDeckInput): DeckWithTitles {
   const existing = getDeck(id);
   if (!existing) throw new DeckNotFoundError(`deck "${id}" not found`);
   const next = { ...existing, ...input, updatedAt: Date.now() };
-  db.prepare('UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, updated_at=@updatedAt WHERE id=@id').run(next);
+  db.prepare(
+    'UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, language=@language, updated_at=@updatedAt WHERE id=@id'
+  ).run(next);
   return getDeck(id)!;
 }
 
@@ -309,14 +392,91 @@ export function addTitlesToDeck(deckId: string, titles: string[]): { added: numb
   return { added, skipped: titles.length - added };
 }
 
-export function deleteTitle(deckId: string, titleId: string): void {
-  const result = db.prepare('DELETE FROM titles WHERE id = ? AND deck_id = ?').run(titleId, deckId);
-  if (result.changes === 0) throw new TitleNotFoundError(`title "${titleId}" not found in deck "${deckId}"`);
+export interface TitleWithImage {
+  text: string;
+  /** A servable path already written to disk (see routes/adminDecks.ts) — null when this row's image was missing or invalid. */
+  imagePath: string | null;
 }
 
-/** Decks the app is ever allowed to draft from — nothing to publish/complete separately, a deck with at least one title is playable. */
-export function listPlayableDecks(): DeckWithTitles[] {
-  return listDecks().filter((d) => d.titles.length > 0);
+/**
+ * Same dedup-by-trimmed-text rule as `addTitlesToDeck`, plus each row's own
+ * picture — used by the bulk "import with images" route (a spreadsheet
+ * pairing each title with an image filename, plus a zip of the images
+ * themselves). A row whose image didn't resolve still adds its title text;
+ * it just has no picture, exactly like any other title.
+ */
+export function addTitlesToDeckWithImages(
+  deckId: string,
+  rows: TitleWithImage[]
+): { added: number; skipped: number } {
+  const deck = getDeck(deckId);
+  if (!deck) throw new DeckNotFoundError(`deck "${deckId}" not found`);
+
+  const existing = new Set(deck.titles.map((t) => t.text.trim()));
+  const stmt = db.prepare(
+    'INSERT INTO titles (id, deck_id, text, image_path, created_at) VALUES (@id, @deckId, @text, @imagePath, @now)'
+  );
+  let added = 0;
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      const text = row.text.trim();
+      if (!text || existing.has(text)) continue;
+      existing.add(text);
+      stmt.run({ id: crypto.randomUUID(), deckId, text, imagePath: row.imagePath, now: Date.now() });
+      added++;
+    }
+    db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
+  });
+  tx();
+
+  return { added, skipped: rows.length - added };
+}
+
+export function getTitle(deckId: string, titleId: string): TitleRow | null {
+  const row = db.prepare('SELECT * FROM titles WHERE id = ? AND deck_id = ?').get(titleId, deckId);
+  return row ? rowToTitle(row) : null;
+}
+
+export interface UpdateTitleInput {
+  text?: string;
+  /** `null` explicitly clears the picture; `undefined` (the default, when omitted) leaves it as-is. */
+  imagePath?: string | null;
+}
+
+export function updateTitle(deckId: string, titleId: string, input: UpdateTitleInput): TitleRow {
+  const existing = getTitle(deckId, titleId);
+  if (!existing) throw new TitleNotFoundError(`title "${titleId}" not found in deck "${deckId}"`);
+  const next = {
+    id: titleId,
+    deckId,
+    text: input.text !== undefined ? input.text.trim() : existing.text,
+    imagePath: input.imagePath !== undefined ? input.imagePath : existing.imagePath,
+  };
+  db.prepare('UPDATE titles SET text=@text, image_path=@imagePath WHERE id=@id AND deck_id=@deckId').run(next);
+  db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
+  return getTitle(deckId, titleId)!;
+}
+
+/** Returns the removed title so callers (the route) can delete its image file from disk too — the DB itself doesn't touch the filesystem. */
+export function deleteTitle(deckId: string, titleId: string): TitleRow {
+  const existing = getTitle(deckId, titleId);
+  if (!existing) throw new TitleNotFoundError(`title "${titleId}" not found in deck "${deckId}"`);
+  db.prepare('DELETE FROM titles WHERE id = ? AND deck_id = ?').run(titleId, deckId);
+  return existing;
+}
+
+/**
+ * Decks the app is ever allowed to draft from — nothing to publish/complete
+ * separately, a deck with at least one title is playable. `deckLang`, when
+ * given as `'ar'` or `'en'`, additionally restricts to decks whose *content*
+ * language matches — the player's own explicit choice at checkout, not the
+ * app's UI language. Omitted, or `'mixed'`, includes every playable deck
+ * regardless of content language.
+ */
+export function listPlayableDecks(deckLang?: DeckLang): DeckWithTitles[] {
+  return listDecks().filter(
+    (d) => d.titles.length > 0 && (deckLang === undefined || deckLang === 'mixed' || d.language === deckLang)
+  );
 }
 
 /* --------------------------------------------------------------- players */
@@ -675,24 +835,31 @@ function shuffled<T>(items: T[]): T[] {
 const TITLES_PER_SESSION = 20;
 
 /**
- * Deals up to `count` titles round-robin across every playable deck, so two
- * consecutive rounds never share a category unless only one deck still has
- * titles left (unavoidable once every other category is exhausted).
- * Deduplicated by trimmed text so the same title text appearing in two
- * different decks still only ever occupies one slot in a session (see
+ * Deals up to `count` titles round-robin across every playable deck *in
+ * `deckLang`*, so two consecutive rounds never share a category unless only
+ * one deck still has titles left (unavoidable once every other category is
+ * exhausted). Deduplicated by trimmed text so the same title text appearing
+ * in two different decks still only ever occupies one slot in a session (see
  * "never repeated in the same game" on `startGameSession`). Which deck goes
  * first, and which title comes out of each deck, are both random.
  */
-function dealTitles(count: number): DealtTitle[] {
+function dealTitles(count: number, deckLang: DeckLang): DealtTitle[] {
   const seenText = new Set<string>();
-  let queues = shuffled(listPlayableDecks())
+  let queues = shuffled(listPlayableDecks(deckLang))
     .map((deck) => {
       const titles: DealtTitle[] = [];
       for (const title of deck.titles) {
         const text = title.text.trim();
         if (seenText.has(text)) continue;
         seenText.add(text);
-        titles.push({ id: title.id, text: title.text, deckId: deck.id, deckNameAr: deck.nameAr, deckNameEn: deck.nameEn });
+        titles.push({
+          id: title.id,
+          text: title.text,
+          deckId: deck.id,
+          deckNameAr: deck.nameAr,
+          deckNameEn: deck.nameEn,
+          imageUrl: title.imagePath ?? undefined,
+        });
       }
       return shuffled(titles);
     })
@@ -718,15 +885,20 @@ function dealTitles(count: number): DealtTitle[] {
  * twice.
  *
  * The player never picks a category: each of the 20 titles is drawn at
- * random from every playable deck combined, without replacement, so no
- * title repeats within the same session even across decks — and dealt
- * round-robin across decks, so consecutive rounds don't share a category
- * either (see `dealTitles`). Fewer than 20 titles exist across every deck
- * combined? Deals all of it.
+ * random from every playable deck combined *in `deckLang`*, without
+ * replacement, so no title repeats within the same session even across
+ * decks — and dealt round-robin across decks, so consecutive rounds don't
+ * share a category either (see `dealTitles`). Fewer than 20 titles exist
+ * across every deck combined? Deals all of it. `deckLang` is the player's
+ * own explicit choice made at checkout — Arabic only, English only, or a
+ * mix of both — entirely independent of the app's own UI language; it
+ * defaults to `'mixed'` only for direct callers that predate this
+ * parameter (tests, scripts).
  */
 export function startGameSession(
   playerId: string,
-  sessionId: string
+  sessionId: string,
+  deckLang: DeckLang = 'mixed'
 ): { session: GameSessionRow; balance: number } {
   const existing = getGameSession(sessionId);
   if (existing) {
@@ -734,7 +906,7 @@ export function startGameSession(
     return { session: existing, balance: creditBalance(playerId) };
   }
 
-  const dealt = dealTitles(TITLES_PER_SESSION);
+  const dealt = dealTitles(TITLES_PER_SESSION, deckLang);
   if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
 
   const tx = db.transaction(() => {
@@ -817,7 +989,15 @@ export function listAuditLog(limit = 200): AuditLogRow[] {
 export function resetDbForTests(): void {
   db.exec(
     `DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM game_sessions;
-     DELETE FROM payments; DELETE FROM titles; DELETE FROM decks; DELETE FROM admin_users; DELETE FROM players;
-     UPDATE settings SET game_price_fils = ${DEFAULT_GAME_PRICE_FILS} WHERE id = 1;`
+     DELETE FROM payments; DELETE FROM titles; DELETE FROM decks; DELETE FROM admin_users; DELETE FROM players;`
   );
+  db.prepare(
+    `UPDATE settings SET
+       game_price_fils = @gamePriceFils,
+       home_tagline_ar = @taglineAr,
+       home_tagline_en = @taglineEn,
+       home_writeup_ar = @writeupAr,
+       home_writeup_en = @writeupEn
+     WHERE id = 1`
+  ).run({ gamePriceFils: DEFAULT_GAME_PRICE_FILS, ...DEFAULT_HOME_CONTENT });
 }

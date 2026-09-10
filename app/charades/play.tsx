@@ -1,6 +1,6 @@
 import { Redirect, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Button, ConfirmModal, Screen, Spacer, T } from '../../src/ui/components';
 import { colors, radius, spacing } from '../../src/ui/theme';
@@ -8,7 +8,7 @@ import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
 import { awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
 import { buildRevealUrl, resolveRevealBaseUrl } from '../../src/engine/reveal';
-import { REVEAL_BASE_URL } from '../../src/config';
+import { CATALOGUE_API_URL, REVEAL_BASE_URL } from '../../src/config';
 
 /** Each round gets 2 minutes to act before the score buttons appear — unless the actor's team ends it early. */
 const ROUND_SECONDS = 120;
@@ -122,8 +122,9 @@ export default function CharadesPlay() {
   const category = lang === 'ar' ? currentTitle.deckNameAr : currentTitle.deckNameEn;
 
   const baseUrl = resolveRevealBaseUrl(REVEAL_BASE_URL, webOrigin());
+  const absoluteImageUrl = currentTitle.imageUrl ? `${CATALOGUE_API_URL}${currentTitle.imageUrl}` : undefined;
   const revealUrl = baseUrl
-    ? buildRevealUrl(baseUrl, currentTitle.text, currentTitle.deckNameAr, currentTitle.deckNameEn)
+    ? buildRevealUrl(baseUrl, currentTitle.text, currentTitle.deckNameAr, currentTitle.deckNameEn, absoluteImageUrl)
     : null;
 
   const nextRound = () => {
@@ -146,6 +147,14 @@ export default function CharadesPlay() {
           <T variant="display" align="center">
             {currentTitle.text}
           </T>
+          {absoluteImageUrl ? (
+            <Image
+              source={{ uri: absoluteImageUrl }}
+              style={{ width: '100%', height: 200, borderRadius: radius.lg }}
+              resizeMode="contain"
+              accessibilityLabel={currentTitle.text}
+            />
+          ) : null}
           <Spacer />
           <T variant="heading" align="center" color={finishedTeamColor}>
             {pendingOutcome.awarded

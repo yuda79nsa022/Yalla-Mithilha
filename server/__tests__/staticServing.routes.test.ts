@@ -38,7 +38,7 @@ describe('the admin tool, at /admin-ui', () => {
 describe('the player app, served from the root', () => {
   it('reports the build as missing rather than a bare 404, when public-player has not been built', async () => {
     expect(fs.existsSync(PLAYER_INDEX_HTML)).toBe(false);
-    const res = await request(app).get('/landing');
+    const res = await request(app).get('/home');
     expect(res.status).toBe(503);
     expect(res.text).toMatch(/expo export/);
   });
@@ -53,8 +53,8 @@ describe('the player app, served from the root', () => {
       fs.rmSync(PLAYER_APP_DIR, { recursive: true, force: true });
     });
 
-    it('serves the SPA shell for a client-side route like /landing', async () => {
-      const res = await request(app).get('/landing');
+    it('serves the SPA shell for a client-side route like /home', async () => {
+      const res = await request(app).get('/home');
       expect(res.status).toBe(200);
       expect(res.text).toMatch(/player app shell/);
     });
@@ -67,6 +67,11 @@ describe('the player app, served from the root', () => {
 
     it('still leaves API routes alone rather than swallowing them into the SPA shell', async () => {
       const res = await request(app).get('/players/does-not-exist');
+      expect(res.text).not.toMatch(/player app shell/);
+    });
+
+    it('a missing title picture 404s rather than falling back to the SPA shell', async () => {
+      const res = await request(app).get('/title-images/does-not-exist.png');
       expect(res.text).not.toMatch(/player app shell/);
     });
   });

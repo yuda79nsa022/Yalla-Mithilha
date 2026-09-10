@@ -25,11 +25,11 @@ raw.exec(`
   );
   CREATE TABLE decks (
     id TEXT PRIMARY KEY, name_ar TEXT NOT NULL, name_en TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    language TEXT NOT NULL DEFAULT 'ar', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
   );
   CREATE TABLE titles (
     id TEXT PRIMARY KEY, deck_id TEXT NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
-    text TEXT NOT NULL, created_at INTEGER NOT NULL
+    text TEXT NOT NULL, image_path TEXT, created_at INTEGER NOT NULL
   );
   CREATE TABLE game_sessions (
     id TEXT PRIMARY KEY,
@@ -47,13 +47,9 @@ raw.prepare('INSERT INTO players (id, username, password_hash, created_at, updat
   now,
   now
 );
-raw.prepare('INSERT INTO decks (id, name_ar, name_en, created_at, updated_at) VALUES (?,?,?,?,?)').run(
-  'old-deck',
-  'قديم',
-  'Old',
-  now,
-  now
-);
+raw.prepare(
+  'INSERT INTO decks (id, name_ar, name_en, language, created_at, updated_at) VALUES (?,?,?,?,?,?)'
+).run('old-deck', 'قديم', 'Old', 'ar', now, now);
 raw.prepare('INSERT INTO titles (id, deck_id, text, created_at) VALUES (?,?,?,?)').run(
   't1',
   'old-deck',

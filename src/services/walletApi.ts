@@ -1,5 +1,6 @@
 import { CATALOGUE_API_URL } from '../config';
 import type { CharadesTitle } from '../engine/charades';
+import type { DeckLang } from '../engine/types';
 
 export class WalletError extends Error {
   status: number;
@@ -59,6 +60,18 @@ export function getGamePrice(timeoutMs = 8000): Promise<{ fils: number; currency
   return request('/charades/price', { method: 'GET' }, timeoutMs);
 }
 
+export interface HomeContent {
+  taglineAr: string;
+  taglineEn: string;
+  writeupAr: string;
+  writeupEn: string;
+}
+
+/** The admin-editable home-screen tagline and write-up, in both languages. Public, so a guest sees it before signing up. */
+export function getHomeContent(timeoutMs = 8000): Promise<HomeContent> {
+  return request('/charades/home-content', { method: 'GET' }, timeoutMs);
+}
+
 /** Current server-held wallet balance for the signed-in player, in whole games. */
 export function getWalletBalance(token: string, timeoutMs = 8000): Promise<number> {
   return request<{ balance: number }>(
@@ -85,21 +98,25 @@ export function failCheckout(token: string, paymentId: string, timeoutMs = 8000)
 
 /**
  * Spends one wallet credit and deals `sessionId`'s 20 titles in one call —
- * at random across every playable deck, never a deck the player chose.
- * Idempotent server-side — calling this again with the same sessionId (e.g.
- * after an app restart) never spends a second credit, and returns the same
- * dealt titles instead. Throws `WalletError` with `status: 402` when the
- * balance is empty.
+ * at random across every playable deck *in `deckLang`*, never a deck the
+ * player chose directly. `deckLang` is the player's own explicit choice
+ * made at checkout — Arabic only, English only, or a mix of both — entirely
+ * separate from the app's own UI language. Idempotent server-side — calling
+ * this again with the same sessionId (e.g. after an app restart) never
+ * spends a second credit, and returns the same dealt titles instead,
+ * regardless of `deckLang`. Throws `WalletError` with `status: 402` when
+ * the balance is empty.
  */
 export function startGameSession(
   token: string,
   sessionId: string,
+  deckLang: DeckLang,
   timeoutMs = 8000
 ): Promise<{ titles: CharadesTitle[]; balance: number }> {
   return authedPost<{ session: { titles: CharadesTitle[] }; balance: number }>(
     '/charades/sessions',
     token,
-    { sessionId },
+    { sessionId, lang: deckLang },
     timeoutMs
   ).then((r) => ({ titles: r.session.titles, balance: r.balance }));
 }

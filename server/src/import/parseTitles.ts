@@ -126,3 +126,33 @@ export async function parsePdfTitles(buffer: Buffer): Promise<string[]> {
   const lines = text.split('\n');
   return cleanTitles(lines);
 }
+
+export interface TitleImageManifestRow {
+  text: string;
+  imageFilename: string;
+}
+
+/**
+ * The manifest for "import with images": an .xlsx with exactly two columns
+ * — title text, then the filename (inside the accompanying zip) of that
+ * title's picture. Deliberately a fixed two-column contract rather than
+ * `pickTitlesFromRows`' column-guessing heuristic: pairing a title with the
+ * wrong image is a much worse mistake than losing one row to a bad guess,
+ * so this format doesn't guess at all. Row 1 is always treated as a header
+ * and skipped; a row missing either cell is dropped rather than guessed at.
+ */
+export async function parseTitleImageManifestXlsx(buffer: Buffer): Promise<TitleImageManifestRow[]> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
+
+  const rows: TitleImageManifestRow[] = [];
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return; // header
+    const text = String(row.getCell(1).value ?? '').trim();
+    const imageFilename = String(row.getCell(2).value ?? '').trim();
+    if (text && imageFilename) rows.push({ text, imageFilename });
+  });
+  return rows;
+}

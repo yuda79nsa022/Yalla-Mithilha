@@ -11,7 +11,9 @@ import {
   DuplicateUsernameError,
   LastAdminError,
   PlayerNotFoundError,
+  TitleNotFoundError,
   addTitlesToDeck,
+  addTitlesToDeckWithImages,
   createAdminUser,
   createDeck,
   createPlayer,
@@ -23,7 +25,9 @@ import {
   getAdminUserById,
   getDeck,
   getGamePriceFils,
+  getHomeContent,
   getPlayerById,
+  getTitle,
   grantCredits,
   listAdminUsers,
   listDecks,
@@ -34,7 +38,9 @@ import {
   startGameSession,
   updateAdminUser,
   updateDeck,
+  updateHomeContent,
   updatePlayer,
+  updateTitle,
 } from '../src/db';
 
 beforeEach(() => resetDbForTests());
@@ -55,6 +61,16 @@ describe('createDeck', () => {
     createDeck(sample);
     expect(() => createDeck(sample)).toThrow(DuplicateDeckError);
   });
+
+  it('defaults to Arabic when no language is given — every deck predating this field really is Arabic', () => {
+    const deck = createDeck(sample);
+    expect(deck.language).toBe('ar');
+  });
+
+  it('accepts an explicit English language', () => {
+    const deck = createDeck({ ...sample, language: 'en' });
+    expect(deck.language).toBe('en');
+  });
 });
 
 describe('updateDeck', () => {
@@ -68,6 +84,12 @@ describe('updateDeck', () => {
 
   it('throws for an unknown deck', () => {
     expect(() => updateDeck('nope', { nameEn: 'x' })).toThrow(DeckNotFoundError);
+  });
+
+  it('can move a deck to the other language pool', () => {
+    createDeck(sample);
+    const updated = updateDeck(sample.id, { language: 'en' });
+    expect(updated.language).toBe('en');
   });
 });
 
@@ -90,7 +112,7 @@ describe('deleteDeck', () => {
     addTitlesToDeck(sample.id, ['a', 'b', 'c']);
     const player = createPlayer({ username: 'played-here', passwordHash: 'hashed' });
     grantCredits(player.id, 1);
-    startGameSession(player.id, 'sess-for-delete-test');
+    startGameSession(player.id, 'sess-for-delete-test', 'mixed');
 
     expect(() => deleteDeck(sample.id)).not.toThrow();
     expect(getDeck(sample.id)).toBeNull();
@@ -140,6 +162,86 @@ describe('deleteTitle', () => {
     createDeck(sample);
     expect(() => deleteTitle(sample.id, 'nope')).toThrow();
   });
+
+  it('returns the removed row, so a caller can clean up its image file', () => {
+    createDeck(sample);
+    addTitlesToDeckWithImages(sample.id, [{ text: 'a', imagePath: '/title-images/x.png' }]);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+    const removed = deleteTitle(sample.id, titleId);
+    expect(removed).toMatchObject({ text: 'a', imagePath: '/title-images/x.png' });
+  });
+});
+
+describe('addTitlesToDeckWithImages', () => {
+  it('stores each row\'s own image path alongside its title', () => {
+    createDeck(sample);
+    const { added, skipped } = addTitlesToDeckWithImages(sample.id, [
+      { text: 'a', imagePath: '/title-images/a.png' },
+      { text: 'b', imagePath: null },
+    ]);
+    expect(added).toBe(2);
+    expect(skipped).toBe(0);
+    const titles = getDeck(sample.id)!.titles;
+    expect(titles.find((t) => t.text === 'a')!.imagePath).toBe('/title-images/a.png');
+    expect(titles.find((t) => t.text === 'b')!.imagePath).toBeNull();
+  });
+
+  it('skips exact duplicates already in the deck, same rule as addTitlesToDeck', () => {
+    createDeck(sample);
+    addTitlesToDeck(sample.id, ['a']);
+    const { added, skipped } = addTitlesToDeckWithImages(sample.id, [
+      { text: 'a', imagePath: '/title-images/a.png' },
+      { text: 'b', imagePath: null },
+    ]);
+    expect(added).toBe(1);
+    expect(skipped).toBe(1);
+  });
+
+  it('throws for an unknown deck', () => {
+    expect(() => addTitlesToDeckWithImages('nope', [{ text: 'a', imagePath: null }])).toThrow(DeckNotFoundError);
+  });
+});
+
+describe('updateTitle', () => {
+  it('updates the text without touching the image', () => {
+    createDeck(sample);
+    addTitlesToDeckWithImages(sample.id, [{ text: 'a', imagePath: '/title-images/a.png' }]);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+    const updated = updateTitle(sample.id, titleId, { text: 'renamed' });
+    expect(updated).toMatchObject({ text: 'renamed', imagePath: '/title-images/a.png' });
+  });
+
+  it('replaces the image without touching the text', () => {
+    createDeck(sample);
+    addTitlesToDeckWithImages(sample.id, [{ text: 'a', imagePath: '/title-images/old.png' }]);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+    const updated = updateTitle(sample.id, titleId, { imagePath: '/title-images/new.png' });
+    expect(updated).toMatchObject({ text: 'a', imagePath: '/title-images/new.png' });
+  });
+
+  it('clears the image when imagePath is explicitly null, but leaves it alone when omitted', () => {
+    createDeck(sample);
+    addTitlesToDeckWithImages(sample.id, [{ text: 'a', imagePath: '/title-images/a.png' }]);
+    const titleId = getDeck(sample.id)!.titles[0].id;
+
+    const untouched = updateTitle(sample.id, titleId, { text: 'still a' });
+    expect(untouched.imagePath).toBe('/title-images/a.png');
+
+    const cleared = updateTitle(sample.id, titleId, { imagePath: null });
+    expect(cleared.imagePath).toBeNull();
+  });
+
+  it('throws for an unknown title', () => {
+    createDeck(sample);
+    expect(() => updateTitle(sample.id, 'nope', { text: 'x' })).toThrow(TitleNotFoundError);
+  });
+});
+
+describe('getTitle', () => {
+  it('returns null for a title that does not exist', () => {
+    createDeck(sample);
+    expect(getTitle(sample.id, 'nope')).toBeNull();
+  });
 });
 
 describe('listPlayableDecks', () => {
@@ -152,6 +254,31 @@ describe('listPlayableDecks', () => {
     createDeck(sample);
     addTitlesToDeck(sample.id, ['a']);
     expect(listPlayableDecks().map((d) => d.id)).toEqual([sample.id]);
+  });
+
+  it('with no lang filter, returns playable decks in either language', () => {
+    createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
+    addTitlesToDeck('ar-deck', ['a']);
+    createDeck({ ...sample, id: 'en-deck', language: 'en' });
+    addTitlesToDeck('en-deck', ['b']);
+    expect(listPlayableDecks().map((d) => d.id).sort()).toEqual(['ar-deck', 'en-deck']);
+  });
+
+  it('given a lang, only returns playable decks in that language', () => {
+    createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
+    addTitlesToDeck('ar-deck', ['a']);
+    createDeck({ ...sample, id: 'en-deck', language: 'en' });
+    addTitlesToDeck('en-deck', ['b']);
+    expect(listPlayableDecks('ar').map((d) => d.id)).toEqual(['ar-deck']);
+    expect(listPlayableDecks('en').map((d) => d.id)).toEqual(['en-deck']);
+  });
+
+  it('given "mixed", returns playable decks in either language, same as no filter', () => {
+    createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
+    addTitlesToDeck('ar-deck', ['a']);
+    createDeck({ ...sample, id: 'en-deck', language: 'en' });
+    addTitlesToDeck('en-deck', ['b']);
+    expect(listPlayableDecks('mixed').map((d) => d.id).sort()).toEqual(['ar-deck', 'en-deck']);
   });
 });
 
@@ -171,6 +298,26 @@ describe('game price setting', () => {
   it('is admin-editable and persists', () => {
     setGamePriceFils(2000);
     expect(getGamePriceFils()).toBe(2000);
+  });
+});
+
+describe('home page content setting', () => {
+  it('has sane, non-empty defaults in both languages', () => {
+    const content = getHomeContent();
+    expect(content.taglineAr.length).toBeGreaterThan(0);
+    expect(content.taglineEn.length).toBeGreaterThan(0);
+    expect(content.writeupAr.length).toBeGreaterThan(0);
+    expect(content.writeupEn.length).toBeGreaterThan(0);
+  });
+
+  it('partially updates and persists just the given fields', () => {
+    const before = getHomeContent();
+    const after = updateHomeContent({ taglineEn: 'New tagline' });
+    expect(after.taglineEn).toBe('New tagline');
+    expect(after.taglineAr).toBe(before.taglineAr);
+    expect(after.writeupAr).toBe(before.writeupAr);
+    expect(after.writeupEn).toBe(before.writeupEn);
+    expect(getHomeContent().taglineEn).toBe('New tagline');
   });
 });
 

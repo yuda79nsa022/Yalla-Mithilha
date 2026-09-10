@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Button, ConfirmModal, Divider, Pill, Screen, Spacer, T } from '../src/ui/components';
 import { colors, radius, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { needsRestartForDirection } from '../src/platform';
 import { track } from '../src/services/analytics';
+import { CATALOGUE_API_URL } from '../src/config';
 import type { Lang } from '../src/engine/types';
 
 function LanguageToggle() {
@@ -42,7 +43,8 @@ function LanguageToggle() {
 }
 
 export default function Home() {
-  const { t, player, walletBalance, refreshWallet, logoutPlayerAccount, charades, quitCharades } = useApp();
+  const { t, lang, homeContent, player, walletBalance, refreshWallet, logoutPlayerAccount, charades, quitCharades } =
+    useApp();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   useEffect(() => {
@@ -53,6 +55,11 @@ export default function Home() {
     setConfirmingLogout(false);
     logoutPlayerAccount();
   };
+
+  // Admin-editable via the mini CMS — falls back to the bundled i18n copy
+  // until the first successful fetch (or if the server can't be reached).
+  const tagline = (lang === 'ar' ? homeContent?.taglineAr : homeContent?.taglineEn) ?? t('app.tagline');
+  const writeup = (lang === 'ar' ? homeContent?.writeupAr : homeContent?.writeupEn) ?? t('app.writeup');
 
   return (
     <Screen scroll>
@@ -66,7 +73,11 @@ export default function Home() {
         accessibilityLabel={t('app.name')}
       />
       <T variant="body" color={colors.textMuted}>
-        {t('app.tagline')}
+        {tagline}
+      </T>
+      <Spacer size={spacing.sm} />
+      <T variant="label" color={colors.textMuted}>
+        {writeup}
       </T>
 
       <Spacer size={spacing.xl} />
@@ -134,6 +145,13 @@ export default function Home() {
       <View style={{ flex: 1 }} />
       <Divider />
       <Button label={t('home.about')} tone="ghost" onPress={() => router.push('/privacy')} />
+      <Button
+        label={t('home.adminSignIn')}
+        tone="ghost"
+        onPress={() => {
+          void Linking.openURL(`${CATALOGUE_API_URL}/admin-ui`);
+        }}
+      />
 
       <ConfirmModal
         visible={confirmingLogout}

@@ -1,8 +1,28 @@
+import type { DeckLang, Lang } from './types';
+
 export class ValidationError extends Error {}
 
 function requireString(value: unknown, field: string): string {
   if (typeof value !== 'string' || !value.trim()) {
     throw new ValidationError(`"${field}" is required and must be a non-empty string`);
+  }
+  return value;
+}
+
+/** Defaults to 'ar' when omitted — every deck/session predating this field really is Arabic. */
+function optionalLang(value: unknown, field: string): Lang {
+  if (value === undefined) return 'ar';
+  if (value !== 'ar' && value !== 'en') {
+    throw new ValidationError(`"${field}" must be "ar" or "en"`);
+  }
+  return value;
+}
+
+/** Defaults to 'mixed' when omitted — the broadest, most permissive choice. */
+function optionalDeckLang(value: unknown, field: string): DeckLang {
+  if (value === undefined) return 'mixed';
+  if (value !== 'ar' && value !== 'en' && value !== 'mixed') {
+    throw new ValidationError(`"${field}" must be "ar", "en" or "mixed"`);
   }
   return value;
 }
@@ -20,6 +40,7 @@ export interface CreateDeckBody {
   id: string;
   nameAr: string;
   nameEn: string;
+  language: Lang;
 }
 
 export function parseCreateDeckBody(body: unknown): CreateDeckBody {
@@ -28,12 +49,14 @@ export function parseCreateDeckBody(body: unknown): CreateDeckBody {
     id: requireDeckId(b.id),
     nameAr: requireString(b.nameAr, 'nameAr'),
     nameEn: requireString(b.nameEn, 'nameEn'),
+    language: optionalLang(b.language, 'language'),
   };
 }
 
 export interface UpdateDeckBody {
   nameAr?: string;
   nameEn?: string;
+  language?: Lang;
 }
 
 export function parseUpdateDeckBody(body: unknown): UpdateDeckBody {
@@ -41,6 +64,7 @@ export function parseUpdateDeckBody(body: unknown): UpdateDeckBody {
   const out: UpdateDeckBody = {};
   if (b.nameAr !== undefined) out.nameAr = requireString(b.nameAr, 'nameAr');
   if (b.nameEn !== undefined) out.nameEn = requireString(b.nameEn, 'nameEn');
+  if (b.language !== undefined) out.language = optionalLang(b.language, 'language');
   return out;
 }
 
@@ -136,13 +160,51 @@ export function parseUpdatePlayerBody(body: unknown): UpdatePlayerBody {
 
 export interface StartSessionBody {
   sessionId: string;
+  lang: DeckLang;
 }
 
-/** `sessionId` is the client's own locally generated id — used verbatim as the server-side game_sessions row id. */
+/**
+ * `sessionId` is the client's own locally generated id — used verbatim as
+ * the server-side game_sessions row id. `lang` picks which deck-language
+ * pool the session deals from (see `startGameSession`) — the player's own
+ * explicit choice at checkout (Arabic only, English only, or a mix of
+ * both), entirely separate from the app's own UI language.
+ */
 export function parseStartSessionBody(body: unknown): StartSessionBody {
   const b = (body ?? {}) as Record<string, unknown>;
   const sessionId = requireString(b.sessionId, 'sessionId');
   if (sessionId.length > 200) throw new ValidationError('"sessionId" is too long');
-  return { sessionId };
+  return { sessionId, lang: optionalDeckLang(b.lang, 'lang') };
+}
+
+export interface UpdateHomeContentBody {
+  taglineAr?: string;
+  taglineEn?: string;
+  writeupAr?: string;
+  writeupEn?: string;
+}
+
+const MAX_TAGLINE_LENGTH = 200;
+const MAX_WRITEUP_LENGTH = 2000;
+
+function optionalBoundedString(value: unknown, field: string, maxLength: number): string | undefined {
+  if (value === undefined) return undefined;
+  const str = requireString(value, field);
+  if (str.length > maxLength) throw new ValidationError(`"${field}" is too long (max ${maxLength} characters)`);
+  return str;
+}
+
+export function parseUpdateHomeContentBody(body: unknown): UpdateHomeContentBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const out: UpdateHomeContentBody = {};
+  const taglineAr = optionalBoundedString(b.taglineAr, 'taglineAr', MAX_TAGLINE_LENGTH);
+  if (taglineAr !== undefined) out.taglineAr = taglineAr;
+  const taglineEn = optionalBoundedString(b.taglineEn, 'taglineEn', MAX_TAGLINE_LENGTH);
+  if (taglineEn !== undefined) out.taglineEn = taglineEn;
+  const writeupAr = optionalBoundedString(b.writeupAr, 'writeupAr', MAX_WRITEUP_LENGTH);
+  if (writeupAr !== undefined) out.writeupAr = writeupAr;
+  const writeupEn = optionalBoundedString(b.writeupEn, 'writeupEn', MAX_WRITEUP_LENGTH);
+  if (writeupEn !== undefined) out.writeupEn = writeupEn;
+  return out;
 }
 

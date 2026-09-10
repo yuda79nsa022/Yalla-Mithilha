@@ -91,9 +91,23 @@
           <p id="gamePriceResult" class="muted"></p>
         </div>
         <div class="card">
+          <h3 style="margin-top:0">Home page content</h3>
+          <p class="muted">The tagline and explanatory paragraph shown on the player app's home screen, in both languages.</p>
+          <div class="row">
+            <div class="field"><label>Tagline (English)</label><input id="homeTaglineEn" /></div>
+            <div class="field"><label>Tagline (Arabic)</label><input id="homeTaglineAr" dir="rtl" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Write-up (English)</label><textarea id="homeWriteupEn" rows="4"></textarea></div>
+            <div class="field"><label>Write-up (Arabic)</label><textarea id="homeWriteupAr" dir="rtl" rows="4"></textarea></div>
+          </div>
+          <button id="saveHomeContentBtn" class="secondary">Save home content</button>
+          <p id="homeContentResult" class="muted"></p>
+        </div>
+        <div class="card">
           <table>
             <thead>
-              <tr><th>ID</th><th>Name</th><th>Titles</th><th></th></tr>
+              <tr><th>ID</th><th>Name</th><th>Language</th><th>Titles</th><th></th></tr>
             </thead>
             <tbody id="deckRows"></tbody>
           </table>
@@ -111,6 +125,15 @@
             <div class="field"><label>Name (Arabic)</label><input id="dNameAr" dir="rtl" /></div>
             <div class="field"><label>Name (English)</label><input id="dNameEn" /></div>
           </div>
+          <div class="row">
+            <div class="field">
+              <label>Language</label>
+              <select id="dLanguage">
+                <option value="ar">Arabic — Kuwaiti, Khaleeji, Egyptian content</option>
+                <option value="en">English — Hollywood, American content</option>
+              </select>
+            </div>
+          </div>
           <button id="saveDeckBtn">Save deck</button>
           <button class="danger" id="deleteDeckBtn">Delete deck</button>
         </div>
@@ -124,8 +147,19 @@
         </div>
 
         <div class="card">
+          <h3 style="margin-top:0">Import titles with pictures</h3>
+          <p class="muted">Two files: a .xlsx with two columns (title, image filename — row 1 is a header and is skipped), and a .zip containing those image files (.png/.jpg/.webp, 5 MB max each). Titles are matched to pictures by filename; a title whose filename isn't found still gets added, just without a picture.</p>
+          <div class="row">
+            <div class="field"><label>Manifest (.xlsx)</label><input id="imageManifestFile" type="file" accept=".xlsx" /></div>
+            <div class="field"><label>Images (.zip)</label><input id="imageZipFile" type="file" accept=".zip" /></div>
+          </div>
+          <button id="importWithImagesBtn" class="secondary">Import with pictures</button>
+          <p id="importWithImagesResult" class="muted"></p>
+        </div>
+
+        <div class="card">
           <h3 style="margin-top:0">Titles (<span id="titleCount">0</span>)</h3>
-          <div id="titleRows" style="max-height:400px;overflow-y:auto"></div>
+          <div id="titleRows" style="max-height:520px;overflow-y:auto"></div>
         </div>
       </div>
     </div>
@@ -182,8 +216,8 @@
 </main>
 
 <script>
-let token = localStorage.getItem('adminSessionToken') || '';
-let currentUsername = localStorage.getItem('adminUsername') || '';
+let token = sessionStorage.getItem('adminSessionToken') || '';
+let currentUsername = sessionStorage.getItem('adminUsername') || '';
 let currentDeckId = null;
 let currentDeck = null;
 
@@ -219,8 +253,8 @@ async function signIn() {
     const data = await res.json();
     token = data.token;
     currentUsername = data.user.username;
-    localStorage.setItem('adminSessionToken', token);
-    localStorage.setItem('adminUsername', currentUsername);
+    sessionStorage.setItem('adminSessionToken', token);
+    sessionStorage.setItem('adminUsername', currentUsername);
     enterApp();
   } catch (e) {
     $('gateError').textContent = e.message;
@@ -231,8 +265,8 @@ async function signIn() {
 function signOut() {
   token = '';
   currentUsername = '';
-  localStorage.removeItem('adminSessionToken');
-  localStorage.removeItem('adminUsername');
+  sessionStorage.removeItem('adminSessionToken');
+  sessionStorage.removeItem('adminUsername');
   location.reload();
 }
 
@@ -282,17 +316,27 @@ function showAuditLogSection() {
 async function showDeckList() {
   $('deckEditView').classList.add('hidden');
   $('deckListView').classList.remove('hidden');
-  const [decks, price] = await Promise.all([api('/admin/decks'), api('/admin/settings/game-price')]);
+  const [decks, price, homeContent] = await Promise.all([
+    api('/admin/decks'),
+    api('/admin/settings/game-price'),
+    api('/admin/settings/home-content'),
+  ]);
   $('gamePriceInput').value = (price.fils / 1000).toFixed(3);
   $('gamePriceResult').textContent = '';
+  $('homeTaglineEn').value = homeContent.taglineEn;
+  $('homeTaglineAr').value = homeContent.taglineAr;
+  $('homeWriteupEn').value = homeContent.writeupEn;
+  $('homeWriteupAr').value = homeContent.writeupAr;
+  $('homeContentResult').textContent = '';
 
   const rows = decks.map((d) => `<tr>
       <td>${escapeHtml(d.id)}</td>
       <td>${escapeHtml(d.nameEn)} <span class="muted">/ ${escapeHtml(d.nameAr)}</span></td>
+      <td>${d.language === 'en' ? 'English' : 'Arabic'}</td>
       <td>${d.titles.length}</td>
       <td><button class="secondary" data-open="${escapeHtml(d.id)}">Open</button></td>
     </tr>`).join('');
-  $('deckRows').innerHTML = rows || '<tr><td colspan="4" class="muted">No decks yet.</td></tr>';
+  $('deckRows').innerHTML = rows || '<tr><td colspan="5" class="muted">No decks yet.</td></tr>';
   $('deckRows').querySelectorAll('[data-open]').forEach((btn) => {
     btn.addEventListener('click', () => openDeck(btn.dataset.open));
   });
@@ -312,8 +356,30 @@ async function saveGamePrice() {
   }
 }
 
+async function saveHomeContent() {
+  try {
+    const result = await api('/admin/settings/home-content', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        taglineEn: $('homeTaglineEn').value,
+        taglineAr: $('homeTaglineAr').value,
+        writeupEn: $('homeWriteupEn').value,
+        writeupAr: $('homeWriteupAr').value,
+      }),
+    });
+    $('homeTaglineEn').value = result.taglineEn;
+    $('homeTaglineAr').value = result.taglineAr;
+    $('homeWriteupEn').value = result.writeupEn;
+    $('homeWriteupAr').value = result.writeupAr;
+    $('homeContentResult').textContent = 'Saved.';
+  } catch (e) {
+    alert('Could not save home content: ' + e.message);
+  }
+}
+
 function newDeckDraft() {
-  return { id: '', nameAr: '', nameEn: '', titles: [] };
+  return { id: '', nameAr: '', nameEn: '', language: 'ar', titles: [] };
 }
 
 async function openDeck(id) {
@@ -331,20 +397,36 @@ function renderDeckEdit() {
   $('dId').disabled = Boolean(currentDeckId);
   $('dNameAr').value = d.nameAr;
   $('dNameEn').value = d.nameEn;
+  $('dLanguage').value = d.language;
   $('deleteDeckBtn').classList.toggle('hidden', !currentDeckId);
   $('importResult').textContent = '';
   $('importFile').value = '';
   $('importBtn').disabled = !currentDeckId;
+  $('importWithImagesResult').textContent = '';
+  $('imageManifestFile').value = '';
+  $('imageZipFile').value = '';
+  $('importWithImagesBtn').disabled = !currentDeckId;
 
   $('titleCount').textContent = d.titles.length;
   $('titleRows').innerHTML = d.titles.map((t) => `
-    <div class="row" style="align-items:center;padding:4px 0;border-bottom:1px solid #EAE0C4">
-      <span dir="rtl" style="flex:1">${escapeHtml(t.text)}</span>
+    <div class="row" style="align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #EAE0C4">
+      <img src="${t.imagePath ? escapeHtml(t.imagePath) : ''}" alt=""
+        style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:#EAE0C4;flex:0 0 auto;${t.imagePath ? '' : 'visibility:hidden'}" />
+      <input dir="rtl" style="flex:1;min-width:120px" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" />
+      <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" style="width:130px;font-size:11px" />
+      ${t.imagePath ? `<button class="secondary" data-remove-image="${escapeHtml(t.id)}">Remove picture</button>` : ''}
+      <button class="secondary" data-save-title="${escapeHtml(t.id)}">Save</button>
       <button class="danger" data-remove-title="${escapeHtml(t.id)}">Remove</button>
     </div>
   `).join('') || '<p class="muted">No titles yet — import a list below.</p>';
   $('titleRows').querySelectorAll('[data-remove-title]').forEach((btn) => {
     btn.addEventListener('click', () => removeTitle(btn.dataset.removeTitle));
+  });
+  $('titleRows').querySelectorAll('[data-save-title]').forEach((btn) => {
+    btn.addEventListener('click', () => saveTitleEdit(btn.dataset.saveTitle));
+  });
+  $('titleRows').querySelectorAll('[data-remove-image]').forEach((btn) => {
+    btn.addEventListener('click', () => removeTitleImage(btn.dataset.removeImage));
   });
 }
 
@@ -353,7 +435,11 @@ function escapeHtml(s) {
 }
 
 async function saveDeck() {
-  const body = { nameAr: $('dNameAr').value.trim(), nameEn: $('dNameEn').value.trim() };
+  const body = {
+    nameAr: $('dNameAr').value.trim(),
+    nameEn: $('dNameEn').value.trim(),
+    language: $('dLanguage').value,
+  };
   try {
     if (currentDeckId) {
       currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId), {
@@ -409,6 +495,64 @@ async function importTitles() {
     renderDeckEdit();
   } catch (e) {
     alert('Import failed: ' + e.message);
+  }
+}
+
+async function importTitlesWithImages() {
+  const manifest = $('imageManifestFile').files[0];
+  const images = $('imageZipFile').files[0];
+  if (!manifest || !images || !currentDeckId) { alert('Choose both a manifest (.xlsx) and an images (.zip) file first'); return; }
+  const form = new FormData();
+  form.append('manifest', manifest);
+  form.append('images', images);
+  $('importWithImagesResult').textContent = '';
+  try {
+    const result = await api(
+      '/admin/decks/' + encodeURIComponent(currentDeckId) + '/import-with-images',
+      { method: 'POST', body: form }
+    );
+    let msg = `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped.`;
+    if (result.imageIssues.length) {
+      msg += ` ${result.imageIssues.length} picture issue(s): ${result.imageIssues.join('; ')}`;
+    }
+    $('importWithImagesResult').textContent = msg;
+    $('imageManifestFile').value = '';
+    $('imageZipFile').value = '';
+    currentDeck = result.deck;
+    renderDeckEdit();
+  } catch (e) {
+    alert('Import failed: ' + e.message);
+  }
+}
+
+async function saveTitleEdit(titleId) {
+  const textInput = document.querySelector('[data-title-text="' + titleId + '"]');
+  const fileInput = document.querySelector('[data-title-image="' + titleId + '"]');
+  const form = new FormData();
+  form.append('text', textInput.value.trim());
+  if (fileInput.files[0]) form.append('image', fileInput.files[0]);
+  try {
+    await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), {
+      method: 'PUT', body: form,
+    });
+    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId));
+    renderDeckEdit();
+  } catch (e) {
+    alert('Could not save: ' + e.message);
+  }
+}
+
+async function removeTitleImage(titleId) {
+  const form = new FormData();
+  form.append('removeImage', 'true');
+  try {
+    await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), {
+      method: 'PUT', body: form,
+    });
+    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId));
+    renderDeckEdit();
+  } catch (e) {
+    alert('Could not remove picture: ' + e.message);
   }
 }
 
@@ -567,10 +711,12 @@ $('navAdmins').addEventListener('click', showAdminsSection);
 $('navAuditLog').addEventListener('click', showAuditLogSection);
 $('newDeckBtn').addEventListener('click', () => openDeck(null));
 $('saveGamePriceBtn').addEventListener('click', saveGamePrice);
+$('saveHomeContentBtn').addEventListener('click', saveHomeContent);
 $('deckBackLink').addEventListener('click', showDeckList);
 $('saveDeckBtn').addEventListener('click', saveDeck);
 $('deleteDeckBtn').addEventListener('click', deleteDeck);
 $('importBtn').addEventListener('click', importTitles);
+$('importWithImagesBtn').addEventListener('click', importTitlesWithImages);
 $('addAdminBtn').addEventListener('click', addAdmin);
 
 if (token) enterApp();

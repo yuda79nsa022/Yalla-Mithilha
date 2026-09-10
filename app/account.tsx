@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, TextInput } from 'react-native';
+import { Linking, StyleSheet, TextInput } from 'react-native';
 import { Button, ConfirmModal, Screen, Spacer, T } from '../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
+import { CATALOGUE_API_URL } from '../src/config';
 
 export default function Account() {
   const { t, player, playerAuthBusy, playerAuthError, registerPlayerAccount, loginPlayerAccount, logoutPlayerAccount } =
@@ -118,6 +119,14 @@ export default function Account() {
 
       <Spacer size={spacing.xl} />
       <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
+      <Spacer size={spacing.sm} />
+      <Button
+        label={t('home.adminSignIn')}
+        tone="ghost"
+        onPress={() => {
+          void Linking.openURL(`${CATALOGUE_API_URL}/admin-ui`);
+        }}
+      />
     </Screen>
   );
 }

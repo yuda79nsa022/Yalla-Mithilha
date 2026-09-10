@@ -40,6 +40,19 @@ describe('GET /charades/price', () => {
   });
 });
 
+describe('GET /charades/home-content', () => {
+  it('is public — no auth required — and returns the home screen copy', async () => {
+    const res = await request(app).get('/charades/home-content');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      taglineAr: expect.any(String),
+      taglineEn: expect.any(String),
+      writeupAr: expect.any(String),
+      writeupEn: expect.any(String),
+    });
+  });
+});
+
 describe('wallet', () => {
   it('requires a player session', async () => {
     expect((await request(app).get('/charades/wallet')).status).toBe(401);
@@ -216,6 +229,67 @@ describe('POST /charades/sessions', () => {
 
     const asB = await request(app).post('/charades/sessions').set(b.auth).send({ sessionId: 'shared-id' });
     expect(asB.status).toBe(404);
+  });
+
+  describe('language-gated decks', () => {
+    it('defaults to a mix of every language when lang is omitted', async () => {
+      createDeck({ id: 'ar-deck', nameAr: 'أ', nameEn: 'A', language: 'ar' });
+      addTitlesToDeck('ar-deck', ['Arabic Title']);
+      createDeck({ id: 'en-deck', nameAr: 'ب', nameEn: 'B', language: 'en' });
+      addTitlesToDeck('en-deck', ['English Title']);
+
+      const { auth } = await makePlayerSession();
+      await buyOneCredit(auth);
+      const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1' });
+
+      const dealtDeckIds = res.body.session.titles.map((t: { deckId: string }) => t.deckId).sort();
+      expect(dealtDeckIds).toEqual(['ar-deck', 'en-deck']);
+    });
+
+    it('an explicit "mixed" deals from every language too', async () => {
+      createDeck({ id: 'ar-deck', nameAr: 'أ', nameEn: 'A', language: 'ar' });
+      addTitlesToDeck('ar-deck', ['Arabic Title']);
+      createDeck({ id: 'en-deck', nameAr: 'ب', nameEn: 'B', language: 'en' });
+      addTitlesToDeck('en-deck', ['English Title']);
+
+      const { auth } = await makePlayerSession();
+      await buyOneCredit(auth);
+      const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', lang: 'mixed' });
+
+      const dealtDeckIds = res.body.session.titles.map((t: { deckId: string }) => t.deckId).sort();
+      expect(dealtDeckIds).toEqual(['ar-deck', 'en-deck']);
+    });
+
+    it('deals only from decks matching an explicit lang', async () => {
+      createDeck({ id: 'ar-deck', nameAr: 'أ', nameEn: 'A', language: 'ar' });
+      addTitlesToDeck('ar-deck', ['Arabic Title']);
+      createDeck({ id: 'en-deck', nameAr: 'ب', nameEn: 'B', language: 'en' });
+      addTitlesToDeck('en-deck', ['English Title']);
+
+      const { auth } = await makePlayerSession();
+      await buyOneCredit(auth);
+      const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', lang: 'en' });
+
+      expect(res.body.session.titles).toEqual([expect.objectContaining({ deckId: 'en-deck' })]);
+    });
+
+    it('rejects a lang value that is neither "ar", "en" nor "mixed"', async () => {
+      seedDeck();
+      const { auth } = await makePlayerSession();
+      await buyOneCredit(auth);
+      const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', lang: 'fr' });
+      expect(res.status).toBe(400);
+    });
+
+    it('refuses to deal when only the other language has any titles', async () => {
+      createDeck({ id: 'en-deck', nameAr: 'ب', nameEn: 'B', language: 'en' });
+      addTitlesToDeck('en-deck', ['English Title']);
+
+      const { auth } = await makePlayerSession();
+      await buyOneCredit(auth);
+      const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', lang: 'ar' });
+      expect(res.status).toBe(409);
+    });
   });
 });
 

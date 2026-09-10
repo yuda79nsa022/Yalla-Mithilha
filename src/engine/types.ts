@@ -6,3 +6,10 @@
  */
 
 export type Lang = 'ar' | 'en';
+
+/**
+ * Which deck-language pool a game deals from — chosen by the player at
+ * checkout, entirely separate from `Lang` (the app's own UI language).
+ * `'mixed'` deals from every playable deck regardless of content language.
+ */
+export type DeckLang = Lang | 'mixed';

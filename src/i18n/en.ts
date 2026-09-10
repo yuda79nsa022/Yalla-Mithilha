@@ -3,6 +3,8 @@ import type { TranslationKey } from './ar';
 export const en: Record<TranslationKey, string> = {
   'app.name': 'Yalla Mithilha',
   'app.tagline': 'You do not need to know the answer. You need your friends to understand you.',
+  'app.writeup':
+    'Yalla Mithilha is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
 
   'common.next': 'Next',
   'common.back': 'Back',
@@ -15,6 +17,7 @@ export const en: Record<TranslationKey, string> = {
 
   'home.settings': 'Settings',
   'home.about': 'About and privacy',
+  'home.adminSignIn': 'Admin sign-in',
 
   'settings.title': 'Settings',
   'settings.language': 'Language',
@@ -51,6 +54,13 @@ export const en: Record<TranslationKey, string> = {
     'Your wallet belongs to your account, not this device, so you can find it again later. Guest play and setting up a game never need this.',
   'charades.checkout.signInButton': 'Sign in or create an account',
   'charades.checkout.simulateFailure': 'Simulate a failed payment (dev)',
+  'charades.draft.deckLanguageTitle': 'Which titles do you want to play?',
+  'charades.draft.deckLanguageArTitle': 'Arabic only',
+  'charades.draft.deckLanguageArSubtitle': 'Kuwaiti, Khaleeji and Egyptian plays, series and movies',
+  'charades.draft.deckLanguageEnTitle': 'English only',
+  'charades.draft.deckLanguageEnSubtitle': 'Hollywood movies and American series',
+  'charades.draft.deckLanguageMixedTitle': 'Mixed',
+  'charades.draft.deckLanguageMixedSubtitle': 'A random blend of Arabic and English titles',
   'charades.play.round': 'Round {{round}} of {{total}}',
   'charades.play.turn': '{{team}}’s turn',
   'charades.play.scanInstruction': 'Have {{team}}’s actor scan this with their phone’s camera to see the title — it never shows here',
@@ -92,18 +102,4 @@ export const en: Record<TranslationKey, string> = {
   'account.logout': 'Sign out',
   'account.logoutConfirm': 'Sign out of this account? Guest play keeps working as usual.',
   'account.sessionExpired': 'Your session expired — please sign in again.',
-
-  'landing.eyebrow': 'New here?',
-  'landing.intro':
-    'Yalla Mithilha is Charades — silent acting built on real titles: Kuwaiti, Khaleeji and Egyptian movies, series and plays. Runs fully in Arabic and English.',
-  'landing.charadesTitle': 'Charades',
-  'landing.charadesBody':
-    'Two teams name themselves and take turns acting out real titles — Kuwaiti and Egyptian plays, Egyptian series, Khaleeji series — picked at random by the server each round, twenty rounds, no words allowed. Top up your wallet once to play a game.',
-  'landing.charadesCta': 'Play charades',
-  'landing.bilingualTitle': 'Arabic and English',
-  'landing.bilingualBody': 'Every screen, in both languages — switch anytime in Settings.',
-  'landing.privacyTitle': 'Privacy',
-  'landing.privacyBody': 'Read exactly what Charades sends, and when — it needs an account and a wallet to play.',
-  'landing.privacyLink': 'Read the privacy page',
-  'landing.fullMenu': 'See the full menu',
 };

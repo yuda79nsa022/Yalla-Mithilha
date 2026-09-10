@@ -23,7 +23,19 @@ export function resolveRevealBaseUrl(configured: string | null, webOrigin: strin
   return base.endsWith('/') ? base.slice(0, -1) : base;
 }
 
-export function buildRevealUrl(baseUrl: string, title: string, categoryAr: string, categoryEn: string): string {
+/**
+ * `imageUrl`, when given, must already be a fully-qualified absolute URL —
+ * the reveal page has no config or API context of its own, so everything it
+ * shows has to be self-contained in this link (see the file comment above).
+ */
+export function buildRevealUrl(
+  baseUrl: string,
+  title: string,
+  categoryAr: string,
+  categoryEn: string,
+  imageUrl?: string
+): string {
   const params = new URLSearchParams({ t: title, ca: categoryAr, ce: categoryEn });
+  if (imageUrl) params.set('img', imageUrl);
   return `${baseUrl}/reveal?${params.toString()}`;
 }

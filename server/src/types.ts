@@ -19,17 +19,35 @@ export interface PlayerRow {
   updatedAt: number;
 }
 
+/** The app's own UI language — text direction and which strings are shown. Independent of which decks a session deals from (see `DeckLang`). */
+export type Lang = 'ar' | 'en';
+
+/**
+ * Which deck-language pool a session deals from — the player's own explicit
+ * choice at checkout, entirely separate from `Lang` (the app's UI language).
+ * `'mixed'` deals from every playable deck regardless of content language.
+ */
+export type DeckLang = Lang | 'mixed';
+
 /**
  * A charades deck: a named, unlimited-size pool of titles (movies, series,
  * plays, songs — whatever an admin imports). Unlike the old board-game
  * category, a deck has no fixed slot count and no per-tile prompt/answer
  * pair — a title is acted out silently, so the title itself is both what
  * the actor privately reads and what confirms the answer once guessed.
+ *
+ * `language` is the deck's *content* language (Kuwaiti/Khaleeji/Egyptian
+ * titles vs. Hollywood/American titles) — separate from `nameAr`/`nameEn`,
+ * which are just the deck's bilingual display name and exist regardless of
+ * which language the deck's actual titles are in. Which deck-language pool
+ * a session deals from is the player's own choice at checkout (`DeckLang`),
+ * not tied to the app's UI language.
  */
 export interface DeckRow {
   id: string;
   nameAr: string;
   nameEn: string;
+  language: Lang;
   createdAt: number;
   updatedAt: number;
 }
@@ -38,6 +56,8 @@ export interface TitleRow {
   id: string;
   deckId: string;
   text: string;
+  /** A servable path (e.g. `/title-images/<uuid>.png`), or null when this title has no picture. Optional — most titles never need one. */
+  imagePath: string | null;
   createdAt: number;
 }
 
@@ -84,6 +104,8 @@ export interface DealtTitle {
   deckId: string;
   deckNameAr: string;
   deckNameEn: string;
+  /** A servable path (e.g. `/title-images/<uuid>.png`), relative to the API origin — absent when this title has no picture. */
+  imageUrl?: string;
 }
 
 /**
@@ -98,6 +120,18 @@ export interface GameSessionRow {
   playerId: string;
   titles: DealtTitle[];
   createdAt: number;
+}
+
+/**
+ * The admin-editable copy shown on the player app's home screen — a tagline
+ * and a longer explanatory paragraph, each in both languages. Single row,
+ * same pattern as the game price in `settings`.
+ */
+export interface HomeContent {
+  taglineAr: string;
+  taglineEn: string;
+  writeupAr: string;
+  writeupEn: string;
 }
 
 /** One sensitive admin action. `before`/`after` are opaque snapshots — shaped differently per `action`. */
