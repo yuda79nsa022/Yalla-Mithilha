@@ -483,7 +483,10 @@ async function importTitles() {
   if (!file || !currentDeckId) { alert('Choose a file first'); return; }
   const form = new FormData();
   form.append('file', file);
-  $('importResult').textContent = '';
+  $('importResult').textContent = 'Importing… this can take a while for a large file, please wait.';
+  const btn = $('importBtn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
   try {
     const result = await api(
       '/admin/decks/' + encodeURIComponent(currentDeckId) + '/import',
@@ -494,7 +497,11 @@ async function importTitles() {
     currentDeck = result.deck;
     renderDeckEdit();
   } catch (e) {
+    $('importResult').textContent = '';
     alert('Import failed: ' + e.message);
+  } finally {
+    btn.disabled = !currentDeckId;
+    btn.textContent = 'Import';
   }
 }
 
@@ -505,7 +512,10 @@ async function importTitlesWithImages() {
   const form = new FormData();
   form.append('manifest', manifest);
   form.append('images', images);
-  $('importWithImagesResult').textContent = '';
+  $('importWithImagesResult').textContent = 'Importing… this can take a while for a large file, please wait.';
+  const btn = $('importWithImagesBtn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
   try {
     const result = await api(
       '/admin/decks/' + encodeURIComponent(currentDeckId) + '/import-with-images',
@@ -521,7 +531,11 @@ async function importTitlesWithImages() {
     currentDeck = result.deck;
     renderDeckEdit();
   } catch (e) {
+    $('importWithImagesResult').textContent = '';
     alert('Import failed: ' + e.message);
+  } finally {
+    btn.disabled = !currentDeckId;
+    btn.textContent = 'Import with pictures';
   }
 }
 
