@@ -1,17 +1,21 @@
 import { Redirect, router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Button, ConfirmModal, Screen, Spacer, T } from '../../src/ui/components';
 import { colors, radius, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
+import { playSound, preloadSounds } from '../../src/platform/sound';
 import { awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
 import { buildRevealUrl, resolveRevealBaseUrl } from '../../src/engine/reveal';
 import { CATALOGUE_API_URL, REVEAL_BASE_URL } from '../../src/config';
 
 /** Each round gets 2 minutes to act before the score buttons appear — unless the actor's team ends it early. */
 const ROUND_SECONDS = 120;
+
+/** The countdown ticks audibly for its last half-minute, same as a real game-show clock. */
+const TICK_SECONDS = 30;
 
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -65,6 +69,10 @@ export default function CharadesPlay() {
   }, [roundKey]);
 
   useEffect(() => {
+    preloadSounds();
+  }, []);
+
+  useEffect(() => {
     if (!roundActive || !started || endedEarly) return;
     const id = setInterval(() => {
       setTimeLeft((prev) => {
@@ -77,6 +85,21 @@ export default function CharadesPlay() {
     }, 1000);
     return () => clearInterval(id);
   }, [roundActive, started, endedEarly, roundKey]);
+
+  // A tick for each of the last TICK_SECONDS, and a buzzer the instant it
+  // hits zero — keyed off `started` too so resetting the round (which also
+  // resets timeLeft to ROUND_SECONDS) never fires a stray tick.
+  const prevTimeLeftRef = useRef(timeLeft);
+  useEffect(() => {
+    const prev = prevTimeLeftRef.current;
+    prevTimeLeftRef.current = timeLeft;
+    if (!started || prev === timeLeft) return;
+    if (timeLeft === 0) {
+      void playSound('buzzer');
+    } else if (timeLeft <= TICK_SECONDS) {
+      void playSound('tick');
+    }
+  }, [timeLeft, started]);
 
   if (!charades) return <Redirect href="/charades/draft" />;
   if (charades.lock !== 'unlocked') return <Redirect href="/charades/checkout" />;
@@ -224,7 +247,14 @@ export default function CharadesPlay() {
             <Button label={t('charades.play.endEarly')} tone="secondary" onPress={() => setEndedEarly(true)} />
           </>
         ) : (
-          <Button label={t('charades.play.startTimer')} accent={teamColor} onPress={() => setStarted(true)} />
+          <Button
+            label={t('charades.play.startTimer')}
+            accent={teamColor}
+            onPress={() => {
+              void playSound('bell');
+              setStarted(true);
+            }}
+          />
         )}
       </View>
 
