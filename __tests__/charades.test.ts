@@ -1,4 +1,5 @@
 import {
+  adjustScore,
   awardRound,
   charadesForPlayer,
   currentTeamIndex,
@@ -116,6 +117,38 @@ describe('awardRound / skipRound', () => {
     const frozen = JSON.stringify(state);
     awardRound(state, 1);
     skipRound(state);
+    expect(JSON.stringify(state)).toBe(frozen);
+  });
+
+  it('awards the given number of points instead of the default one', () => {
+    const state = unlockCharades(draftCharades('A', 'B'), titles, 'player-1');
+    const next = awardRound(state, 1, 2);
+    expect(next.scores).toEqual([0, 2]);
+    expect(next.index).toBe(1);
+  });
+});
+
+describe('adjustScore', () => {
+  it('adds or removes points without advancing the round', () => {
+    const state = unlockCharades(draftCharades('A', 'B'), titles, 'player-1');
+    const up = adjustScore(state, 0, 1);
+    expect(up.scores).toEqual([1, 0]);
+    expect(up.index).toBe(0);
+
+    const down = adjustScore(up, 0, -1);
+    expect(down.scores).toEqual([0, 0]);
+  });
+
+  it('never lets a score go negative', () => {
+    const state = unlockCharades(draftCharades('A', 'B'), titles, 'player-1');
+    const next = adjustScore(state, 0, -1);
+    expect(next.scores).toEqual([0, 0]);
+  });
+
+  it('never mutates the input state', () => {
+    const state = unlockCharades(draftCharades('A', 'B'), titles, 'player-1');
+    const frozen = JSON.stringify(state);
+    adjustScore(state, 0, 1);
     expect(JSON.stringify(state)).toBe(frozen);
   });
 });

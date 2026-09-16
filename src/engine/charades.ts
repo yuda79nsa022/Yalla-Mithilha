@@ -86,14 +86,29 @@ export function currentTeamIndex(state: CharadesState): 0 | 1 {
   return (state.index % 2) as 0 | 1;
 }
 
-export function awardRound(state: CharadesState, team: 0 | 1): CharadesState {
+/**
+ * `points` defaults to 1 for a plain correct guess, but the play screen
+ * passes 2 or 1 depending on which minute of the round timer the guess
+ * landed in (see `pointsForTimeLeft` in app/charades/play.tsx).
+ */
+export function awardRound(state: CharadesState, team: 0 | 1, points: number = 1): CharadesState {
   const scores: [number, number] = [...state.scores];
-  scores[team] += 1;
+  scores[team] += points;
   return { ...state, scores, index: state.index + 1 };
 }
 
 export function skipRound(state: CharadesState): CharadesState {
   return { ...state, index: state.index + 1 };
+}
+
+/**
+ * A manual scoreboard correction, separate from `awardRound` — doesn't
+ * advance the round, and never lets a score go negative.
+ */
+export function adjustScore(state: CharadesState, team: 0 | 1, delta: number): CharadesState {
+  const scores: [number, number] = [...state.scores];
+  scores[team] = Math.max(0, scores[team] + delta);
+  return { ...state, scores };
 }
 
 export function isCharadesComplete(state: CharadesState): boolean {
