@@ -112,7 +112,7 @@ describe('deleteDeck', () => {
     addTitlesToDeck(sample.id, ['a', 'b', 'c']);
     const player = createPlayer({ username: 'played-here', passwordHash: 'hashed' });
     grantCredits(player.id, 1);
-    startGameSession(player.id, 'sess-for-delete-test', 'mixed');
+    startGameSession(player.id, 'sess-for-delete-test');
 
     expect(() => deleteDeck(sample.id)).not.toThrow();
     expect(getDeck(sample.id)).toBeNull();
@@ -256,7 +256,7 @@ describe('listPlayableDecks', () => {
     expect(listPlayableDecks().map((d) => d.id)).toEqual([sample.id]);
   });
 
-  it('with no lang filter, returns playable decks in either language', () => {
+  it('with no deckIds filter, returns every playable deck', () => {
     createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
     addTitlesToDeck('ar-deck', ['a']);
     createDeck({ ...sample, id: 'en-deck', language: 'en' });
@@ -264,21 +264,20 @@ describe('listPlayableDecks', () => {
     expect(listPlayableDecks().map((d) => d.id).sort()).toEqual(['ar-deck', 'en-deck']);
   });
 
-  it('given a lang, only returns playable decks in that language', () => {
+  it('given deckIds, only returns playable decks with those ids', () => {
     createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
     addTitlesToDeck('ar-deck', ['a']);
     createDeck({ ...sample, id: 'en-deck', language: 'en' });
     addTitlesToDeck('en-deck', ['b']);
-    expect(listPlayableDecks('ar').map((d) => d.id)).toEqual(['ar-deck']);
-    expect(listPlayableDecks('en').map((d) => d.id)).toEqual(['en-deck']);
+    expect(listPlayableDecks(['ar-deck']).map((d) => d.id)).toEqual(['ar-deck']);
+    expect(listPlayableDecks(['en-deck']).map((d) => d.id)).toEqual(['en-deck']);
+    expect(listPlayableDecks(['ar-deck', 'en-deck']).map((d) => d.id).sort()).toEqual(['ar-deck', 'en-deck']);
   });
 
-  it('given "mixed", returns playable decks in either language, same as no filter', () => {
+  it('silently ignores a deckId naming a deck that does not exist', () => {
     createDeck({ ...sample, id: 'ar-deck', language: 'ar' });
     addTitlesToDeck('ar-deck', ['a']);
-    createDeck({ ...sample, id: 'en-deck', language: 'en' });
-    addTitlesToDeck('en-deck', ['b']);
-    expect(listPlayableDecks('mixed').map((d) => d.id).sort()).toEqual(['ar-deck', 'en-deck']);
+    expect(listPlayableDecks(['ar-deck', 'nope']).map((d) => d.id)).toEqual(['ar-deck']);
   });
 });
 

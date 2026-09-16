@@ -19,15 +19,8 @@ export interface PlayerRow {
   updatedAt: number;
 }
 
-/** The app's own UI language — text direction and which strings are shown. Independent of which decks a session deals from (see `DeckLang`). */
+/** The app's own UI language — text direction and which strings are shown. Independent of which decks a session deals from (the player's own choice — see `startGameSession`). */
 export type Lang = 'ar' | 'en';
-
-/**
- * Which deck-language pool a session deals from — the player's own explicit
- * choice at checkout, entirely separate from `Lang` (the app's UI language).
- * `'mixed'` deals from every playable deck regardless of content language.
- */
-export type DeckLang = Lang | 'mixed';
 
 /**
  * A charades deck: a named, unlimited-size pool of titles (movies, series,
@@ -39,8 +32,8 @@ export type DeckLang = Lang | 'mixed';
  * `language` is the deck's *content* language (Kuwaiti/Khaleeji/Egyptian
  * titles vs. Hollywood/American titles) — separate from `nameAr`/`nameEn`,
  * which are just the deck's bilingual display name and exist regardless of
- * which language the deck's actual titles are in. Which deck-language pool
- * a session deals from is the player's own choice at checkout (`DeckLang`),
+ * which language the deck's actual titles are in. Which decks a session
+ * deals from is the player's own choice at checkout (see `startGameSession`),
  * not tied to the app's UI language.
  */
 export interface DeckRow {
@@ -65,11 +58,12 @@ export interface DeckWithTitles extends DeckRow {
   titles: TitleRow[];
 }
 
-/** The shape the client app needs to draft/play a session — no admin-only fields. */
+/** The shape the client app needs to let a player pick which decks a session deals from — no admin-only fields. */
 export interface PublicDeck {
   id: string;
   nameAr: string;
   nameEn: string;
+  language: Lang;
   titleCount: number;
 }
 
@@ -109,11 +103,11 @@ export interface DealtTitle {
 }
 
 /**
- * One purchased charades session: 20 titles dealt at random across every
- * playable deck (never chosen by the player — see `startGameSession`) the
- * moment a wallet credit was spent. Its id is client-generated (the same
- * pattern the old board game used) so resuming after an app restart replays
- * the same id and never spends a second credit.
+ * One purchased charades session: 20 titles dealt at random across whichever
+ * decks the player chose before checkout (see `startGameSession`) the moment
+ * a wallet credit was spent. Its id is client-generated (the same pattern
+ * the old board game used) so resuming after an app restart replays the
+ * same id and never spends a second credit.
  */
 export interface GameSessionRow {
   id: string;

@@ -1,20 +1,42 @@
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, TextInput } from 'react-native';
 import { Button, OptionCard, Screen, Spacer, T } from '../../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
-import type { DeckLang } from '../../src/engine/types';
+import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
 
 export default function CharadesDraft() {
-  const { t, startCharadesDraft } = useApp();
+  const { t, lang, startCharadesDraft } = useApp();
   const [teamAName, setTeamAName] = useState('');
   const [teamBName, setTeamBName] = useState('');
-  const [deckLang, setDeckLang] = useState<DeckLang>('mixed');
+  const [decks, setDecks] = useState<PlayableDeck[] | null>(null);
+  const [decksError, setDecksError] = useState(false);
+  const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>([]);
+
+  const loadDecks = () => {
+    setDecksError(false);
+    setDecks(null);
+    getPlayableDecks()
+      .then((result) => {
+        setDecks(result);
+        // Every deck selected by default — a player who wants a narrower mix opts out, not in.
+        setSelectedDeckIds(result.map((d) => d.id));
+      })
+      .catch(() => setDecksError(true));
+  };
+
+  useEffect(loadDecks, []);
+
+  const toggleDeck = (id: string) => {
+    setSelectedDeckIds((current) => (current.includes(id) ? current.filter((d) => d !== id) : [...current, id]));
+  };
+
+  const canConfirm = Boolean(teamAName.trim() && teamBName.trim() && selectedDeckIds.length > 0);
 
   const confirmDraft = () => {
-    if (!teamAName.trim() || !teamBName.trim()) return;
-    startCharadesDraft(teamAName.trim(), teamBName.trim(), deckLang);
+    if (!canConfirm) return;
+    startCharadesDraft(teamAName.trim(), teamBName.trim(), selectedDeckIds);
     router.push('/charades/checkout');
   };
 
@@ -48,36 +70,41 @@ export default function CharadesDraft() {
       />
 
       <Spacer size={spacing.xl} />
-      <T variant="heading">{t('charades.draft.deckLanguageTitle')}</T>
+      <T variant="heading">{t('charades.draft.decksTitle')}</T>
       <Spacer size={spacing.sm} />
-      <OptionCard
-        title={t('charades.draft.deckLanguageArTitle')}
-        subtitle={t('charades.draft.deckLanguageArSubtitle')}
-        selected={deckLang === 'ar'}
-        onPress={() => setDeckLang('ar')}
-      />
-      <Spacer size={spacing.sm} />
-      <OptionCard
-        title={t('charades.draft.deckLanguageEnTitle')}
-        subtitle={t('charades.draft.deckLanguageEnSubtitle')}
-        selected={deckLang === 'en'}
-        onPress={() => setDeckLang('en')}
-      />
-      <Spacer size={spacing.sm} />
-      <OptionCard
-        title={t('charades.draft.deckLanguageMixedTitle')}
-        subtitle={t('charades.draft.deckLanguageMixedSubtitle')}
-        selected={deckLang === 'mixed'}
-        onPress={() => setDeckLang('mixed')}
-      />
+
+      {decksError ? (
+        <>
+          <T variant="label" color={colors.skip}>
+            {t('charades.draft.decksError')}
+          </T>
+          <Spacer size={spacing.xs} />
+          <Button label={t('charades.draft.decksRetry')} tone="ghost" onPress={loadDecks} />
+        </>
+      ) : decks === null ? (
+        <T variant="label" color={colors.textMuted}>
+          {t('charades.draft.decksLoading')}
+        </T>
+      ) : decks.length === 0 ? (
+        <T variant="label" color={colors.textMuted}>
+          {t('charades.draft.decksEmpty')}
+        </T>
+      ) : (
+        decks.map((deck) => (
+          <React.Fragment key={deck.id}>
+            <OptionCard
+              role="checkbox"
+              title={lang === 'ar' ? deck.nameAr : deck.nameEn}
+              selected={selectedDeckIds.includes(deck.id)}
+              onPress={() => toggleDeck(deck.id)}
+            />
+            <Spacer size={spacing.sm} />
+          </React.Fragment>
+        ))
+      )}
 
       <Spacer size={spacing.xl} />
-      <Button
-        label={t('charades.draft.confirm')}
-        disabled={!teamAName.trim() || !teamBName.trim()}
-        accent={colors.accent}
-        onPress={confirmDraft}
-      />
+      <Button label={t('charades.draft.confirm')} disabled={!canConfirm} accent={colors.accent} onPress={confirmDraft} />
       <Spacer size={spacing.sm} />
       <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
     </Screen>

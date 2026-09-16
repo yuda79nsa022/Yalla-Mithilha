@@ -6,7 +6,6 @@ import type {
   AdminUserRow,
   AuditLogRow,
   DealtTitle,
-  DeckLang,
   DeckRow,
   DeckWithTitles,
   GameSessionRow,
@@ -14,6 +13,7 @@ import type {
   Lang,
   PaymentRow,
   PlayerRow,
+  PublicDeck,
   TitleRow,
 } from './types';
 
@@ -467,16 +467,24 @@ export function deleteTitle(deckId: string, titleId: string): TitleRow {
 
 /**
  * Decks the app is ever allowed to draft from — nothing to publish/complete
- * separately, a deck with at least one title is playable. `deckLang`, when
- * given as `'ar'` or `'en'`, additionally restricts to decks whose *content*
- * language matches — the player's own explicit choice at checkout, not the
- * app's UI language. Omitted, or `'mixed'`, includes every playable deck
- * regardless of content language.
+ * separately, a deck with at least one title is playable. `deckIds`, when
+ * given, additionally restricts to just those decks — the player's own
+ * explicit choice made alongside the team names. Omitted, includes every
+ * playable deck.
  */
-export function listPlayableDecks(deckLang?: DeckLang): DeckWithTitles[] {
-  return listDecks().filter(
-    (d) => d.titles.length > 0 && (deckLang === undefined || deckLang === 'mixed' || d.language === deckLang)
-  );
+export function listPlayableDecks(deckIds?: string[]): DeckWithTitles[] {
+  return listDecks().filter((d) => d.titles.length > 0 && (deckIds === undefined || deckIds.includes(d.id)));
+}
+
+/** What a player picks from before checkout — every playable deck, without its titles (a spoiler, and needless payload for a deck of hundreds). */
+export function listPublicDecks(): PublicDeck[] {
+  return listPlayableDecks().map((d) => ({
+    id: d.id,
+    nameAr: d.nameAr,
+    nameEn: d.nameEn,
+    language: d.language,
+    titleCount: d.titles.length,
+  }));
 }
 
 /* --------------------------------------------------------------- players */
@@ -835,17 +843,17 @@ function shuffled<T>(items: T[]): T[] {
 const TITLES_PER_SESSION = 20;
 
 /**
- * Deals up to `count` titles round-robin across every playable deck *in
- * `deckLang`*, so two consecutive rounds never share a category unless only
+ * Deals up to `count` titles round-robin across every deck the player chose
+ * (`deckIds`), so two consecutive rounds never share a category unless only
  * one deck still has titles left (unavoidable once every other category is
  * exhausted). Deduplicated by trimmed text so the same title text appearing
  * in two different decks still only ever occupies one slot in a session (see
  * "never repeated in the same game" on `startGameSession`). Which deck goes
  * first, and which title comes out of each deck, are both random.
  */
-function dealTitles(count: number, deckLang: DeckLang): DealtTitle[] {
+function dealTitles(count: number, deckIds?: string[]): DealtTitle[] {
   const seenText = new Set<string>();
-  let queues = shuffled(listPlayableDecks(deckLang))
+  let queues = shuffled(listPlayableDecks(deckIds))
     .map((deck) => {
       const titles: DealtTitle[] = [];
       for (const title of deck.titles) {
@@ -884,21 +892,21 @@ function dealTitles(count: number, deckLang: DeckLang): DealtTitle[] {
  * dealt titles and spends nothing further, rather than erroring or charging
  * twice.
  *
- * The player never picks a category: each of the 20 titles is drawn at
- * random from every playable deck combined *in `deckLang`*, without
+ * The player picks which decks to draw from, not individual titles: each of
+ * the 20 titles is drawn at random from those decks combined, without
  * replacement, so no title repeats within the same session even across
  * decks — and dealt round-robin across decks, so consecutive rounds don't
  * share a category either (see `dealTitles`). Fewer than 20 titles exist
- * across every deck combined? Deals all of it. `deckLang` is the player's
- * own explicit choice made at checkout — Arabic only, English only, or a
- * mix of both — entirely independent of the app's own UI language; it
- * defaults to `'mixed'` only for direct callers that predate this
- * parameter (tests, scripts).
+ * across the chosen decks combined? Deals all of it. `deckIds` is the
+ * player's own explicit choice made alongside the team names when drafting;
+ * omitted entirely (never an empty array — see `parseStartSessionBody`)
+ * only for direct callers that predate per-deck selection (tests, scripts),
+ * meaning every playable deck.
  */
 export function startGameSession(
   playerId: string,
   sessionId: string,
-  deckLang: DeckLang = 'mixed'
+  deckIds?: string[]
 ): { session: GameSessionRow; balance: number } {
   const existing = getGameSession(sessionId);
   if (existing) {
@@ -906,7 +914,7 @@ export function startGameSession(
     return { session: existing, balance: creditBalance(playerId) };
   }
 
-  const dealt = dealTitles(TITLES_PER_SESSION, deckLang);
+  const dealt = dealTitles(TITLES_PER_SESSION, deckIds);
   if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
 
   const tx = db.transaction(() => {

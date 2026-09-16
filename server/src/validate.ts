@@ -1,4 +1,4 @@
-import type { DeckLang, Lang } from './types';
+import type { Lang } from './types';
 
 export class ValidationError extends Error {}
 
@@ -18,11 +18,11 @@ function optionalLang(value: unknown, field: string): Lang {
   return value;
 }
 
-/** Defaults to 'mixed' when omitted — the broadest, most permissive choice. */
-function optionalDeckLang(value: unknown, field: string): DeckLang {
-  if (value === undefined) return 'mixed';
-  if (value !== 'ar' && value !== 'en' && value !== 'mixed') {
-    throw new ValidationError(`"${field}" must be "ar", "en" or "mixed"`);
+/** Omitted entirely means "every playable deck" — deals with old callers (tests, scripts) that predate per-deck selection. Present, it must actually name at least one deck. */
+function optionalDeckIds(value: unknown, field: string): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length === 0 || !value.every((v) => typeof v === 'string' && v.trim())) {
+    throw new ValidationError(`"${field}" must be a non-empty array of deck ids`);
   }
   return value;
 }
@@ -160,21 +160,21 @@ export function parseUpdatePlayerBody(body: unknown): UpdatePlayerBody {
 
 export interface StartSessionBody {
   sessionId: string;
-  lang: DeckLang;
+  deckIds?: string[];
 }
 
 /**
  * `sessionId` is the client's own locally generated id — used verbatim as
- * the server-side game_sessions row id. `lang` picks which deck-language
- * pool the session deals from (see `startGameSession`) — the player's own
- * explicit choice at checkout (Arabic only, English only, or a mix of
- * both), entirely separate from the app's own UI language.
+ * the server-side game_sessions row id. `deckIds` names which decks the
+ * session deals from (see `startGameSession`) — the player's own explicit
+ * choice made alongside the team names, entirely separate from the app's
+ * own UI language.
  */
 export function parseStartSessionBody(body: unknown): StartSessionBody {
   const b = (body ?? {}) as Record<string, unknown>;
   const sessionId = requireString(b.sessionId, 'sessionId');
   if (sessionId.length > 200) throw new ValidationError('"sessionId" is too long');
-  return { sessionId, lang: optionalDeckLang(b.lang, 'lang') };
+  return { sessionId, deckIds: optionalDeckIds(b.deckIds, 'deckIds') };
 }
 
 export interface UpdateHomeContentBody {
