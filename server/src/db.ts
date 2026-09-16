@@ -60,8 +60,31 @@ db.exec(`
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    -- Optional, collected at signup — the only channel a forgotten password
+    -- can be reset through (see password_resets below). NULL for accounts
+    -- that never gave one, including every account created before this
+    -- column existed.
+    email TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
+  );
+
+  -- A single-use, short-lived code emailed to a player who forgot their
+  -- password. Its own table rather than columns on players: a player can
+  -- have at most one live code (a fresh request invalidates any previous
+  -- one — see createPasswordReset), but keeping it separate means the
+  -- players table never carries reset state that means nothing outside an
+  -- active reset attempt. code_hash, never the raw code, same reasoning as
+  -- password_hash. attempts guards against brute-forcing a 6-digit code
+  -- within its expiry window (see MAX_RESET_ATTEMPTS in playerAuth routes).
+  CREATE TABLE IF NOT EXISTS password_resets (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    expires_at INTEGER NOT NULL,
+    used_at INTEGER,
+    created_at INTEGER NOT NULL
   );
 
   -- Single-row settings table. Only ever has id=1. The admin-editable price
@@ -230,6 +253,7 @@ ensureColumn('settings', 'home_tagline_ar', 'home_tagline_ar TEXT');
 ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
 ensureColumn('settings', 'home_writeup_ar', 'home_writeup_ar TEXT');
 ensureColumn('settings', 'home_writeup_en', 'home_writeup_en TEXT');
+ensureColumn('players', 'email', 'email TEXT');
 
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
 // Bound params rather than a literal in the ALTER TABLE's own DEFAULT, so
@@ -608,6 +632,7 @@ function rowToPlayer(r: any): PlayerRowWithHash {
     id: r.id,
     username: r.username,
     passwordHash: r.password_hash,
+    email: r.email ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -635,6 +660,8 @@ export function getPlayerById(id: string): PlayerRow | null {
 export interface CreatePlayerInput {
   username: string;
   passwordHash: string;
+  /** Optional — omitted (or `null`) means this account has no reset channel until one is added. */
+  email?: string | null;
 }
 
 export function createPlayer(input: CreatePlayerInput): PlayerRow {
@@ -644,15 +671,17 @@ export function createPlayer(input: CreatePlayerInput): PlayerRow {
   const now = Date.now();
   const id = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO players (id, username, password_hash, created_at, updated_at)
-     VALUES (@id, @username, @passwordHash, @now, @now)`
-  ).run({ id, ...input, now });
+    `INSERT INTO players (id, username, password_hash, email, created_at, updated_at)
+     VALUES (@id, @username, @passwordHash, @email, @now, @now)`
+  ).run({ id, username: input.username, passwordHash: input.passwordHash, email: input.email ?? null, now });
   return getPlayerById(id)!;
 }
 
 export interface UpdatePlayerInput {
   username?: string;
   passwordHash?: string;
+  /** `null` explicitly clears the email; `undefined` (omitted) leaves it as-is — same convention as a title/deck's `imagePath`. */
+  email?: string | null;
 }
 
 export function updatePlayer(id: string, input: UpdatePlayerInput): PlayerRow {
@@ -667,10 +696,11 @@ export function updatePlayer(id: string, input: UpdatePlayerInput): PlayerRow {
     id,
     username: input.username ?? current.username,
     passwordHash: input.passwordHash ?? current.password_hash,
+    email: input.email !== undefined ? input.email : current.email,
     updatedAt: Date.now(),
   };
   db.prepare(
-    'UPDATE players SET username=@username, password_hash=@passwordHash, updated_at=@updatedAt WHERE id=@id'
+    'UPDATE players SET username=@username, password_hash=@passwordHash, email=@email, updated_at=@updatedAt WHERE id=@id'
   ).run(next);
   return getPlayerById(id)!;
 }
@@ -678,6 +708,77 @@ export function updatePlayer(id: string, input: UpdatePlayerInput): PlayerRow {
 export function deletePlayer(id: string): void {
   if (!getPlayerById(id)) throw new PlayerNotFoundError(`player "${id}" not found`);
   db.prepare('DELETE FROM players WHERE id = ?').run(id);
+}
+
+/* --------------------------------------------------------- password resets */
+
+export interface PasswordResetRow {
+  id: string;
+  playerId: string;
+  codeHash: string;
+  attempts: number;
+  expiresAt: number;
+  usedAt: number | null;
+  createdAt: number;
+}
+
+function rowToPasswordReset(r: any): PasswordResetRow {
+  return {
+    id: r.id,
+    playerId: r.player_id,
+    codeHash: r.code_hash,
+    attempts: r.attempts,
+    expiresAt: r.expires_at,
+    usedAt: r.used_at ?? null,
+    createdAt: r.created_at,
+  };
+}
+
+export interface CreatePasswordResetInput {
+  playerId: string;
+  codeHash: string;
+  expiresAt: number;
+}
+
+/**
+ * A fresh request always supersedes any code already outstanding for that
+ * player — deleting prior unused rows first means at most one code is ever
+ * valid at a time, so an old code a player already saw (or that leaked) is
+ * dead the moment they ask for a new one.
+ */
+export function createPasswordReset(input: CreatePasswordResetInput): PasswordResetRow {
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM password_resets WHERE player_id = ? AND used_at IS NULL').run(input.playerId);
+    db.prepare(
+      `INSERT INTO password_resets (id, player_id, code_hash, expires_at, created_at)
+       VALUES (@id, @playerId, @codeHash, @expiresAt, @now)`
+    ).run({ id, ...input, now });
+  });
+  tx();
+  return rowToPasswordReset(db.prepare('SELECT * FROM password_resets WHERE id = ?').get(id));
+}
+
+/** The one code a player could still redeem right now — unused and not yet expired. `null` covers "never requested," "already used" and "expired" alike, since a route only ever needs to tell those apart from "still live." */
+export function getActivePasswordReset(playerId: string): PasswordResetRow | null {
+  const row = db
+    .prepare(
+      `SELECT * FROM password_resets
+       WHERE player_id = ? AND used_at IS NULL AND expires_at > ?
+       ORDER BY created_at DESC LIMIT 1`
+    )
+    .get(playerId, Date.now());
+  return row ? rowToPasswordReset(row) : null;
+}
+
+export function incrementPasswordResetAttempts(id: string): void {
+  db.prepare('UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?').run(id);
+}
+
+/** Marks a code redeemed so it can never be replayed, even if it hasn't expired yet. */
+export function usePasswordReset(id: string): void {
+  db.prepare('UPDATE password_resets SET used_at = ? WHERE id = ?').run(Date.now(), id);
 }
 
 /* ------------------------------------------------------- wallet + sessions */
@@ -1006,7 +1107,8 @@ export function listAuditLog(limit = 200): AuditLogRow[] {
 export function resetDbForTests(): void {
   db.exec(
     `DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM game_sessions;
-     DELETE FROM payments; DELETE FROM titles; DELETE FROM decks; DELETE FROM admin_users; DELETE FROM players;`
+     DELETE FROM payments; DELETE FROM password_resets; DELETE FROM titles; DELETE FROM decks;
+     DELETE FROM admin_users; DELETE FROM players;`
   );
   db.prepare(
     `UPDATE settings SET

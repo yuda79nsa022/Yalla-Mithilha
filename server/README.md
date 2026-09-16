@@ -96,6 +96,35 @@ rename, reset the password of, and delete any player account
 (`/admin/players`); unlike admin accounts, there's no "last remaining
 account" guard, since deleting every player carries no lockout risk.
 
+Email at signup is optional (`players.email`, nullable — most existing
+accounts predate it and have none), and it's the only channel a forgotten
+password can be reset through:
+
+- `POST /players/password-reset/request` — `{ username }` → always the same
+  `{ message }` response, whether or not the username matches an account or
+  that account has an email on file, so this route can never be used to
+  enumerate registered usernames. When it does match an account with an
+  email, a 6-digit code is generated, hashed (`password_resets.code_hash`,
+  never the raw code) and handed to `ResetCodeProvider`
+  (`src/notifications/resetCodeProvider.ts`) — same isolation pattern as
+  `PaymentProvider`. The code expires after 10 minutes, and requesting a
+  new one immediately invalidates any code still outstanding for that
+  player.
+- `POST /players/password-reset/confirm` — `{ username, code, newPassword }`
+  → `{ ok: true }`, or a generic "invalid or expired reset code" for every
+  failure case (wrong username, no code requested, expired, or already
+  used) alike. A code is also dead after 5 wrong guesses even if it hasn't
+  expired yet — the player has to request a fresh one rather than keep
+  guessing. A successful reset is recorded in the audit log
+  (`player.password_reset_self`), same table admin actions use, with the
+  player themselves as the actor.
+- `ConsoleResetCodeProvider` is the only implementation today — it logs the
+  code to the server's own console rather than delivering it anywhere, so
+  it must never run in production as-is. A real deployment needs a real
+  email (or SMS) provider wired in behind the same interface, the same way
+  `MockPaymentProvider` needs a real payment gateway before this app can
+  take real money.
+
 ## The wallet
 
 A Charades credit is owned by a player's account, never by a device —
@@ -237,12 +266,18 @@ own errors rather than throwing.
 - `POST /players/register` / `POST /players/login` — public, CORS-open (same
   reasoning as `/charades/price` — called cross-origin from the app running
   as a web page; a JSON POST also triggers a CORS preflight, so `OPTIONS`
-  gets an explicit response too). `{ username, password }` →
+  gets an explicit response too). `{ username, password, email? }` →
   `{ token, player }`. Never returns a password hash.
+- `POST /players/password-reset/request` — public, CORS-open. `{ username }`
+  → always `{ message }`, whether or not it matched an account with an
+  email on file (see "Auth model" above).
+- `POST /players/password-reset/confirm` — public, CORS-open.
+  `{ username, code, newPassword }` → `{ ok: true }`, or a generic 400 for
+  any failure case.
 - `GET/PUT/DELETE /admin/players[/:id]` — bearer-token protected (admin
-  session, not a player session). List, rename, reset the password of, or
-  delete a player account. No route to create one here — accounts are
-  created by the player themselves via `/players/register`.
+  session, not a player session). List, rename, edit the email of, reset
+  the password of, or delete a player account. No route to create one here
+  — accounts are created by the player themselves via `/players/register`.
 - `GET/POST/PUT/DELETE /admin/decks[/:id]` — bearer-token protected. A new
   deck starts with zero titles.
 - `POST /admin/decks/:id/import` — multipart upload, field name `file`,
@@ -338,6 +373,11 @@ place to look for either portal's runtime errors.
 
 - **No real payment provider.** `MockPaymentProvider` stands in until real
   KNET/aggregator merchant credentials exist — see "The wallet" above.
+- **No real reset-code delivery.** `ConsoleResetCodeProvider` stands in
+  until a real email/SMS provider exists — see "Auth model" above. Every
+  account created before this feature shipped also has no email on file,
+  so forgot-password does nothing for it until an admin (or the player,
+  once a "my account" screen exists) adds one.
 - **No repetition avoidance across sessions.** `startGameSession` draws 20
   random titles from the combined pool each time, with no memory of what a
   player already saw in an earlier session. Low priority while the total

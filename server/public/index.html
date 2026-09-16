@@ -194,7 +194,7 @@
       </div>
       <div class="card">
         <table>
-          <thead><tr><th>Username</th><th>Created</th><th></th></tr></thead>
+          <thead><tr><th>Username</th><th>Email</th><th>Created</th><th></th></tr></thead>
           <tbody id="playerRows"></tbody>
         </table>
       </div>
@@ -659,14 +659,16 @@ async function renderPlayers() {
   const players = await api('/admin/players');
   const rows = players.map((p) => `<tr>
       <td>${escapeHtml(p.username)}</td>
+      <td class="muted">${p.email ? escapeHtml(p.email) : '—'}</td>
       <td class="muted">${new Date(p.createdAt).toLocaleDateString()}</td>
       <td>
         <button class="secondary" data-rename="${p.id}">Rename</button>
+        <button class="secondary" data-email="${p.id}">Edit email</button>
         <button class="secondary" data-repw="${p.id}">Change password</button>
         <button class="danger" data-del="${p.id}">Delete</button>
       </td>
     </tr>`).join('');
-  $('playerRows').innerHTML = rows || '<tr><td colspan="3" class="muted">No player accounts yet.</td></tr>';
+  $('playerRows').innerHTML = rows || '<tr><td colspan="4" class="muted">No player accounts yet.</td></tr>';
 
   $('playerRows').querySelectorAll('[data-rename]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -678,6 +680,19 @@ async function renderPlayers() {
         });
         renderPlayers();
       } catch (e) { alert('Could not rename: ' + e.message); }
+    });
+  });
+  $('playerRows').querySelectorAll('[data-email]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const current = players.find((p) => p.id === btn.dataset.email);
+      const email = prompt('Email (used for forgot-password codes — leave blank to remove):', current?.email || '');
+      if (email === null) return;
+      try {
+        await api('/admin/players/' + btn.dataset.email, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim() || null }),
+        });
+        renderPlayers();
+      } catch (e) { alert('Could not update email: ' + e.message); }
     });
   });
   $('playerRows').querySelectorAll('[data-repw]').forEach((btn) => {

@@ -15,6 +15,8 @@ export interface AdminUserRow {
 export interface PlayerRow {
   id: string;
   username: string;
+  /** Optional — collected at signup so a forgotten password can be reset. `null` for accounts created before this existed, or that never gave one. */
+  email: string | null;
   createdAt: number;
   updatedAt: number;
 }

@@ -117,6 +117,25 @@ function requirePassword(value: unknown): string {
   return value;
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Optional everywhere it's used — omitted, `null`, or an empty string all mean "no email given." */
+function optionalEmail(value: unknown, field: string): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string' || value.length > 254 || !EMAIL_PATTERN.test(value)) {
+    throw new ValidationError(`"${field}" must be a valid email address`);
+  }
+  return value;
+}
+
+/** The 6-digit code a reset email contains — always exactly 6 digits, never trimmed/coerced, so a malformed value fails validation instead of silently mismatching every stored hash. */
+function requireResetCode(value: unknown): string {
+  if (typeof value !== 'string' || !/^\d{6}$/.test(value)) {
+    throw new ValidationError('"code" must be the 6-digit reset code');
+  }
+  return value;
+}
+
 export function parseCreateAdminUserBody(body: unknown): CreateAdminUserBody {
   const b = (body ?? {}) as Record<string, unknown>;
   return { username: requireUsername(b.username), password: requirePassword(b.password) };
@@ -138,16 +157,25 @@ export function parseUpdateAdminUserBody(body: unknown): UpdateAdminUserBody {
 export interface RegisterPlayerBody {
   username: string;
   password: string;
+  /** Optional at signup — without one, this account has no forgot-password channel until it's added later. */
+  email?: string;
 }
 
 export function parseRegisterPlayerBody(body: unknown): RegisterPlayerBody {
   const b = (body ?? {}) as Record<string, unknown>;
-  return { username: requireUsername(b.username), password: requirePassword(b.password) };
+  const email = optionalEmail(b.email, 'email');
+  return {
+    username: requireUsername(b.username),
+    password: requirePassword(b.password),
+    ...(email !== undefined ? { email } : {}),
+  };
 }
 
 export interface UpdatePlayerBody {
   username?: string;
   password?: string;
+  /** `null` explicitly clears the email; omitted leaves it as-is. */
+  email?: string | null;
 }
 
 export function parseUpdatePlayerBody(body: unknown): UpdatePlayerBody {
@@ -155,7 +183,37 @@ export function parseUpdatePlayerBody(body: unknown): UpdatePlayerBody {
   const out: UpdatePlayerBody = {};
   if (b.username !== undefined) out.username = requireUsername(b.username);
   if (b.password !== undefined) out.password = requirePassword(b.password);
+  if (b.email === null) {
+    out.email = null;
+  } else if (b.email !== undefined) {
+    out.email = optionalEmail(b.email, 'email');
+  }
   return out;
+}
+
+export interface RequestPasswordResetBody {
+  username: string;
+}
+
+/** Only a username — never reveals whether it matched an account, so validation alone can't leak that either. */
+export function parseRequestPasswordResetBody(body: unknown): RequestPasswordResetBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  return { username: requireUsername(b.username) };
+}
+
+export interface ConfirmPasswordResetBody {
+  username: string;
+  code: string;
+  newPassword: string;
+}
+
+export function parseConfirmPasswordResetBody(body: unknown): ConfirmPasswordResetBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  return {
+    username: requireUsername(b.username),
+    code: requireResetCode(b.code),
+    newPassword: requirePassword(b.newPassword),
+  };
 }
 
 export interface StartSessionBody {

@@ -27,3 +27,23 @@ export const registerLimiter = rateLimit({
   skip,
   message: { error: 'too many accounts created from this network, try again later' },
 });
+
+/** Requesting a reset code: tight, since every request costs a real email/SMS send (or would, with a real provider) and is a username-enumeration target even though the response never confirms a match. */
+export const passwordResetRequestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip,
+  message: { error: 'too many reset requests, try again later' },
+});
+
+/** Submitting a code: the real risk here is brute-forcing a 6-digit code before it expires — this, together with the per-code attempt cap in the route itself, keeps that infeasible. */
+export const passwordResetConfirmLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip,
+  message: { error: 'too many attempts, try again later' },
+});
