@@ -15,17 +15,18 @@ adminPlayersRouter.put('/:id', async (req, res) => {
   try {
     const before = getPlayerById(req.params.id);
     const input = parseUpdatePlayerBody(req.body);
-    const patch: { username?: string; passwordHash?: string } = {};
+    const patch: { username?: string; passwordHash?: string; email?: string | null } = {};
     if (input.username !== undefined) patch.username = input.username;
     if (input.password !== undefined) patch.passwordHash = await hashPassword(input.password);
+    if (input.email !== undefined) patch.email = input.email;
     const updated = updatePlayer(req.params.id, patch);
     recordAudit({
       actorId: req.admin!.sub,
       actorUsername: req.admin!.username,
       action: 'player.update',
       target: req.params.id,
-      before: before ? { username: before.username } : undefined,
-      after: { username: updated.username, passwordChanged: input.password !== undefined },
+      before: before ? { username: before.username, email: before.email } : undefined,
+      after: { username: updated.username, email: updated.email, passwordChanged: input.password !== undefined },
     });
     res.json(updated);
   } catch (err) {

@@ -19,7 +19,13 @@ import type { Lang } from '../engine/types';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
 import { track } from '../services/analytics';
-import { PlayerAuthError, loginPlayer as loginPlayerApi, registerPlayer as registerPlayerApi } from '../services/playerAuthApi';
+import {
+  PlayerAuthError,
+  confirmPasswordReset as confirmPasswordResetApi,
+  loginPlayer as loginPlayerApi,
+  registerPlayer as registerPlayerApi,
+  requestPasswordReset as requestPasswordResetApi,
+} from '../services/playerAuthApi';
 import {
   WalletError,
   confirmCheckout as confirmCheckoutApi,
@@ -85,9 +91,19 @@ interface AppValue {
   player: { id: string; username: string } | null;
   playerAuthBusy: boolean;
   playerAuthError: string | null;
-  registerPlayerAccount: (username: string, password: string) => Promise<boolean>;
+  /** `email` is optional — without one, this account has no forgot-password channel until one is added later. */
+  registerPlayerAccount: (username: string, password: string, email?: string) => Promise<boolean>;
   loginPlayerAccount: (username: string, password: string) => Promise<boolean>;
   logoutPlayerAccount: () => void;
+  /**
+   * Step one of forgot-password. Always resolves `true` once the server
+   * accepts the request, whether or not `username` matched a real account
+   * with an email on file — the response never reveals that either way, so
+   * there's nothing more specific to report on success.
+   */
+  requestPasswordReset: (username: string) => Promise<boolean>;
+  /** Step two — the code from the (mocked, for now) email plus a new password. */
+  confirmPasswordReset: (username: string, code: string, newPassword: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppValue | null>(null);
@@ -303,11 +319,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     void clearCharades(deviceStore);
   }, []);
 
-  const registerPlayerAccount = useCallback(async (username: string, password: string) => {
+  const registerPlayerAccount = useCallback(async (username: string, password: string, email?: string) => {
     setPlayerAuthBusy(true);
     setPlayerAuthError(null);
     try {
-      const result = await registerPlayerApi(username, password);
+      const result = await registerPlayerApi(username, password, email);
       const session: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
       setPlayerSession(session);
       await savePlayerSession(deviceStore, session);
@@ -359,6 +375,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     track({ name: 'player_logout' });
   }, []);
 
+  const requestPasswordReset = useCallback(async (username: string) => {
+    setPlayerAuthBusy(true);
+    setPlayerAuthError(null);
+    try {
+      await requestPasswordResetApi(username);
+      return true;
+    } catch (err) {
+      setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
+      return false;
+    } finally {
+      setPlayerAuthBusy(false);
+    }
+  }, []);
+
+  const confirmPasswordReset = useCallback(async (username: string, code: string, newPassword: string) => {
+    setPlayerAuthBusy(true);
+    setPlayerAuthError(null);
+    try {
+      await confirmPasswordResetApi(username, code, newPassword);
+      return true;
+    } catch (err) {
+      setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
+      return false;
+    } finally {
+      setPlayerAuthBusy(false);
+    }
+  }, []);
+
   const value: AppValue = {
     ready,
     lang,
@@ -386,6 +430,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     registerPlayerAccount,
     loginPlayerAccount,
     logoutPlayerAccount,
+    requestPasswordReset,
+    confirmPasswordReset,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

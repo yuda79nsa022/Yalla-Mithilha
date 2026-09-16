@@ -72,6 +72,43 @@ describe('admin player management', () => {
     expect(res.status).toBe(404);
   });
 
+  it('lets an admin set an email on a player with none, enabling self-service reset', async () => {
+    const register = await request(app)
+      .post('/players/register')
+      .send({ username: 'noemailyet', password: 'password1234' });
+    const id = register.body.player.id;
+
+    const before = await request(app).get('/admin/players').set(auth);
+    expect(before.body.find((p: any) => p.id === id).email).toBeNull();
+
+    const update = await request(app).put(`/admin/players/${id}`).set(auth).send({ email: 'backfilled@example.com' });
+    expect(update.status).toBe(200);
+    expect(update.body.email).toBe('backfilled@example.com');
+  });
+
+  it('lets an admin clear a player email by sending null', async () => {
+    const register = await request(app)
+      .post('/players/register')
+      .send({ username: 'clearmail', password: 'password1234', email: 'clearmail@example.com' });
+    const id = register.body.player.id;
+
+    const update = await request(app).put(`/admin/players/${id}`).set(auth).send({ email: null });
+    expect(update.status).toBe(200);
+    expect(update.body.email).toBeNull();
+  });
+
+  it('rejects a malformed email on update with 400', async () => {
+    const register = await request(app)
+      .post('/players/register')
+      .send({ username: 'bademailupdate', password: 'password1234' });
+
+    const res = await request(app)
+      .put(`/admin/players/${register.body.player.id}`)
+      .set(auth)
+      .send({ email: 'not-an-email' });
+    expect(res.status).toBe(400);
+  });
+
   it('deletes a player — with no last-player guard, unlike admin accounts', async () => {
     const register = await request(app)
       .post('/players/register')

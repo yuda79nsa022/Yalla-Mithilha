@@ -97,6 +97,8 @@ export const ar = {
   'account.subtitle': 'اختياري. اللعب كضيف يشتغل بالكامل بدون حساب — هذا بس يحفظ اسم مستخدم عشان ترجع له.',
   'account.username': 'اسم المستخدم',
   'account.password': 'كلمة السر',
+  'account.email': 'البريد الإلكتروني',
+  'account.emailOptionalHint': 'اختياري — يخليك ترجع تسوي كلمة سر جديدة لو نسيتها',
   'account.signIn': 'تسجيل الدخول',
   'account.createAccount': 'إنشاء حساب',
   'account.switchToSignIn': 'عندك حساب؟ سجّل دخولك',
@@ -106,6 +108,17 @@ export const ar = {
   'account.logout': 'تسجيل الخروج',
   'account.logoutConfirm': 'تبي تسجّل خروج من هالحساب؟ اللعب كضيف يستمر عادي.',
   'account.sessionExpired': 'انتهت جلستك — سجّل دخولك مرة ثانية.',
+
+  'account.forgotPassword': 'نسيت كلمة السر؟',
+  'account.forgotRequestTitle': 'صفّر كلمة السر',
+  'account.forgotRequestBody': 'اكتب اسم المستخدم، وإذا فيه بريد إلكتروني مسجّل له، بنرسل له رمز إعادة التعيين.',
+  'account.sendResetCode': 'إرسال رمز إعادة التعيين',
+  'account.forgotConfirmBody': 'إذا كان فيه حساب بهذا الاسم وله بريد مسجّل، أرسلنا له رمز مكوّن من ٦ أرقام. اكتبه تحت مع كلمة سر جديدة.',
+  'account.resetCode': 'رمز إعادة التعيين',
+  'account.newPassword': 'كلمة السر الجديدة',
+  'account.resetPassword': 'صفّر كلمة السر',
+  'account.resetSuccess': 'تم تحديث كلمة السر — سجّل دخولك فيها.',
+  'account.backToSignIn': 'رجوع لتسجيل الدخول',
 } as const;
 
 export type TranslationKey = keyof typeof ar;
