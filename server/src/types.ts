@@ -41,6 +41,8 @@ export interface DeckRow {
   nameAr: string;
   nameEn: string;
   language: Lang;
+  /** A servable path (e.g. `/title-images/<uuid>.png`), or null when this deck has no icon/cover picture. Shown next to the deck on the player's deck picker. */
+  imagePath: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -64,6 +66,8 @@ export interface PublicDeck {
   nameAr: string;
   nameEn: string;
   language: Lang;
+  /** A servable path relative to the API origin — absent when this deck has no icon/cover picture. */
+  imageUrl?: string;
   titleCount: number;
 }
 

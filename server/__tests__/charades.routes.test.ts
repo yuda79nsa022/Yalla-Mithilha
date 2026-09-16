@@ -7,7 +7,7 @@ process.env.PLAYER_SESSION_SECRET = 'test-player-secret';
 
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { addTitlesToDeck, createDeck, resetDbForTests, setGamePriceFils } from '../src/db';
+import { addTitlesToDeck, createDeck, resetDbForTests, setGamePriceFils, updateDeck } from '../src/db';
 import { makePlayerSession } from './helpers/testAuth';
 
 const app = createApp();
@@ -71,6 +71,13 @@ describe('GET /charades/decks', () => {
     createDeck({ id: 'empty-deck', nameAr: 'ج', nameEn: 'C' });
     const res = await request(app).get('/charades/decks');
     expect(res.body).toEqual([]);
+  });
+
+  it('includes imageUrl once a deck has a picture', async () => {
+    seedDeck(1);
+    updateDeck(deckId, { imagePath: '/title-images/cover.png' });
+    const res = await request(app).get('/charades/decks');
+    expect(res.body).toEqual([expect.objectContaining({ id: deckId, imageUrl: '/title-images/cover.png' })]);
   });
 });
 

@@ -134,8 +134,31 @@
               </select>
             </div>
           </div>
+          <div class="row">
+            <div class="field">
+              <label>Deck picture (shown next to this deck on the player's deck picker)</label>
+              <div style="display:flex;align-items:center;gap:10px">
+                <img id="deckImagePreview" src="" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:#EAE0C4;flex:0 0 auto;visibility:hidden" />
+                <input id="deckImageFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
+              </div>
+            </div>
+          </div>
+          <button id="uploadDeckImageBtn" class="secondary">Upload picture</button>
+          <button id="removeDeckImageBtn" class="secondary hidden">Remove picture</button>
+          <p id="deckImageResult" class="muted"></p>
           <button id="saveDeckBtn">Save deck</button>
           <button class="danger" id="deleteDeckBtn">Delete deck</button>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Add a title</h3>
+          <p class="muted">Add one title by hand, with an optional picture — quicker than building a whole import file for a single addition.</p>
+          <div class="row">
+            <div class="field"><label>Title</label><input id="newTitleText" dir="rtl" /></div>
+            <div class="field"><label>Picture (optional)</label><input id="newTitleImage" type="file" accept=".png,.jpg,.jpeg,.webp" /></div>
+          </div>
+          <button id="addTitleBtn" class="secondary">Add title</button>
+          <p id="addTitleResult" class="muted"></p>
         </div>
 
         <div class="card">
@@ -399,6 +422,19 @@ function renderDeckEdit() {
   $('dNameEn').value = d.nameEn;
   $('dLanguage').value = d.language;
   $('deleteDeckBtn').classList.toggle('hidden', !currentDeckId);
+
+  $('deckImagePreview').src = d.imagePath || '';
+  $('deckImagePreview').style.visibility = d.imagePath ? 'visible' : 'hidden';
+  $('deckImageFile').value = '';
+  $('deckImageResult').textContent = '';
+  $('uploadDeckImageBtn').disabled = !currentDeckId;
+  $('removeDeckImageBtn').classList.toggle('hidden', !d.imagePath);
+
+  $('newTitleText').value = '';
+  $('newTitleImage').value = '';
+  $('addTitleResult').textContent = '';
+  $('addTitleBtn').disabled = !currentDeckId;
+
   $('importResult').textContent = '';
   $('importFile').value = '';
   $('importBtn').disabled = !currentDeckId;
@@ -468,6 +504,32 @@ async function deleteDeck() {
   }
 }
 
+async function uploadDeckImage() {
+  const file = $('deckImageFile').files[0];
+  if (!file) { alert('Choose a picture first'); return; }
+  const form = new FormData();
+  form.append('image', file);
+  try {
+    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/image', { method: 'PUT', body: form });
+    renderDeckEdit();
+    $('deckImageResult').textContent = 'Saved.';
+  } catch (e) {
+    alert('Could not upload picture: ' + e.message);
+  }
+}
+
+async function removeDeckImage() {
+  const form = new FormData();
+  form.append('removeImage', 'true');
+  try {
+    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/image', { method: 'PUT', body: form });
+    renderDeckEdit();
+    $('deckImageResult').textContent = 'Removed.';
+  } catch (e) {
+    alert('Could not remove picture: ' + e.message);
+  }
+}
+
 async function removeTitle(titleId) {
   try {
     await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), { method: 'DELETE' });
@@ -475,6 +537,29 @@ async function removeTitle(titleId) {
     renderDeckEdit();
   } catch (e) {
     alert('Could not remove title: ' + e.message);
+  }
+}
+
+async function addTitle() {
+  const text = $('newTitleText').value.trim();
+  if (!text) { alert('Type a title first'); return; }
+  const form = new FormData();
+  form.append('text', text);
+  const file = $('newTitleImage').files[0];
+  if (file) form.append('image', file);
+  const btn = $('addTitleBtn');
+  btn.disabled = true;
+  btn.textContent = 'Adding…';
+  try {
+    const result = await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles', { method: 'POST', body: form });
+    currentDeck = result.deck;
+    renderDeckEdit();
+    $('addTitleResult').textContent = result.added ? 'Added.' : 'Already in this deck — not added again.';
+  } catch (e) {
+    alert('Could not add title: ' + e.message);
+  } finally {
+    btn.disabled = !currentDeckId;
+    btn.textContent = 'Add title';
   }
 }
 
@@ -729,6 +814,9 @@ $('saveHomeContentBtn').addEventListener('click', saveHomeContent);
 $('deckBackLink').addEventListener('click', showDeckList);
 $('saveDeckBtn').addEventListener('click', saveDeck);
 $('deleteDeckBtn').addEventListener('click', deleteDeck);
+$('uploadDeckImageBtn').addEventListener('click', uploadDeckImage);
+$('removeDeckImageBtn').addEventListener('click', removeDeckImage);
+$('addTitleBtn').addEventListener('click', addTitle);
 $('importBtn').addEventListener('click', importTitles);
 $('importWithImagesBtn').addEventListener('click', importTitlesWithImages);
 $('addAdminBtn').addEventListener('click', addAdmin);

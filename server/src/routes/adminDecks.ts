@@ -72,8 +72,10 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // one poster, not a media library
  * Validates and writes one image to disk, returning the servable path
  * (`/title-images/<uuid><ext>`) — or an issue string instead, for the
  * caller to report back rather than throw and abort the whole import.
+ * Shared by titles and decks alike — a picture is a picture regardless of
+ * which one it's attached to.
  */
-function saveTitleImage(buffer: Buffer, originalName: string): { path: string } | { issue: string } {
+function saveImage(buffer: Buffer, originalName: string): { path: string } | { issue: string } {
   const ext = path.extname(originalName).toLowerCase();
   if (!ALLOWED_IMAGE_EXTENSIONS.has(ext)) {
     return { issue: `${originalName}: unsupported image type "${ext || '(none)'}" — expected .png, .jpg or .webp` };
@@ -86,8 +88,8 @@ function saveTitleImage(buffer: Buffer, originalName: string): { path: string } 
   return { path: `/title-images/${filename}` };
 }
 
-/** Best-effort — a title's image file may already be gone, or may never have existed; either way the DB record is what matters. */
-function deleteTitleImageFile(imagePath: string | null): void {
+/** Best-effort — an image file may already be gone, or may never have existed; either way the DB record is what matters. */
+function deleteImageFile(imagePath: string | null): void {
   if (!imagePath) return;
   const filename = path.basename(imagePath);
   try {
@@ -160,6 +162,47 @@ adminDecksRouter.delete('/decks/:id', (req, res) => {
         : undefined,
     });
     res.status(204).end();
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+/** Sets, replaces, or (with `removeImage=true`) clears the deck's own icon/cover picture — shown next to it on the player's deck picker. */
+adminDecksRouter.put('/decks/:id/image', uploadImages.single('image'), (req, res) => {
+  try {
+    const existing = getDeck(req.params.id);
+    if (!existing) {
+      res.status(404).json({ error: `deck "${req.params.id}" not found` });
+      return;
+    }
+
+    let imagePath: string | null | undefined;
+    if (req.file) {
+      const saved = saveImage(req.file.buffer, req.file.originalname);
+      if ('issue' in saved) {
+        res.status(400).json({ error: saved.issue });
+        return;
+      }
+      imagePath = saved.path;
+    } else if (req.body?.removeImage === 'true') {
+      imagePath = null;
+    } else {
+      res.status(400).json({ error: 'no image uploaded — expected an "image" field, or removeImage=true' });
+      return;
+    }
+
+    const deck = updateDeck(req.params.id, { imagePath });
+    deleteImageFile(existing.imagePath);
+
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'deck.image.update',
+      target: req.params.id,
+      before: { hadImage: Boolean(existing.imagePath) },
+      after: { hasImage: Boolean(deck.imagePath) },
+    });
+    res.json(deck);
   } catch (err) {
     handleError(err, res);
   }
@@ -242,7 +285,7 @@ adminDecksRouter.post(
           imageIssues.push(`${imageFilename}: referenced for "${text}" but not found in the zip`);
           return { text, imagePath: null };
         }
-        const saved = saveTitleImage(entry.getData(), imageFilename);
+        const saved = saveImage(entry.getData(), imageFilename);
         if ('issue' in saved) {
           imageIssues.push(saved.issue);
           return { text, imagePath: null };
@@ -265,6 +308,44 @@ adminDecksRouter.post(
   }
 );
 
+/** Adds one title by hand, optionally with its picture — for a quick one-off addition that isn't worth building a whole import file for. */
+adminDecksRouter.post('/decks/:id/titles', uploadImages.single('image'), (req, res) => {
+  try {
+    if (!getDeck(req.params.id)) {
+      res.status(404).json({ error: `deck "${req.params.id}" not found` });
+      return;
+    }
+
+    const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+    if (!text) {
+      res.status(400).json({ error: '"text" is required' });
+      return;
+    }
+
+    let imagePath: string | null = null;
+    if (req.file) {
+      const saved = saveImage(req.file.buffer, req.file.originalname);
+      if ('issue' in saved) {
+        res.status(400).json({ error: saved.issue });
+        return;
+      }
+      imagePath = saved.path;
+    }
+
+    const result = addTitlesToDeckWithImages(req.params.id, [{ text, imagePath }]);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'deck.title.create',
+      target: req.params.id,
+      after: { text, hasImage: Boolean(imagePath), ...result },
+    });
+    res.status(201).json({ ...result, deck: getDeck(req.params.id) });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
 adminDecksRouter.put('/decks/:deckId/titles/:titleId', uploadImages.single('image'), (req, res) => {
   try {
     const existing = getTitle(req.params.deckId, req.params.titleId);
@@ -280,7 +361,7 @@ adminDecksRouter.put('/decks/:deckId/titles/:titleId', uploadImages.single('imag
 
     let newImageIssue: string | null = null;
     if (req.file) {
-      const saved = saveTitleImage(req.file.buffer, req.file.originalname);
+      const saved = saveImage(req.file.buffer, req.file.originalname);
       if ('issue' in saved) {
         newImageIssue = saved.issue;
       } else {
@@ -297,7 +378,7 @@ adminDecksRouter.put('/decks/:deckId/titles/:titleId', uploadImages.single('imag
 
     const replacingOrRemovingImage = input.imagePath !== undefined;
     const title = updateTitle(req.params.deckId, req.params.titleId, input);
-    if (replacingOrRemovingImage) deleteTitleImageFile(existing.imagePath);
+    if (replacingOrRemovingImage) deleteImageFile(existing.imagePath);
 
     recordAudit({
       actorId: req.admin!.sub,
@@ -316,7 +397,7 @@ adminDecksRouter.put('/decks/:deckId/titles/:titleId', uploadImages.single('imag
 adminDecksRouter.delete('/decks/:deckId/titles/:titleId', (req, res) => {
   try {
     const removed = deleteTitle(req.params.deckId, req.params.titleId);
-    deleteTitleImageFile(removed.imagePath);
+    deleteImageFile(removed.imagePath);
     recordAudit({
       actorId: req.admin!.sub,
       actorUsername: req.admin!.username,
