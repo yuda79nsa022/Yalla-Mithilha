@@ -1,13 +1,13 @@
 import { Redirect, router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Platform, StyleSheet, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Button, ConfirmModal, Screen, Spacer, T } from '../../src/ui/components';
 import { colors, radius, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
 import { playSound, preloadSounds } from '../../src/platform/sound';
-import { awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
+import { adjustScore, awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
 import { buildRevealUrl, resolveRevealBaseUrl } from '../../src/engine/reveal';
 import { CATALOGUE_API_URL, REVEAL_BASE_URL } from '../../src/config';
 
@@ -16,6 +16,11 @@ const ROUND_SECONDS = 120;
 
 /** The countdown ticks audibly for its last half-minute, same as a real game-show clock. */
 const TICK_SECONDS = 30;
+
+/** A correct guess in the round's first minute is worth 2 points, its second minute 1 point. */
+function pointsForTimeLeft(timeLeft: number): number {
+  return timeLeft > ROUND_SECONDS / 2 ? 2 : 1;
+}
 
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -29,7 +34,19 @@ function webOrigin(): string | null {
   return g.location?.origin ?? null;
 }
 
-function ScoreChip({ name, score, color }: { name: string; score: number; color: string }) {
+function ScoreChip({
+  name,
+  score,
+  color,
+  onAdjust,
+}: {
+  name: string;
+  score: number;
+  color: string;
+  /** When given, renders +/- controls so the score can be corrected mid-game. */
+  onAdjust?: (delta: number) => void;
+}) {
+  const { t } = useApp();
   return (
     <View style={[styles.scoreChip, { borderColor: color }]}>
       <T variant="label" numberOfLines={1}>
@@ -38,6 +55,36 @@ function ScoreChip({ name, score, color }: { name: string; score: number; color:
       <T variant="heading" color={color}>
         {score}
       </T>
+      {onAdjust ? (
+        <View style={styles.scoreAdjustRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('charades.play.scoreDecrease', { team: name })}
+            disabled={score <= 0}
+            onPress={() => onAdjust(-1)}
+            style={({ pressed }) => [
+              styles.scoreAdjustButton,
+              { borderColor: color },
+              pressed && styles.pressed,
+              score <= 0 && styles.disabled,
+            ]}
+          >
+            <T variant="heading" color={color}>
+              −
+            </T>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('charades.play.scoreIncrease', { team: name })}
+            onPress={() => onAdjust(1)}
+            style={({ pressed }) => [styles.scoreAdjustButton, { borderColor: color }, pressed && styles.pressed]}
+          >
+            <T variant="heading" color={color}>
+              +
+            </T>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -50,11 +97,14 @@ export default function CharadesPlay() {
   const [endedEarly, setEndedEarly] = useState(false);
   const [started, setStarted] = useState(false);
   /**
-   * Set the instant "award" or "skip" is tapped — holds the outcome so the
-   * round's answer can be shown to everyone before `charades.index` actually
-   * advances (which is deferred until "next round" is tapped).
+   * Set the instant "award" or "skip" is tapped — the answer itself is
+   * already on screen by then (see the `revealed` branch below); this just
+   * holds the outcome so `charades.index` doesn't advance until "next round"
+   * is tapped.
    */
-  const [pendingOutcome, setPendingOutcome] = useState<{ team: 0 | 1; awarded: boolean } | null>(null);
+  const [pendingOutcome, setPendingOutcome] = useState<{ team: 0 | 1; awarded: boolean; points: number } | null>(
+    null
+  );
 
   // Hooks run unconditionally, before the early-return redirects below — so
   // every dependency here has to tolerate `charades` being null.
@@ -152,7 +202,13 @@ export default function CharadesPlay() {
 
   const nextRound = () => {
     if (!pendingOutcome) return;
-    updateCharades(pendingOutcome.awarded ? awardRound(charades, pendingOutcome.team) : skipRound(charades));
+    updateCharades(
+      pendingOutcome.awarded ? awardRound(charades, pendingOutcome.team, pendingOutcome.points) : skipRound(charades)
+    );
+  };
+
+  const adjustTeamScore = (team: 0 | 1, delta: number) => {
+    updateCharades(adjustScore(charades, team, delta));
   };
 
   if (pendingOutcome) {
@@ -161,27 +217,9 @@ export default function CharadesPlay() {
     return (
       <Screen scroll>
         <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
-          <T variant="label" align="center" color={colors.textMuted}>
-            {t('charades.play.answerReveal')}
-          </T>
-          <T variant="heading" align="center" color={colors.accent}>
-            {t('charades.reveal.category', { category })}
-          </T>
-          <T variant="display" align="center">
-            {currentTitle.text}
-          </T>
-          {absoluteImageUrl ? (
-            <Image
-              source={{ uri: absoluteImageUrl }}
-              style={{ width: '100%', height: 200, borderRadius: radius.lg }}
-              resizeMode="contain"
-              accessibilityLabel={currentTitle.text}
-            />
-          ) : null}
-          <Spacer />
           <T variant="heading" align="center" color={finishedTeamColor}>
             {pendingOutcome.awarded
-              ? t('charades.play.pointAwardedTo', { team: finishedTeamName })
+              ? t('charades.play.pointAwardedTo', { team: finishedTeamName, points: pendingOutcome.points })
               : t('charades.play.noOneGuessedOutcome')}
           </T>
           <Spacer size={spacing.xl} />
@@ -195,7 +233,12 @@ export default function CharadesPlay() {
     <Screen scroll>
       <Spacer size={spacing.sm} />
       <View style={styles.header}>
-        <ScoreChip name={charades.teamAName} score={charades.scores[0]} color={colors.teamA} />
+        <ScoreChip
+          name={charades.teamAName}
+          score={charades.scores[0]}
+          color={colors.teamA}
+          onAdjust={(delta) => adjustTeamScore(0, delta)}
+        />
         <View style={{ alignItems: 'center' }}>
           <T variant="label" color={colors.textMuted}>
             {t('charades.play.round', { round: charades.index + 1, total: charades.titles.length })}
@@ -204,57 +247,84 @@ export default function CharadesPlay() {
             {t('charades.play.turn', { team: teamName })}
           </T>
         </View>
-        <ScoreChip name={charades.teamBName} score={charades.scores[1]} color={colors.teamB} />
+        <ScoreChip
+          name={charades.teamBName}
+          score={charades.scores[1]}
+          color={colors.teamB}
+          onAdjust={(delta) => adjustTeamScore(1, delta)}
+        />
       </View>
 
       <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
-        <T variant="label" align="center" color={colors.textMuted}>
-          {t('charades.play.scanInstruction', { team: teamName })}
-        </T>
-        <View style={[styles.card, { borderColor: teamColor }]}>
-          {revealUrl ? (
-            <QRCode value={revealUrl} size={200} />
-          ) : (
-            <T variant="label" align="center" color={colors.textMuted}>
-              {t('charades.play.scanUnavailable')}
-            </T>
-          )}
-        </View>
-
         {revealed ? (
           <>
+            <T variant="label" align="center" color={colors.textMuted}>
+              {t('charades.play.answerReveal')}
+            </T>
+            <T variant="heading" align="center" color={colors.accent}>
+              {t('charades.reveal.category', { category })}
+            </T>
+            <T variant="display" align="center">
+              {currentTitle.text}
+            </T>
+            {absoluteImageUrl ? (
+              <Image
+                source={{ uri: absoluteImageUrl }}
+                style={{ width: '100%', height: 200, borderRadius: radius.lg }}
+                resizeMode="contain"
+                accessibilityLabel={currentTitle.text}
+              />
+            ) : null}
+            <Spacer />
             <Button
               label={t('charades.play.award', { team: teamName })}
               accent={teamColor}
-              onPress={() => setPendingOutcome({ team: teamIndex, awarded: true })}
+              onPress={() => setPendingOutcome({ team: teamIndex, awarded: true, points: pointsForTimeLeft(timeLeft) })}
             />
             <Button
               label={t('charades.play.skip')}
               tone="ghost"
-              onPress={() => setPendingOutcome({ team: teamIndex, awarded: false })}
+              onPress={() => setPendingOutcome({ team: teamIndex, awarded: false, points: 0 })}
             />
           </>
-        ) : started ? (
-          <>
-            <T
-              variant="timer"
-              align="center"
-              color={teamColor}
-              accessibilityLabel={t('charades.play.timeRemaining', { time: formatTime(timeLeft) })}
-            >
-              {formatTime(timeLeft)}
-            </T>
-            <Button label={t('charades.play.endEarly')} tone="secondary" onPress={() => setEndedEarly(true)} />
-          </>
         ) : (
-          <Button
-            label={t('charades.play.startTimer')}
-            accent={teamColor}
-            onPress={() => {
-              void playSound('bell');
-              setStarted(true);
-            }}
-          />
+          <>
+            <T variant="label" align="center" color={colors.textMuted}>
+              {t('charades.play.scanInstruction', { team: teamName })}
+            </T>
+            <View style={[styles.card, { borderColor: teamColor }]}>
+              {revealUrl ? (
+                <QRCode value={revealUrl} size={200} />
+              ) : (
+                <T variant="label" align="center" color={colors.textMuted}>
+                  {t('charades.play.scanUnavailable')}
+                </T>
+              )}
+            </View>
+
+            {started ? (
+              <>
+                <T
+                  variant="timer"
+                  align="center"
+                  color={teamColor}
+                  accessibilityLabel={t('charades.play.timeRemaining', { time: formatTime(timeLeft) })}
+                >
+                  {formatTime(timeLeft)}
+                </T>
+                <Button label={t('charades.play.endEarly')} tone="secondary" onPress={() => setEndedEarly(true)} />
+              </>
+            ) : (
+              <Button
+                label={t('charades.play.startTimer')}
+                accent={teamColor}
+                onPress={() => {
+                  void playSound('bell');
+                  setStarted(true);
+                }}
+              />
+            )}
+          </>
         )}
       </View>
 
@@ -288,6 +358,17 @@ const styles = StyleSheet.create({
     minWidth: 90,
   },
   scoreRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.md },
+  scoreAdjustRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+  scoreAdjustButton: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: { opacity: 0.72 },
+  disabled: { opacity: 0.4 },
   card: {
     borderWidth: 2,
     borderRadius: radius.lg,
