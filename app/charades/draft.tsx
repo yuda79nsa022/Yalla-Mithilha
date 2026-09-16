@@ -4,6 +4,7 @@ import { StyleSheet, TextInput } from 'react-native';
 import { Button, OptionCard, Screen, Spacer, T } from '../../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
+import { CATALOGUE_API_URL } from '../../src/config';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
 
 export default function CharadesDraft() {
@@ -97,6 +98,7 @@ export default function CharadesDraft() {
               title={lang === 'ar' ? deck.nameAr : deck.nameEn}
               selected={selectedDeckIds.includes(deck.id)}
               onPress={() => toggleDeck(deck.id)}
+              imageUri={deck.imageUrl ? `${CATALOGUE_API_URL}${deck.imageUrl}` : undefined}
             />
             <Spacer size={spacing.sm} />
           </React.Fragment>

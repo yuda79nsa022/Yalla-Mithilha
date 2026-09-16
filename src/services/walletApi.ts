@@ -77,6 +77,8 @@ export interface PlayableDeck {
   nameAr: string;
   nameEn: string;
   language: Lang;
+  /** A path relative to CATALOGUE_API_URL — absent when this deck has no icon/cover picture. */
+  imageUrl?: string;
   titleCount: number;
 }
 

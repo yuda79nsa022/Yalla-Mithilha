@@ -261,6 +261,100 @@ describe('PUT /admin/decks/:deckId/titles/:titleId', () => {
   });
 });
 
+describe('POST /admin/decks/:id/titles', () => {
+  it('adds one title with no picture', async () => {
+    createDeck(sample);
+    const res = await request(app).post(`/admin/decks/${sample.id}/titles`).set(auth).field('text', 'Solo Title');
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ added: 1, skipped: 0 });
+    expect(res.body.deck.titles).toEqual([expect.objectContaining({ text: 'Solo Title', imagePath: null })]);
+  });
+
+  it('adds one title with its picture in the same call', async () => {
+    createDeck(sample);
+    const res = await request(app)
+      .post(`/admin/decks/${sample.id}/titles`)
+      .set(auth)
+      .field('text', 'Solo Title')
+      .attach('image', FAKE_IMAGE, 'a.png');
+    expect(res.status).toBe(201);
+    expect(res.body.deck.titles).toEqual([
+      expect.objectContaining({ text: 'Solo Title', imagePath: expect.stringMatching(/\.png$/) }),
+    ]);
+  });
+
+  it('rejects an unsupported image type', async () => {
+    createDeck(sample);
+    const res = await request(app)
+      .post(`/admin/decks/${sample.id}/titles`)
+      .set(auth)
+      .field('text', 'Solo Title')
+      .attach('image', FAKE_IMAGE, 'a.gif');
+    expect(res.status).toBe(400);
+    expect(getDeck(sample.id)!.titles).toEqual([]);
+  });
+
+  it('requires non-empty text', async () => {
+    createDeck(sample);
+    const res = await request(app).post(`/admin/decks/${sample.id}/titles`).set(auth).field('text', '   ');
+    expect(res.status).toBe(400);
+  });
+
+  it('skips a duplicate of a title already in the deck', async () => {
+    createDeck(sample);
+    await request(app).post(`/admin/decks/${sample.id}/titles`).set(auth).field('text', 'Solo Title');
+    const res = await request(app).post(`/admin/decks/${sample.id}/titles`).set(auth).field('text', 'Solo Title');
+    expect(res.body).toMatchObject({ added: 0, skipped: 1 });
+  });
+
+  it('returns 404 for an unknown deck', async () => {
+    const res = await request(app).post('/admin/decks/nope/titles').set(auth).field('text', 'x');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('PUT /admin/decks/:id/image', () => {
+  it('sets the deck picture', async () => {
+    createDeck(sample);
+    const res = await request(app).put(`/admin/decks/${sample.id}/image`).set(auth).attach('image', FAKE_IMAGE, 'cover.png');
+    expect(res.status).toBe(200);
+    expect(res.body.imagePath).toMatch(/\.png$/);
+  });
+
+  it('replaces an existing deck picture', async () => {
+    createDeck(sample);
+    const first = await request(app).put(`/admin/decks/${sample.id}/image`).set(auth).attach('image', FAKE_IMAGE, 'a.png');
+    const res = await request(app).put(`/admin/decks/${sample.id}/image`).set(auth).attach('image', FAKE_IMAGE, 'b.png');
+    expect(res.status).toBe(200);
+    expect(res.body.imagePath).not.toBe(first.body.imagePath);
+  });
+
+  it('clears the deck picture when removeImage is sent', async () => {
+    createDeck(sample);
+    await request(app).put(`/admin/decks/${sample.id}/image`).set(auth).attach('image', FAKE_IMAGE, 'a.png');
+    const res = await request(app).put(`/admin/decks/${sample.id}/image`).set(auth).field('removeImage', 'true');
+    expect(res.status).toBe(200);
+    expect(res.body.imagePath).toBeNull();
+  });
+
+  it('rejects an unsupported image type', async () => {
+    createDeck(sample);
+    const res = await request(app).put(`/admin/decks/${sample.id}/image`).set(auth).attach('image', FAKE_IMAGE, 'a.gif');
+    expect(res.status).toBe(400);
+  });
+
+  it('requires either an image or removeImage', async () => {
+    createDeck(sample);
+    const res = await request(app).put(`/admin/decks/${sample.id}/image`).set(auth);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for an unknown deck', async () => {
+    const res = await request(app).put('/admin/decks/nope/image').set(auth).attach('image', FAKE_IMAGE, 'a.png');
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('game price setting', () => {
   it('requires auth', async () => {
     expect((await request(app).get('/admin/settings/game-price')).status).toBe(401);

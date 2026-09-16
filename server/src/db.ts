@@ -84,6 +84,10 @@ db.exec(`
     -- deck — separate from name_ar/name_en, the deck's bilingual display
     -- name, which exists regardless of which language its titles are in.
     language TEXT NOT NULL DEFAULT 'ar',
+    -- A servable path under /title-images/*, or NULL — the icon/cover shown
+    -- next to this deck on the player's own deck picker. Optional, same as
+    -- a title's picture.
+    image_path TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
@@ -220,6 +224,7 @@ ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REF
 // content, so 'ar' is the correct value for existing rows, not just a
 // placeholder — new decks pass their own language explicitly (see createDeck).
 ensureColumn('decks', 'language', "language TEXT NOT NULL DEFAULT 'ar'");
+ensureColumn('decks', 'image_path', 'image_path TEXT');
 ensureColumn('titles', 'image_path', 'image_path TEXT');
 ensureColumn('settings', 'home_tagline_ar', 'home_tagline_ar TEXT');
 ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
@@ -291,6 +296,7 @@ function rowToDeck(r: any): DeckRow {
     nameAr: r.name_ar,
     nameEn: r.name_en,
     language: r.language as Lang,
+    imagePath: r.image_path ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -348,6 +354,8 @@ export interface UpdateDeckInput {
   nameAr?: string;
   nameEn?: string;
   language?: Lang;
+  /** `null` clears the deck's picture; `undefined` (omitted) leaves it untouched — same convention as `updateTitle`. */
+  imagePath?: string | null;
 }
 
 export function updateDeck(id: string, input: UpdateDeckInput): DeckWithTitles {
@@ -355,7 +363,7 @@ export function updateDeck(id: string, input: UpdateDeckInput): DeckWithTitles {
   if (!existing) throw new DeckNotFoundError(`deck "${id}" not found`);
   const next = { ...existing, ...input, updatedAt: Date.now() };
   db.prepare(
-    'UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, language=@language, updated_at=@updatedAt WHERE id=@id'
+    'UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, language=@language, image_path=@imagePath, updated_at=@updatedAt WHERE id=@id'
   ).run(next);
   return getDeck(id)!;
 }
@@ -483,6 +491,7 @@ export function listPublicDecks(): PublicDeck[] {
     nameAr: d.nameAr,
     nameEn: d.nameEn,
     language: d.language,
+    imageUrl: d.imagePath ?? undefined,
     titleCount: d.titles.length,
   }));
 }

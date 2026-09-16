@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -200,6 +201,7 @@ export function OptionCard({
   accent = colors.accent,
   badge,
   role = 'radio',
+  imageUri,
 }: {
   title: string;
   subtitle?: string;
@@ -209,6 +211,8 @@ export function OptionCard({
   badge?: string;
   /** `'radio'` (default) for a single-choice group; `'checkbox'` when more than one option can be selected at once. */
   role?: 'radio' | 'checkbox';
+  /** An optional icon/cover picture shown beside the title — e.g. a deck's own picture on the deck picker. */
+  imageUri?: string;
 }) {
   return (
     <Pressable
@@ -225,6 +229,7 @@ export function OptionCard({
       <View style={styles.optionRow}>
         {/* A colour bar plus a check mark: selection never depends on hue alone. */}
         <View style={[styles.optionBar, { backgroundColor: selected ? accent : colors.border }]} />
+        {imageUri ? <Image source={{ uri: imageUri }} style={styles.optionImage} resizeMode="cover" /> : null}
         <View style={styles.optionText}>
           <T variant="heading">{title}</T>
           {subtitle ? (
@@ -407,6 +412,7 @@ const styles = StyleSheet.create({
   },
   optionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   optionBar: { width: 6, alignSelf: 'stretch', minHeight: 40, borderRadius: radius.sm },
+  optionImage: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.bgSunken },
   optionText: { flex: 1, gap: 2 },
   badge: {
     borderWidth: 1,
