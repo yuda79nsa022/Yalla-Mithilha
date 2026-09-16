@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, creditBalance, failPayment, getGamePriceFils, getGameSession, getHomeContent, getPayment, startGameSession } from '../db';
+import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, creditBalance, failPayment, getGamePriceFils, getGameSession, getHomeContent, getPayment, listPublicDecks, startGameSession } from '../db';
 import { requirePlayerSession } from '../auth';
 import { handleError } from '../errors';
 import { paymentProvider } from '../payments/provider';
@@ -23,9 +23,14 @@ charadesRouter.use((req, res, next) => {
   next();
 });
 
-/** The price needs to be visible before signing in, so a guest can see what they'd be paying for. There is no deck picker — the server chooses every round's category and title at random. */
+/** The price needs to be visible before signing in, so a guest can see what they'd be paying for. */
 charadesRouter.get('/price', (_req, res) => {
   res.json({ fils: getGamePriceFils(), currency: 'KWD' });
+});
+
+/** Every deck a player can choose from when drafting a game — public, since drafting never requires being signed in. */
+charadesRouter.get('/decks', (_req, res) => {
+  res.json(listPublicDecks());
 });
 
 /** The home screen's admin-editable tagline and write-up — public, since a guest sees the home screen before signing in. */
@@ -93,17 +98,15 @@ charadesRouter.post('/checkout/:paymentId/fail', requirePlayerSession, (req, res
 
 /**
  * Spends one wallet credit and deals the session's 20 titles in one call —
- * at random across every playable deck *in the player's chosen `lang`*
- * (Arabic only, English only, or a mix of both — chosen at checkout, never
- * a deck picked directly), never a deck the player chose. Idempotent — see
- * startGameSession. Resuming an interrupted app replays the same
- * client-generated sessionId and spends nothing further, returning the same
- * dealt titles instead.
+ * at random across whichever decks the player chose (`deckIds`) when
+ * drafting the game, without repeats. Idempotent — see startGameSession.
+ * Resuming an interrupted app replays the same client-generated sessionId
+ * and spends nothing further, returning the same dealt titles instead.
  */
 charadesRouter.post('/sessions', requirePlayerSession, (req, res) => {
   try {
-    const { sessionId, lang } = parseStartSessionBody(req.body);
-    const { session, balance } = startGameSession(req.player!.sub, sessionId, lang);
+    const { sessionId, deckIds } = parseStartSessionBody(req.body);
+    const { session, balance } = startGameSession(req.player!.sub, sessionId, deckIds);
     res.status(201).json({ session, balance });
   } catch (err) {
     handleError(err, res);

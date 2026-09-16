@@ -15,7 +15,7 @@ import {
   type Preferences,
   type PlayerSession,
 } from '../engine/persistence';
-import type { DeckLang, Lang } from '../engine/types';
+import type { Lang } from '../engine/types';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
 import { track } from '../services/analytics';
@@ -43,23 +43,24 @@ interface AppValue {
   wipeEverything: () => Promise<void>;
 
   /**
-   * The paid game: silent charades. The server chooses every round's
-   * category and title at random — there is no deck to pick. `gamePriceFils`
-   * is the current admin-set price of one game.
+   * The paid game: silent charades. The server deals every round's title at
+   * random from whichever decks the player chose — there is no per-round
+   * category to pick. `gamePriceFils` is the current admin-set price of one
+   * game.
    */
   gamePriceFils: number;
   /** The admin-editable home-screen tagline and write-up. `null` until the first successful fetch — callers fall back to the i18n default text until then. */
   homeContent: HomeContent | null;
   charades: CharadesState | null;
-  /** `deckLang` is the player's choice of deck-language pool, made alongside the team names — not tied to the app's UI language. */
-  startCharadesDraft: (teamAName: string, teamBName: string, deckLang: DeckLang) => CharadesState;
+  /** `deckIds` is the player's choice of which decks to play, made alongside the team names. */
+  startCharadesDraft: (teamAName: string, teamBName: string, deckIds: string[]) => CharadesState;
   updateCharades: (next: CharadesState) => void;
   /**
    * Spends one wallet credit and deals the drafted session's 20 titles, from
-   * whichever deck-language pool was chosen when the game was drafted.
-   * Requires a signed-in player — wallet credits are owned by an account,
-   * never a device. False when there is no player session, no credit to
-   * spend, or no titles are available yet.
+   * whichever decks were chosen when the game was drafted. Requires a
+   * signed-in player — wallet credits are owned by an account, never a
+   * device. False when there is no player session, no credit to spend, or
+   * no titles are available yet.
    */
   unlockCurrentCharades: () => Promise<boolean>;
   quitCharades: () => void;
@@ -190,8 +191,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startCharadesDraft = useCallback(
-    (teamAName: string, teamBName: string, deckLang: DeckLang) => {
-      const next = draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckLang);
+    (teamAName: string, teamBName: string, deckIds: string[]) => {
+      const next = draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckIds);
       updateCharades(next);
       track({ name: 'charades_drafted' });
       return next;
@@ -237,7 +238,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async () => {
       if (!charades || !playerSession) return false;
       try {
-        const { titles, balance } = await startGameSession(playerSession.token, charades.id, charades.deckLang);
+        const { titles, balance } = await startGameSession(playerSession.token, charades.id, charades.deckIds);
         setWalletBalance(balance);
         updateCharades(unlockCharadesState(charades, titles, playerSession.id));
         track({ name: 'charades_unlocked' });

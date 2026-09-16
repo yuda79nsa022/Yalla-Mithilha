@@ -199,6 +199,7 @@ export function OptionCard({
   onPress,
   accent = colors.accent,
   badge,
+  role = 'radio',
 }: {
   title: string;
   subtitle?: string;
@@ -206,11 +207,13 @@ export function OptionCard({
   onPress: () => void;
   accent?: string;
   badge?: string;
+  /** `'radio'` (default) for a single-choice group; `'checkbox'` when more than one option can be selected at once. */
+  role?: 'radio' | 'checkbox';
 }) {
   return (
     <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected: Boolean(selected) }}
+      accessibilityRole={role}
+      accessibilityState={role === 'checkbox' ? { checked: Boolean(selected) } : { selected: Boolean(selected) }}
       accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
       onPress={onPress}
       style={({ pressed }) => [

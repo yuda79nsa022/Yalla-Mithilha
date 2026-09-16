@@ -9,28 +9,28 @@ afterEach(() => {
 });
 
 describe('startGameSession', () => {
-  it('sends the chosen deck language alongside the session id', async () => {
+  it('sends the chosen deck ids alongside the session id', async () => {
     let sentBody: unknown;
     mockFetch(async (_url, init) => {
       sentBody = JSON.parse((init as RequestInit).body as string);
       return new Response(JSON.stringify({ session: { titles: [] }, balance: 0 }), { status: 201 });
     });
 
-    await startGameSession('tok', 'sess-1', 'en');
+    await startGameSession('tok', 'sess-1', ['us-movies']);
 
-    expect(sentBody).toEqual({ sessionId: 'sess-1', lang: 'en' });
+    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['us-movies'] });
   });
 
-  it('also sends a "mixed" deck-language choice as-is', async () => {
+  it('also sends multiple chosen deck ids as-is', async () => {
     let sentBody: unknown;
     mockFetch(async (_url, init) => {
       sentBody = JSON.parse((init as RequestInit).body as string);
       return new Response(JSON.stringify({ session: { titles: [] }, balance: 0 }), { status: 201 });
     });
 
-    await startGameSession('tok', 'sess-1', 'mixed');
+    await startGameSession('tok', 'sess-1', ['kuwaiti-plays', 'us-movies']);
 
-    expect(sentBody).toEqual({ sessionId: 'sess-1', lang: 'mixed' });
+    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['kuwaiti-plays', 'us-movies'] });
   });
 });
 

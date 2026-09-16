@@ -1,15 +1,13 @@
 /**
- * The paid game: silent charades. A team names their two sides, pays for a
- * session, and the server deals 20 titles at random across every playable
- * deck combined — the player never picks a category. One player privately
- * reads a title, acts it out with no words or sounds, their team guesses,
- * then the phone moves to "show answer" (re-confirming the same title) to
- * award the round before the next one deals. Unlike a trivia question,
- * there is no separate written prompt/answer pair — the title itself is
- * both.
+ * The paid game: silent charades. A team names their two sides, picks which
+ * decks to play, pays for a session, and the server deals 20 titles at
+ * random across those decks combined — never a title the player picks
+ * individually. One player privately reads a title, acts it out with no
+ * words or sounds, their team guesses, then the phone moves to "show
+ * answer" (re-confirming the same title) to award the round before the next
+ * one deals. Unlike a trivia question, there is no separate written
+ * prompt/answer pair — the title itself is both.
  */
-
-import type { DeckLang } from './types';
 
 export interface CharadesTitle {
   id: string;
@@ -42,8 +40,8 @@ export interface CharadesState {
    * requires being signed in — see `charadesForPlayer`.
    */
   playerId: string | null;
-  /** Chosen when drafting, alongside the team names — which deck-language pool `unlockCharades` deals from. */
-  deckLang: DeckLang;
+  /** Chosen when drafting, alongside the team names — which decks `unlockCharades` deals from. */
+  deckIds: string[];
 }
 
 export function makeCharadesId(): string {
@@ -55,9 +53,9 @@ export function draftCharades(
   teamBName: string,
   id: string = makeCharadesId(),
   playerId: string | null = null,
-  deckLang: DeckLang = 'mixed'
+  deckIds: string[] = []
 ): CharadesState {
-  return { id, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked', playerId, deckLang };
+  return { id, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked', playerId, deckIds };
 }
 
 export function unlockCharades(state: CharadesState, titles: CharadesTitle[], playerId: string): CharadesState {
