@@ -71,7 +71,7 @@ about which of those code-level controls are actually in place today.
 | --- | --- | --- |
 | A.5 Access control policy | IMPLEMENTED | Two hard-separated account systems, not one system with a role flag: `admin_users` (CMS/content/settings) and `players` (gameplay/wallet only), each with its own JWT secret, so a token from one can never verify as the other (tested explicitly). Confirmed by re-reading every router mount in `app.ts`: every `/admin/*` route except the login endpoint itself (`/admin/auth`) is wrapped in `requireAdminSession`, with no gap. Within the admin side the model is deliberately flat — any signed-in admin can manage any other admin account (the one guard rail: the last remaining admin can't be deleted) — confirmed intentional, not a gap, per product decision. |
 | A.8 Asset management | PARTIAL | Title/deck images are public, unauthenticated static files at `/title-images/*` — by design, since the QR-code reveal page is opened by a bare phone camera scan with no session at all (see "QR reveal" above), and the deck-picker thumbnails are shown to guests who haven't signed in yet. This is a live, open design question — see "In progress" below. |
-| A.9 Cryptography | PARTIAL | Passwords (both account types) and password-reset codes are hashed, never stored in plaintext. The reveal URL, however, carries the round's title/category/image as a **plain, readable query string** (`?t=...&ca=...&img=...`) — anyone who sees the raw link (not just whoever scans the QR code) can read the answer without opening it, and the same link works forever, indefinitely reusable. Flagged as the top actionable gap from this review — see "In progress" below. |
+| A.9 Cryptography | IMPLEMENTED, with a stated limit | Passwords (both account types) and password-reset codes are hashed, never stored in plaintext. The reveal URL used to carry the round's title/category/image as a **plain, readable query string** (`?t=...&ca=...&img=...`) — anyone who saw the raw link, not just whoever scanned the QR code, could read the answer without opening it. Fixed: `src/engine/revealToken.ts` now encodes the whole payload into one opaque `?d=...` token (a keyed XOR cipher over UTF-16 code units, hex-encoded). This is honestly obfuscation, not confidentiality against a determined attacker — the key ships in the client bundle, since the `/reveal` page has to decode it with no server round-trip or login (see the file's own comment) — but it does stop the actual threat this was raised for: a casual glance at a shared screen's URL bar, browser history, a screenshot, or a server access log no longer reveals the answer. The link is still indefinitely reusable (no single-use or expiry) — that would require the reveal page to start making a server round-trip, a bigger change than what was asked for here (see "In progress" below). |
 | A.12 Operations security | IMPLEMENTED, one accepted gap | Admin actions are audit-logged (`audit_log`, append-only, self-service password resets included). No log rotation/retention policy is defined for `pm2 logs` output (operational concern, not code) — worth a runbook note whenever this deploys somewhere log volume matters. |
 | A.13 Communications security | NOT APPLICABLE at the app layer | TLS termination is the reverse proxy's job (e.g. CloudPanel/nginx in front of the `pm2` process), not something `app.ts` does or should do itself — no HSTS/redirect logic was added here, consistent with that split. Confirm the actual deployment terminates TLS in front of this process; that's outside this repo to verify. |
 | A.14 Secure development | IMPLEMENTED | Every query in `db.ts` is parameterized. All mutating routes validate input via `validate.ts`, throwing a typed `ValidationError` the central `errors.ts` handler turns into a clean 400 — never a raw stack trace. |
@@ -81,19 +81,20 @@ about which of those code-level controls are actually in place today.
 
 ### In progress, from this review
 
-Two concrete follow-ups came directly out of this review and are being
-built next, one at a time:
-
-1. **Reveal URL** — replace the plain query-string link with an opaque,
-   signed token; make it single-use (the server starts being involved in
-   this previously-stateless page) and/or bound to the round it was issued
-   for.
-2. **Image auth** — decide, deliberately, what "authenticated" means for a
-   page whose entire reason to exist is being opened by a bare camera scan
-   with no login flow available. The practical answer for the reveal page
-   is that the signed single-use token *is* the credential, since a
-   username/password prompt isn't reachable from that flow. The deck-picker
-   thumbnails are a separate, more literal question (should a guest who
-   hasn't signed in yet see them at all?) with a real product trade-off
-   against today's "guest play works fully without an account" design goal
-   — tracked, not yet decided in code.
+1. **Reveal URL** — DONE. `src/engine/revealToken.ts` replaced the plain
+   query-string link with a single opaque token. Deliberately *not*
+   single-use or round-bound: that would require the reveal page to make a
+   server round-trip for the first time ever, turning a fully static,
+   stateless page into a stateful one — a materially bigger change than
+   "make the raw link unreadable," and not what was asked for in this pass.
+   Revisit if that's wanted later.
+2. **Image auth** — still open. What "authenticated" means for a page whose
+   entire reason to exist is being opened by a bare camera scan with no
+   login flow available: the practical answer for the reveal page itself is
+   that the opaque token *is* the credential, since a username/password
+   prompt isn't reachable from that flow — no further change needed there
+   beyond item 1 above. The deck-picker thumbnails are a separate, more
+   literal question (should a guest who hasn't signed in yet see them at
+   all?) with a real product trade-off against today's "guest play works
+   fully without an account" design goal — tracked, not yet decided in
+   code.

@@ -4,6 +4,7 @@ import { Image, View } from 'react-native';
 import { Screen, Spacer, T } from '../src/ui/components';
 import { colors, radius, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
+import { parseRevealToken } from '../src/engine/reveal';
 
 /**
  * Where a Charades reveal QR code points. Standalone on purpose: opened by
@@ -15,12 +16,12 @@ import { useApp } from '../src/state/AppProvider';
  */
 export default function CharadesReveal() {
   const { t, lang } = useApp();
-  const { t: title, ca, ce, img } = useLocalSearchParams<{ t?: string; ca?: string; ce?: string; img?: string }>();
-  const text = Array.isArray(title) ? title[0] : title;
-  const categoryAr = Array.isArray(ca) ? ca[0] : ca;
-  const categoryEn = Array.isArray(ce) ? ce[0] : ce;
-  const imageUrl = Array.isArray(img) ? img[0] : img;
-  const category = lang === 'ar' ? categoryAr : categoryEn;
+  const { d } = useLocalSearchParams<{ d?: string }>();
+  const token = Array.isArray(d) ? d[0] : d;
+  const payload = parseRevealToken(token);
+  const text = payload?.t;
+  const imageUrl = payload?.img;
+  const category = payload ? (lang === 'ar' ? payload.ca : payload.ce) : undefined;
 
   return (
     <Screen>
