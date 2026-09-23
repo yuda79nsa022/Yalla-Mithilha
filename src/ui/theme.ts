@@ -2,12 +2,13 @@ import { Platform } from 'react-native';
 
 /**
  * Visual direction: light, monochromatic purple — cool and refreshing rather
- * than the old warm poster palette. A pale lavender ground, deep plum-purple
- * for reading text and line art, a vivid orchid as the one colour that means
- * "tap this." The logo (assets/logo.png) is recoloured to this same family.
+ * than the old warm poster palette. A clean white ground (lavender reserved
+ * for sunken/recessed surfaces like inputs), deep plum-purple for reading
+ * text and line art, a vivid orchid as the one colour that means "tap this."
+ * The logo (assets/logo.png) is recoloured to this same family.
  */
 export const colors = {
-  bg: '#F6F1FB',
+  bg: '#FFFFFF',
   bgRaised: '#FFFFFF',
   bgSunken: '#EAE0F7',
   text: '#2E1A47',
@@ -19,7 +20,7 @@ export const colors = {
   brand: '#6B3FB0',
   /** The one colour that means "tap this." */
   accent: '#A83FD6',
-  overlay: 'rgba(246, 241, 251, 0.94)',
+  overlay: 'rgba(255, 255, 255, 0.94)',
 
   // Deck-thumbnail accent colours, cycled through on the Charades hub.
   act: '#B98AE8',
