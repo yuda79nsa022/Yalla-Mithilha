@@ -1,42 +1,41 @@
 import { Platform } from 'react-native';
 
 /**
- * Visual direction: light, monochromatic purple — cool and refreshing rather
- * than the old warm poster palette. A clean white ground (lavender reserved
- * for sunken/recessed surfaces like inputs), deep plum-purple for reading
- * text and line art, a vivid orchid as the one colour that means "tap this."
- * The logo (assets/logo.png) is recoloured to this same family.
+ * Visual direction: complementary blue and orange on a clean white ground —
+ * dark blue as the primary colour (reading text, line art, chrome), a light
+ * orange as the one colour that means "tap this." The logo (assets/logo.png)
+ * is recoloured to this same family.
  */
 export const colors = {
   bg: '#FFFFFF',
   bgRaised: '#FFFFFF',
-  bgSunken: '#EAE0F7',
-  text: '#2E1A47',
-  textMuted: '#7D6A99',
-  border: '#D6C4EE',
+  bgSunken: '#EAF1FA',
+  text: '#0F2A4A',
+  textMuted: '#5C7A94',
+  border: '#C7D9EA',
   correct: '#1FA972',
   skip: '#E1544F',
-  /** Medium violet — chrome and brand marks. */
-  brand: '#6B3FB0',
-  /** The one colour that means "tap this." */
-  accent: '#A83FD6',
+  /** Dark blue — the primary colour, chrome and brand marks. */
+  brand: '#1B4F8C',
+  /** Light orange, blue's complement — the one colour that means "tap this." */
+  accent: '#FFA94D',
   overlay: 'rgba(255, 255, 255, 0.94)',
 
   // Deck-thumbnail accent colours, cycled through on the Charades hub.
-  act: '#B98AE8',
-  taboo: '#E06BB8',
-  who: '#7B7FE0',
-  imitate: '#9B6FE0',
-  lips: '#C77DE0',
-  sound: '#D6A0E8',
-  final: '#8F5FD9',
+  act: '#FFB870',
+  taboo: '#FF8C42',
+  who: '#5B9BD5',
+  imitate: '#2E6DA4',
+  lips: '#FFCB80',
+  sound: '#7FB3E0',
+  final: '#E8A33D',
 
-  teamA: '#E06BB8',
-  teamB: '#7B7FE0',
+  teamA: '#FF8C42',
+  teamB: '#2E6DA4',
 } as const;
 
-/** Text that sits on top of an accent colour block. */
-export const onAccent = '#FFFFFF';
+/** Text that sits on top of an accent colour block — accent is light, so dark text reads best. */
+export const onAccent = '#0F2A4A';
 
 export const spacing = {
   xs: 4,
