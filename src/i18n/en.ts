@@ -15,9 +15,7 @@ export const en: Record<TranslationKey, string> = {
   'lang.english': 'English',
   'lang.restartNotice': 'Close and reopen the app so the layout direction updates.',
 
-  'home.settings': 'Settings',
   'home.about': 'About and privacy',
-  'home.adminSignIn': 'Admin sign-in',
 
   'settings.title': 'Settings',
   'settings.language': 'Language',
@@ -115,4 +113,5 @@ export const en: Record<TranslationKey, string> = {
   'account.resetPassword': 'Reset password',
   'account.resetSuccess': 'Password updated — sign in with your new password.',
   'account.backToSignIn': 'Back to sign in',
+  'account.openingAdminTool': 'Opening the admin tool…',
 };

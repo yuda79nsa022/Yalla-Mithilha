@@ -13,6 +13,26 @@ const app = createApp();
 
 beforeEach(() => resetDbForTests());
 
+describe('CORS on /admin/auth', () => {
+  it('answers a preflight OPTIONS request so the player app can call this cross-origin', async () => {
+    const res = await request(app)
+      .options('/admin/auth/login')
+      .set('Origin', 'http://example.test')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'Content-Type');
+    expect(res.status).toBe(204);
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+    expect(res.headers['access-control-allow-methods']).toContain('POST');
+  });
+
+  it('sets Access-Control-Allow-Origin on the actual response — this one route, unlike the rest of /admin/*', async () => {
+    const res = await request(app)
+      .post('/admin/auth/login')
+      .send({ username: 'nobody', password: 'whatever123' });
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
 describe('POST /admin/auth/login', () => {
   it('logs in with the correct username and password', async () => {
     const passwordHash = await hashPassword('correct-horse-battery');

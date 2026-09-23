@@ -1,12 +1,11 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
-import { Button, ConfirmModal, Divider, Pill, Screen, Spacer, T } from '../src/ui/components';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Button, ConfirmModal, Pill, Screen, Spacer, T } from '../src/ui/components';
 import { colors, radius, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { needsRestartForDirection } from '../src/platform';
 import { track } from '../src/services/analytics';
-import { CATALOGUE_API_URL } from '../src/config';
 import type { Lang } from '../src/engine/types';
 
 function LanguageToggle() {
@@ -139,19 +138,7 @@ export default function Home() {
         />
       )}
 
-      <Spacer size={spacing.lg} />
-      <Button label={t('home.settings')} tone="secondary" onPress={() => router.push('/settings')} />
-
       <View style={{ flex: 1 }} />
-      <Divider />
-      <Button label={t('home.about')} tone="ghost" onPress={() => router.push('/privacy')} />
-      <Button
-        label={t('home.adminSignIn')}
-        tone="ghost"
-        onPress={() => {
-          void Linking.openURL(`${CATALOGUE_API_URL}/admin-ui`);
-        }}
-      />
 
       <ConfirmModal
         visible={confirmingLogout}

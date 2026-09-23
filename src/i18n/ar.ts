@@ -18,9 +18,7 @@ export const ar = {
   'lang.english': 'English',
   'lang.restartNotice': 'سكّر التطبيق وافتحه مرة ثانية عشان يضبط اتجاه الواجهة.',
 
-  'home.settings': 'الإعدادات',
   'home.about': 'عن اللعبة والخصوصية',
-  'home.adminSignIn': 'تسجيل دخول الإدارة',
 
   'settings.title': 'الإعدادات',
   'settings.language': 'اللغة',
@@ -119,6 +117,7 @@ export const ar = {
   'account.resetPassword': 'صفّر كلمة السر',
   'account.resetSuccess': 'تم تحديث كلمة السر — سجّل دخولك فيها.',
   'account.backToSignIn': 'رجوع لتسجيل الدخول',
+  'account.openingAdminTool': 'جاري فتح أداة الإدارة…',
 } as const;
 
 export type TranslationKey = keyof typeof ar;

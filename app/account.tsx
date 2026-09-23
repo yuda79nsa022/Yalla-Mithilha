@@ -5,6 +5,7 @@ import { Button, ConfirmModal, Screen, Spacer, T } from '../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../src/config';
+import { loginAdmin } from '../src/services/adminAuthApi';
 
 type Mode = 'signIn' | 'create' | 'forgotRequest' | 'forgotConfirm';
 
@@ -28,6 +29,8 @@ export default function Account() {
   const [newPassword, setNewPassword] = useState('');
   const [justResetPassword, setJustResetPassword] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
+  const [tryingAdmin, setTryingAdmin] = useState(false);
+  const [adminRedirecting, setAdminRedirecting] = useState(false);
 
   const logout = () => {
     setConfirmingLogout(false);
@@ -37,15 +40,45 @@ export default function Account() {
 
   const goToMode = (next: Mode) => {
     setJustResetPassword(false);
+    setAdminRedirecting(false);
     setMode(next);
   };
 
   const submit = async () => {
-    const ok =
-      mode === 'signIn'
-        ? await loginPlayerAccount(username.trim(), password)
-        : await registerPlayerAccount(username.trim(), password, email.trim() || undefined);
-    if (ok) router.back();
+    setAdminRedirecting(false);
+    if (mode !== 'signIn') {
+      const ok = await registerPlayerAccount(username.trim(), password, email.trim() || undefined);
+      if (ok) router.back();
+      return;
+    }
+
+    const ok = await loginPlayerAccount(username.trim(), password);
+    if (ok) {
+      router.back();
+      return;
+    }
+
+    // Not a player account, or the wrong password — try it as an admin
+    // sign-in instead, so an admin never needs a separate "Admin sign-in"
+    // link to find their own form. A real admin tool (deck management,
+    // players, audit log) lives on its own separate page (`/admin-ui`),
+    // not inside this app, so success here means opening that page with
+    // the freshly issued token rather than navigating anywhere in-app.
+    setTryingAdmin(true);
+    try {
+      const result = await loginAdmin(username.trim(), password);
+      setAdminRedirecting(true);
+      void Linking.openURL(
+        `${CATALOGUE_API_URL}/admin-ui?token=${encodeURIComponent(result.token)}&username=${encodeURIComponent(
+          result.user.username
+        )}`
+      );
+    } catch {
+      // Not an admin account either — the player-login error already
+      // showing (playerAuthError) covers this case, nothing further to add.
+    } finally {
+      setTryingAdmin(false);
+    }
   };
 
   const sendResetCode = async () => {
@@ -216,7 +249,14 @@ export default function Account() {
         </>
       ) : null}
 
-      {playerAuthError ? (
+      {adminRedirecting ? (
+        <>
+          <Spacer size={spacing.sm} />
+          <T variant="label" color={colors.correct}>
+            {t('account.openingAdminTool')}
+          </T>
+        </>
+      ) : playerAuthError ? (
         <>
           <Spacer size={spacing.sm} />
           <T variant="label" color={colors.skip}>
@@ -230,7 +270,7 @@ export default function Account() {
         <>
           <Button
             label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
-            disabled={!username.trim() || !password || playerAuthBusy}
+            disabled={!username.trim() || !password || playerAuthBusy || tryingAdmin}
             onPress={submit}
           />
           <Spacer size={spacing.sm} />
@@ -264,14 +304,6 @@ export default function Account() {
 
       <Spacer size={spacing.xl} />
       <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
-      <Spacer size={spacing.sm} />
-      <Button
-        label={t('home.adminSignIn')}
-        tone="ghost"
-        onPress={() => {
-          void Linking.openURL(`${CATALOGUE_API_URL}/admin-ui`);
-        }}
-      />
     </Screen>
   );
 }
