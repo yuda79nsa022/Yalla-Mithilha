@@ -1,12 +1,15 @@
+import { decodeRevealToken, encodeRevealToken, type RevealPayload } from './revealToken';
+
 /**
  * The actor's phone is a separate device from whatever is showing the game
  * (a laptop mirrored to a TV, a tablet propped up, or just the phone being
  * passed around). Instead of the title ever appearing on that shared
  * screen, it renders a QR code linking to this app's own `/reveal` page with
- * the title in the query string — any phone's stock camera recognises the
- * link and offers to open it, no app install required. Deliberately not
- * under `/charades`: the server claims that whole path prefix for its API
- * and requires a player session for everything under it, which would 401 a
+ * the round's payload encoded into a single opaque token (see
+ * `revealToken.ts`) — any phone's stock camera recognises the link and
+ * offers to open it, no app install required. Deliberately not under
+ * `/charades`: the server claims that whole path prefix for its API and
+ * requires a player session for everything under it, which would 401 a
  * plain camera scan that carries no session at all.
  */
 
@@ -35,7 +38,13 @@ export function buildRevealUrl(
   categoryEn: string,
   imageUrl?: string
 ): string {
-  const params = new URLSearchParams({ t: title, ca: categoryAr, ce: categoryEn });
-  if (imageUrl) params.set('img', imageUrl);
-  return `${baseUrl}/reveal?${params.toString()}`;
+  const payload: RevealPayload = { t: title, ca: categoryAr, ce: categoryEn };
+  if (imageUrl) payload.img = imageUrl;
+  const token = encodeRevealToken(payload);
+  return `${baseUrl}/reveal?d=${token}`;
+}
+
+/** The `/reveal` screen's own counterpart to `buildRevealUrl` — turns the `d` query param back into the round's payload, or `null` for a missing/malformed one. */
+export function parseRevealToken(token: string | undefined): RevealPayload | null {
+  return token ? decodeRevealToken(token) : null;
 }

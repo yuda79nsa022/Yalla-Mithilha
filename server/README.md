@@ -338,20 +338,23 @@ During play, the round's title and category never appear on the shared
 screen (a TV, a tablet propped up, whatever device is showing
 `app/charades/play.tsx`) — that screen only ever renders a QR code
 (`src/engine/reveal.ts`, `react-native-qrcode-svg`). It links to this same
-app's own `/reveal` page with the title and both deck names in the query
-string, so any phone's stock camera app recognises it and offers to open
-it — no app install, no camera permission inside this app at all. The page
-is deliberately not under `/charades`: this server reserves that whole path
-prefix for its own API, which requires a player session for everything
-under it — a plain camera scan carries none, so it would 401 there. The
+app's own `/reveal` page with the title, both deck names and any picture
+encoded into a single opaque token (`?d=...`, `src/engine/revealToken.ts`)
+rather than a plain, readable query string, so any phone's stock camera app
+recognises it and offers to open it — no app install, no camera permission
+inside this app at all. The page is deliberately not under `/charades`:
+this server reserves that whole path prefix for its own API, which requires
+a player session for everything under it — a plain camera scan carries
+none, so it would 401 there. The
 reveal page picks whichever deck name matches its own language setting. The
 link's base URL is whatever the shared screen's own page is served from when
 that screen is a browser (`window.location.origin`), or
 `EXPO_PUBLIC_REVEAL_BASE_URL` when it isn't (e.g. a native app mirrored to
 the TV, where there's no page origin to read). When the title has a picture,
-its fully-qualified URL rides along in the same query string (the reveal
-page has no API access of its own to fetch it separately) and renders above
-the title; the round-end "answer reveal" screen everyone sees on the shared
+its fully-qualified URL rides along inside the same encoded token (the
+reveal page has no API access of its own to fetch it separately) and
+renders above the title; the round-end "answer reveal" screen everyone sees
+on the shared
 screen shows the same picture, since the round is already over by then.
 
 ## Deployment
