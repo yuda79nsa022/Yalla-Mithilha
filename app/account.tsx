@@ -127,11 +127,7 @@ export default function Account() {
     <Screen scroll>
       <Spacer size={spacing.md} />
       <T variant="title">{t('account.title')}</T>
-      {mode === 'signIn' || mode === 'create' ? (
-        <T variant="body" color={colors.textMuted}>
-          {t('account.subtitle')}
-        </T>
-      ) : (
+      {mode === 'signIn' || mode === 'create' ? null : (
         <>
           <Spacer size={spacing.sm} />
           <T variant="heading">{t('account.forgotRequestTitle')}</T>

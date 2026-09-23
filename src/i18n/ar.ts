@@ -92,7 +92,6 @@ export const ar = {
   'charades.resume.body': 'تبي تكمّل من وين وقفتوا؟',
 
   'account.title': 'الحساب',
-  'account.subtitle': 'اختياري. اللعب كضيف يشتغل بالكامل بدون حساب — هذا بس يحفظ اسم مستخدم عشان ترجع له.',
   'account.username': 'اسم المستخدم',
   'account.password': 'كلمة السر',
   'account.email': 'البريد الإلكتروني',

@@ -88,7 +88,6 @@ export const en: Record<TranslationKey, string> = {
   'charades.resume.body': 'Pick up where you stopped?',
 
   'account.title': 'Account',
-  'account.subtitle': 'Optional. Guest play works fully without one — this only saves a username so you can come back to it.',
   'account.username': 'Username',
   'account.password': 'Password',
   'account.email': 'Email',
