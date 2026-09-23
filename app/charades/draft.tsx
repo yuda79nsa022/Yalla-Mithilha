@@ -21,8 +21,10 @@ export default function CharadesDraft() {
     getPlayableDecks()
       .then((result) => {
         setDecks(result);
-        // Every deck selected by default — a player who wants a narrower mix opts out, not in.
-        setSelectedDeckIds(result.map((d) => d.id));
+        // No deck selected by default — the player opts in to at least one
+        // before `canConfirm` allows continuing, rather than opting out of
+        // ones they don't want.
+        setSelectedDeckIds([]);
       })
       .catch(() => setDecksError(true));
   };
