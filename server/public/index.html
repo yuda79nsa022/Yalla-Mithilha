@@ -239,6 +239,22 @@
 </main>
 
 <script>
+// The player app's own sign-in form (app/account.tsx) tries an admin login
+// as a fallback after a player login fails, and on success opens this page
+// with the freshly issued token/username in the URL — so an admin never
+// needs a separate "Admin sign-in" link to find this form. Adopt it into
+// the same sessionStorage the normal sign-in form below already uses, then
+// scrub it out of the visible URL/history immediately: it's only ever meant
+// to travel here once.
+(function adoptIncomingSession() {
+  const params = new URLSearchParams(location.search);
+  const incomingToken = params.get('token');
+  if (!incomingToken) return;
+  sessionStorage.setItem('adminSessionToken', incomingToken);
+  sessionStorage.setItem('adminUsername', params.get('username') || '');
+  history.replaceState({}, '', location.pathname);
+})();
+
 let token = sessionStorage.getItem('adminSessionToken') || '';
 let currentUsername = sessionStorage.getItem('adminUsername') || '';
 let currentDeckId = null;

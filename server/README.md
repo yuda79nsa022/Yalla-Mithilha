@@ -86,6 +86,18 @@ no roles, appropriate for a small trusted content team. The one guard rail:
 deleting the last remaining admin account is refused, so nobody can lock
 everyone out of the dashboard by mistake.
 
+Two hard-separated account systems (this one and players, below), but one
+login form: the player app's own sign-in screen (`app/account.tsx`) tries a
+player login first, and only on failure tries this same endpoint as an
+admin login — an admin never sees a distinct "Admin sign-in" entry point in
+the player-facing app at all. A successful admin login here opens the
+separate admin tool (`/admin-ui`, still its own page with its own UI) with
+the freshly issued token in the URL; `public/index.html` adopts it into the
+same `sessionStorage` its own sign-in form uses and immediately scrubs the
+URL via `history.replaceState`, so the token never lingers in the visible
+address bar or browser history. `/admin/auth/login` is CORS-open for
+exactly this reason — the rest of `/admin/*` stays same-origin-only.
+
 Player accounts are a separate system for people actually playing — not
 the CMS, and not optional once real money is involved. `src/auth.ts` + the
 `players` table, signed with their own `PLAYER_SESSION_SECRET`.
@@ -259,7 +271,8 @@ own errors rather than throwing.
 
 - `GET /charades/price` — public. `{ fils, currency }`, the current price of
   one game.
-- `POST /admin/auth/login` — public. `{ username, password }` →
+- `POST /admin/auth/login` — public, CORS-open (unlike the rest of
+  `/admin/*` — see "Auth model" above). `{ username, password }` →
   `{ token, user }`.
 - `GET/POST/PUT/DELETE /admin/users[/:id]` — bearer-token protected. Manage
   admin accounts. Never returns a password hash.
