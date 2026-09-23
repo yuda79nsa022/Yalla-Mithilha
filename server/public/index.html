@@ -4,36 +4,36 @@
 <meta charset="utf-8" />
 <title>Yalla Mithilha — Charades Admin</title>
 <style>
-  /* Palette lifted from the Yalla Mithilha logo, same tokens as src/ui/theme.ts:
-     cream paper, poster blue for chrome, hot pink for the one thing to tap. */
+  /* Same tokens as src/ui/theme.ts: white paper, dark blue for chrome,
+     light orange (blue's complement) for the one thing to tap. */
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; margin: 0; background: #F7F0DF; color: #17222E; }
-  header { background: #246E9C; color: #FFFCF4; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #FFFFFF; color: #0F2A4A; }
+  header { background: #1B4F8C; color: #FFFFFF; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   header h1 { font-size: 18px; margin: 0; }
   nav { display: flex; gap: 8px; }
   nav button { background: transparent; border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.85); }
-  nav button.active { background: #E8368F; color: #fff; border-color: #E8368F; }
+  nav button.active { background: #FFA94D; color: #fff; border-color: #FFA94D; }
   .headerRight { display: flex; align-items: center; gap: 12px; font-size: 13px; color: rgba(255,255,255,0.85); }
   main { max-width: 960px; margin: 24px auto; padding: 0 16px 64px; }
-  .card { background: #FFFCF4; border: 1px solid #D8C79C; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card { background: #FFFFFF; border: 1px solid #C7D9EA; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #EAE0C4; font-size: 14px; }
-  th { color: #57697E; font-weight: 600; }
-  button { cursor: pointer; border: 1px solid #E8368F; background: #E8368F; color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
-  button.secondary { background: #FFFCF4; color: #17222E; border-color: #D8C79C; }
-  button.danger { background: #FFFCF4; color: #C23A2E; border-color: #C23A2E; }
-  button.link { background: none; border: none; color: #57697E; padding: 0; text-decoration: underline; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #EAF1FA; font-size: 14px; }
+  th { color: #5C7A94; font-weight: 600; }
+  button { cursor: pointer; border: 1px solid #FFA94D; background: #FFA94D; color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
+  button.secondary { background: #FFFFFF; color: #0F2A4A; border-color: #C7D9EA; }
+  button.danger { background: #FFFFFF; color: #E1544F; border-color: #E1544F; }
+  button.link { background: none; border: none; color: #5C7A94; padding: 0; text-decoration: underline; }
   button:disabled { opacity: 0.5; cursor: default; }
-  input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid #D8C79C; border-radius: 6px; width: 100%; }
-  label { display: block; font-size: 12px; color: #57697E; margin-bottom: 4px; }
+  input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid #C7D9EA; border-radius: 6px; width: 100%; }
+  label { display: block; font-size: 12px; color: #5C7A94; margin-bottom: 4px; }
   .field { margin-bottom: 10px; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
   [dir="rtl"] { text-align: right; }
-  .muted { color: #57697E; font-size: 13px; }
+  .muted { color: #5C7A94; font-size: 13px; }
   .hidden { display: none !important; }
-  a.back { color: #57697E; text-decoration: none; font-size: 14px; cursor: pointer; }
+  a.back { color: #5C7A94; text-decoration: none; font-size: 14px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -64,7 +64,7 @@
       <input id="passwordInput" type="password" autocomplete="current-password" />
     </div>
     <button id="signInBtn">Sign in</button>
-    <p id="gateError" class="muted hidden" style="color:#C23A2E"></p>
+    <p id="gateError" class="muted hidden" style="color:#E1544F"></p>
     <p class="muted">No account yet? Ask another admin to add one, or run <code>npm run create-admin</code> on the server.</p>
   </div>
 
@@ -138,7 +138,7 @@
             <div class="field">
               <label>Deck picture (shown next to this deck on the player's deck picker)</label>
               <div style="display:flex;align-items:center;gap:10px">
-                <img id="deckImagePreview" src="" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:#EAE0C4;flex:0 0 auto;visibility:hidden" />
+                <img id="deckImagePreview" src="" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:#EAF1FA;flex:0 0 auto;visibility:hidden" />
                 <input id="deckImageFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
               </div>
             </div>
@@ -218,7 +218,7 @@
           <div class="field"><label>Password (8+ characters)</label><input id="newAdminPassword" type="password" /></div>
         </div>
         <button id="addAdminBtn">Add admin</button>
-        <p id="addAdminError" class="muted hidden" style="color:#C23A2E"></p>
+        <p id="addAdminError" class="muted hidden" style="color:#E1544F"></p>
       </div>
     </div>
 
@@ -461,9 +461,9 @@ function renderDeckEdit() {
 
   $('titleCount').textContent = d.titles.length;
   $('titleRows').innerHTML = d.titles.map((t) => `
-    <div class="row" style="align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #EAE0C4">
+    <div class="row" style="align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #EAF1FA">
       <img src="${t.imagePath ? escapeHtml(t.imagePath) : ''}" alt=""
-        style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:#EAE0C4;flex:0 0 auto;${t.imagePath ? '' : 'visibility:hidden'}" />
+        style="width:40px;height:40px;object-fit:cover;border-radius:6px;background:#EAF1FA;flex:0 0 auto;${t.imagePath ? '' : 'visibility:hidden'}" />
       <input dir="rtl" style="flex:1;min-width:120px" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" />
       <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" style="width:130px;font-size:11px" />
       ${t.imagePath ? `<button class="secondary" data-remove-image="${escapeHtml(t.id)}">Remove picture</button>` : ''}

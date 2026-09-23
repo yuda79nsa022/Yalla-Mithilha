@@ -1,41 +1,41 @@
 import { Platform } from 'react-native';
 
 /**
- * Visual direction: the app's own poster. Warm paper cream instead of black
- * or white, deep ink-navy for reading text and line art, hot pink as the one
- * colour that means "tap this." Palette lifted straight from the Yalla
- * Mithilha logo (cream ground, blue illustration, pink accent).
+ * Visual direction: complementary blue and orange on a clean white ground —
+ * dark blue as the primary colour (reading text, line art, chrome), a light
+ * orange as the one colour that means "tap this." The logo (assets/logo.png)
+ * is recoloured to this same family.
  */
 export const colors = {
-  bg: '#F7F0DF',
-  bgRaised: '#FFFCF4',
-  bgSunken: '#EDE1C3',
-  text: '#17222E',
-  textMuted: '#57697E',
-  border: '#D8C79C',
-  correct: '#1F9E6C',
-  skip: '#C23A2E',
-  /** Poster blue, straight off the logo's masks and film reel. Chrome and brand marks. */
-  brand: '#246E9C',
-  /** The one colour that means "tap this" — the logo's hand gesture and ticket stubs. */
-  accent: '#E8368F',
-  overlay: 'rgba(247, 240, 223, 0.94)',
+  bg: '#FFFFFF',
+  bgRaised: '#FFFFFF',
+  bgSunken: '#EAF1FA',
+  text: '#0F2A4A',
+  textMuted: '#5C7A94',
+  border: '#C7D9EA',
+  correct: '#1FA972',
+  skip: '#E1544F',
+  /** Dark blue — the primary colour, chrome and brand marks. */
+  brand: '#1B4F8C',
+  /** Light orange, blue's complement — the one colour that means "tap this." */
+  accent: '#FFA94D',
+  overlay: 'rgba(255, 255, 255, 0.94)',
 
   // Deck-thumbnail accent colours, cycled through on the Charades hub.
-  act: '#F0A23C',
-  taboo: '#F0614C',
-  who: '#4FB6E0',
-  imitate: '#A98BEE',
-  lips: '#33C9A5',
-  sound: '#F17FA6',
-  final: '#F5C64B',
+  act: '#FFB870',
+  taboo: '#FF8C42',
+  who: '#5B9BD5',
+  imitate: '#2E6DA4',
+  lips: '#FFCB80',
+  sound: '#7FB3E0',
+  final: '#E8A33D',
 
-  teamA: '#F0614C',
-  teamB: '#4FB6E0',
+  teamA: '#FF8C42',
+  teamB: '#2E6DA4',
 } as const;
 
-/** Text that sits on top of an accent colour block. */
-export const onAccent = '#17222E';
+/** Text that sits on top of an accent colour block — accent is light, so dark text reads best. */
+export const onAccent = '#0F2A4A';
 
 export const spacing = {
   xs: 4,
