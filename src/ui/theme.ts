@@ -1,41 +1,41 @@
 import { Platform } from 'react-native';
 
 /**
- * Visual direction: the app's own poster. Warm paper cream instead of black
- * or white, deep ink-navy for reading text and line art, hot pink as the one
- * colour that means "tap this." Palette lifted straight from the Yalla
- * Mithilha logo (cream ground, blue illustration, pink accent).
+ * Visual direction: light, monochromatic purple — cool and refreshing rather
+ * than the old warm poster palette. A pale lavender ground, deep plum-purple
+ * for reading text and line art, a vivid orchid as the one colour that means
+ * "tap this." The logo (assets/logo.png) is recoloured to this same family.
  */
 export const colors = {
-  bg: '#F7F0DF',
-  bgRaised: '#FFFCF4',
-  bgSunken: '#EDE1C3',
-  text: '#17222E',
-  textMuted: '#57697E',
-  border: '#D8C79C',
-  correct: '#1F9E6C',
-  skip: '#C23A2E',
-  /** Poster blue, straight off the logo's masks and film reel. Chrome and brand marks. */
-  brand: '#246E9C',
-  /** The one colour that means "tap this" — the logo's hand gesture and ticket stubs. */
-  accent: '#E8368F',
-  overlay: 'rgba(247, 240, 223, 0.94)',
+  bg: '#F6F1FB',
+  bgRaised: '#FFFFFF',
+  bgSunken: '#EAE0F7',
+  text: '#2E1A47',
+  textMuted: '#7D6A99',
+  border: '#D6C4EE',
+  correct: '#1FA972',
+  skip: '#E1544F',
+  /** Medium violet — chrome and brand marks. */
+  brand: '#6B3FB0',
+  /** The one colour that means "tap this." */
+  accent: '#A83FD6',
+  overlay: 'rgba(246, 241, 251, 0.94)',
 
   // Deck-thumbnail accent colours, cycled through on the Charades hub.
-  act: '#F0A23C',
-  taboo: '#F0614C',
-  who: '#4FB6E0',
-  imitate: '#A98BEE',
-  lips: '#33C9A5',
-  sound: '#F17FA6',
-  final: '#F5C64B',
+  act: '#B98AE8',
+  taboo: '#E06BB8',
+  who: '#7B7FE0',
+  imitate: '#9B6FE0',
+  lips: '#C77DE0',
+  sound: '#D6A0E8',
+  final: '#8F5FD9',
 
-  teamA: '#F0614C',
-  teamB: '#4FB6E0',
+  teamA: '#E06BB8',
+  teamB: '#7B7FE0',
 } as const;
 
 /** Text that sits on top of an accent colour block. */
-export const onAccent = '#17222E';
+export const onAccent = '#FFFFFF';
 
 export const spacing = {
   xs: 4,
