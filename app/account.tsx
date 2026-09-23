@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Linking, StyleSheet, TextInput } from 'react-native';
+import { Linking, Platform, StyleSheet, TextInput } from 'react-native';
 import { Button, ConfirmModal, Screen, Spacer, T } from '../src/ui/components';
 import { HIT_SIZE, colors, radius, spacing, type } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
@@ -68,11 +68,19 @@ export default function Account() {
     try {
       const result = await loginAdmin(username.trim(), password);
       setAdminRedirecting(true);
-      void Linking.openURL(
-        `${CATALOGUE_API_URL}/admin-ui?token=${encodeURIComponent(result.token)}&username=${encodeURIComponent(
-          result.user.username
-        )}`
-      );
+      const adminUrl = `${CATALOGUE_API_URL}/admin-ui?token=${encodeURIComponent(
+        result.token
+      )}&username=${encodeURIComponent(result.user.username)}`;
+      // On web, navigate this same tab to the admin tool — Linking.openURL
+      // opens a new tab there, which leaves a stale, half-finished sign-in
+      // page open behind it. Native has no "same tab" to navigate, so it
+      // keeps using Linking.openURL (opens the device browser).
+      if (Platform.OS === 'web') {
+        const g = globalThis as { location?: { href?: string } };
+        if (g.location) g.location.href = adminUrl;
+      } else {
+        void Linking.openURL(adminUrl);
+      }
     } catch {
       // Not an admin account either — the player-login error already
       // showing (playerAuthError) covers this case, nothing further to add.
