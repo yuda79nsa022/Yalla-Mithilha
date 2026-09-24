@@ -5,6 +5,7 @@ import { Button, CategoryTile, Divider, Screen, Spacer, T } from '../../src/ui/c
 import { Hero } from '../../src/ui/Hero';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
+import { goBack } from '../../src/platform/navigation';
 import { CATALOGUE_API_URL } from '../../src/config';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
 
@@ -47,7 +48,7 @@ export default function CharadesDraft() {
   return (
     <Screen
       scroll
-      header={{ onBack: () => router.back() }}
+      header={{ onBack: () => goBack() }}
       footer={<Button label={t('charades.draft.confirm')} disabled={!canConfirm} onPress={confirmDraft} />}
     >
       <>

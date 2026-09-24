@@ -4,12 +4,13 @@ import { Button, Divider, Screen, Spacer, T } from '../src/ui/components';
 import { Hero } from '../src/ui/Hero';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
+import { goBack } from '../src/platform/navigation';
 
 export default function Privacy() {
   const { t, wipeEverything } = useApp();
 
   return (
-    <Screen scroll header={{ onBack: () => router.back() }} footer={<Button label={t('privacy.reset')} tone="danger" showArrow={false} onPress={() => void wipeEverything()} />}>
+    <Screen scroll header={{ onBack: () => goBack('/settings') }} footer={<Button label={t('privacy.reset')} tone="danger" showArrow={false} onPress={() => void wipeEverything()} />}>
       <Spacer size={16} />
       <Hero />
       <Spacer size={spacing.md} />
