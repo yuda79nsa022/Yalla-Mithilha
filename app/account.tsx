@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Linking, Platform, StyleSheet, TextInput } from 'react-native';
-import { Button, ConfirmModal, Screen, Spacer, T } from '../src/ui/components';
-import { HIT_SIZE, colors, radius, spacing, type } from '../src/ui/theme';
+import { Linking, Platform, View } from 'react-native';
+import { Button, ConfirmModal, Field, Screen, Spacer, T, TextLink } from '../src/ui/components';
+import { Logo } from '../src/ui/Logo';
+import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../src/config';
 import { loginAdmin } from '../src/services/adminAuthApi';
@@ -107,15 +108,19 @@ export default function Account() {
 
   if (player) {
     return (
-      <Screen scroll>
+      <Screen
+        scroll
+        header={{ onBack: () => router.back(), end: <Logo size="md" /> }}
+        footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
+      >
         <Spacer size={spacing.md} />
-        <T variant="title">{t('account.title')}</T>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <T variant="title" style={{ fontSize: 44 }}>
+            {t('account.title')}
+          </T>
+        </View>
         <Spacer size={spacing.xl} />
         <T variant="body">{t('account.loggedInAs', { username: player.username })}</T>
-        <Spacer size={spacing.xl} />
-        <Button label={t('account.logout')} tone="danger" onPress={() => setConfirmingLogout(true)} />
-        <Spacer />
-        <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
 
         <ConfirmModal
           visible={confirmingLogout}
@@ -131,23 +136,65 @@ export default function Account() {
     );
   }
 
+  const title =
+    mode === 'signIn' || mode === 'create' ? t('account.title') : t('account.forgotRequestTitle');
+  const canSubmitSignIn = Boolean(username.trim() && password);
+  const canSendReset = Boolean(username.trim());
+  const canSubmitReset = resetCode.trim().length === 6 && Boolean(newPassword);
+
+  const footer =
+    mode === 'signIn' || mode === 'create' ? (
+      <>
+        <Button
+          label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
+          disabled={!canSubmitSignIn || playerAuthBusy || tryingAdmin}
+          busy={playerAuthBusy || tryingAdmin}
+          onPress={submit}
+        />
+        <Spacer size={spacing.sm} />
+        <Button
+          label={mode === 'signIn' ? t('account.switchToCreate') : t('account.switchToSignIn')}
+          tone="secondary"
+          showArrow={mode === 'signIn'}
+          onPress={() => goToMode(mode === 'signIn' ? 'create' : 'signIn')}
+        />
+      </>
+    ) : mode === 'forgotRequest' ? (
+      <>
+        <Button label={t('account.sendResetCode')} disabled={!canSendReset || playerAuthBusy} busy={playerAuthBusy} onPress={sendResetCode} />
+        <Spacer size={spacing.sm} />
+        <Button label={t('account.backToSignIn')} tone="secondary" showArrow={false} onPress={() => goToMode('signIn')} />
+      </>
+    ) : (
+      <>
+        <Button label={t('account.resetPassword')} disabled={!canSubmitReset || playerAuthBusy} busy={playerAuthBusy} onPress={submitReset} />
+        <Spacer size={spacing.sm} />
+        <Button label={t('account.backToSignIn')} tone="secondary" showArrow={false} onPress={() => goToMode('signIn')} />
+      </>
+    );
+
   return (
-    <Screen scroll>
+    <Screen scroll header={{ onBack: () => router.back() }} footer={footer}>
       <Spacer size={spacing.md} />
-      <T variant="title">{t('account.title')}</T>
-      {mode === 'signIn' || mode === 'create' ? null : (
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <T variant="title" style={{ fontSize: 44 }}>
+          {title}
+        </T>
+        {mode === 'signIn' || mode === 'create' ? <Logo size="md" /> : null}
+      </View>
+
+      {mode !== 'signIn' && mode !== 'create' ? (
         <>
           <Spacer size={spacing.sm} />
-          <T variant="heading">{t('account.forgotRequestTitle')}</T>
-          <T variant="body" color={colors.textMuted}>
+          <T variant="body" color={colors.neutral700}>
             {t(mode === 'forgotRequest' ? 'account.forgotRequestBody' : 'account.forgotConfirmBody')}
           </T>
         </>
-      )}
+      ) : null}
       {mode === 'create' ? (
         <>
           <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.accent}>
+          <T variant="label" color={colors.purple}>
             {t('account.signupBonus')}
           </T>
         </>
@@ -155,72 +202,51 @@ export default function Account() {
       {mode === 'signIn' && justResetPassword ? (
         <>
           <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.correct}>
+          <T variant="label" color={colors.green}>
             {t('account.resetSuccess')}
           </T>
         </>
       ) : null}
+
       <Spacer size={spacing.xl} />
 
       {mode !== 'forgotConfirm' ? (
-        <>
-          <TextInput
-            value={username}
-            onChangeText={setUsername}
-            placeholder={t('account.username')}
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            maxLength={40}
-            accessibilityLabel={t('account.username')}
-            style={styles.input}
-          />
-          <Spacer size={spacing.md} />
-        </>
+        <Field label={t('account.username')} value={username} onChangeText={setUsername} placeholder={t('account.username')} maxLength={40} />
       ) : null}
 
       {mode === 'signIn' || mode === 'create' ? (
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          placeholder={t('account.password')}
-          placeholderTextColor={colors.textMuted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          secureTextEntry
-          accessibilityLabel={t('account.password')}
-          style={styles.input}
-        />
+        <>
+          <Spacer size={spacing.md} />
+          <Field
+            label={t('account.password')}
+            value={password}
+            onChangeText={setPassword}
+            placeholder={t('account.password')}
+            secureTextEntry
+          />
+        </>
       ) : null}
 
       {mode === 'signIn' ? (
         <>
-          <Spacer size={spacing.sm} />
-          <Button
-            label={t('account.forgotPassword')}
-            tone="ghost"
-            onPress={() => goToMode('forgotRequest')}
-          />
+          <Spacer size={spacing.md} />
+          <TextLink label={t('account.forgotPassword')} onPress={() => goToMode('forgotRequest')} />
         </>
       ) : null}
 
       {mode === 'create' ? (
         <>
           <Spacer size={spacing.md} />
-          <TextInput
+          <Field
+            label={t('account.email')}
             value={email}
             onChangeText={setEmail}
             placeholder={t('account.email')}
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            autoCorrect={false}
             keyboardType="email-address"
             maxLength={254}
-            accessibilityLabel={t('account.email')}
-            style={styles.input}
           />
           <Spacer size={spacing.xs} />
-          <T variant="label" color={colors.textMuted}>
+          <T variant="label" color={colors.neutral700}>
             {t('account.emailOptionalHint')}
           </T>
         </>
@@ -228,100 +254,27 @@ export default function Account() {
 
       {mode === 'forgotConfirm' ? (
         <>
-          <TextInput
-            value={resetCode}
-            onChangeText={setResetCode}
-            placeholder={t('account.resetCode')}
-            placeholderTextColor={colors.textMuted}
-            keyboardType="number-pad"
-            maxLength={6}
-            accessibilityLabel={t('account.resetCode')}
-            style={styles.input}
-          />
+          <Field label={t('account.resetCode')} value={resetCode} onChangeText={setResetCode} placeholder={t('account.resetCode')} keyboardType="number-pad" maxLength={6} />
           <Spacer size={spacing.md} />
-          <TextInput
-            value={newPassword}
-            onChangeText={setNewPassword}
-            placeholder={t('account.newPassword')}
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-            accessibilityLabel={t('account.newPassword')}
-            style={styles.input}
-          />
+          <Field label={t('account.newPassword')} value={newPassword} onChangeText={setNewPassword} placeholder={t('account.newPassword')} secureTextEntry />
         </>
       ) : null}
 
       {adminRedirecting ? (
         <>
           <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.correct}>
+          <T variant="label" color={colors.green}>
             {t('account.openingAdminTool')}
           </T>
         </>
       ) : playerAuthError ? (
         <>
           <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.skip}>
+          <T variant="label" color={colors.red}>
             {playerAuthError}
           </T>
         </>
       ) : null}
-
-      <Spacer size={spacing.xl} />
-      {mode === 'signIn' || mode === 'create' ? (
-        <>
-          <Button
-            label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
-            disabled={!username.trim() || !password || playerAuthBusy || tryingAdmin}
-            onPress={submit}
-          />
-          <Spacer size={spacing.sm} />
-          <Button
-            label={mode === 'signIn' ? t('account.switchToCreate') : t('account.switchToSignIn')}
-            tone="secondary"
-            onPress={() => goToMode(mode === 'signIn' ? 'create' : 'signIn')}
-          />
-        </>
-      ) : mode === 'forgotRequest' ? (
-        <>
-          <Button
-            label={t('account.sendResetCode')}
-            disabled={!username.trim() || playerAuthBusy}
-            onPress={sendResetCode}
-          />
-          <Spacer size={spacing.sm} />
-          <Button label={t('account.backToSignIn')} tone="secondary" onPress={() => goToMode('signIn')} />
-        </>
-      ) : (
-        <>
-          <Button
-            label={t('account.resetPassword')}
-            disabled={resetCode.trim().length !== 6 || !newPassword || playerAuthBusy}
-            onPress={submitReset}
-          />
-          <Spacer size={spacing.sm} />
-          <Button label={t('account.backToSignIn')} tone="secondary" onPress={() => goToMode('signIn')} />
-        </>
-      )}
-
-      <Spacer size={spacing.xl} />
-      <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  input: {
-    minHeight: HIT_SIZE,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    color: colors.text,
-    backgroundColor: colors.bgSunken,
-    ...type.body,
-    textAlign: 'auto',
-  },
-});

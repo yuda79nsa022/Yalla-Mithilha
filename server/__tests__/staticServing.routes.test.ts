@@ -23,7 +23,7 @@ describe('the admin tool, at /admin-ui', () => {
   it('serves the admin tool at /admin-ui/ (and redirects /admin-ui to it)', async () => {
     const res = await request(app).get('/admin-ui').redirects(1);
     expect(res.status).toBe(200);
-    expect(res.text).toMatch(/Yalla Mithilha — Charades Admin/);
+    expect(res.text).toMatch(/Bas Bedoon Kalam — Charades Admin/);
   });
 
   it('does not serve the admin tool at the root', async () => {

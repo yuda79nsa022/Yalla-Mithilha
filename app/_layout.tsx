@@ -6,9 +6,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from '../src/state/AppProvider';
 import { applyDirection, needsRestartForDirection } from '../src/platform';
 import { colors } from '../src/ui/theme';
+import { useBrandFonts } from '../src/ui/fonts';
 
 function Gate({ children }: { children: React.ReactNode }) {
   const { ready, lang, prefs } = useApp();
+  const [fontsLoaded] = useBrandFonts();
 
   useEffect(() => {
     if (!ready || !prefs.lang) return;
@@ -18,10 +20,10 @@ function Gate({ children }: { children: React.ReactNode }) {
     if (needsRestartForDirection(lang)) applyDirection(lang);
   }, [lang, prefs.lang, ready]);
 
-  if (!ready) {
+  if (!ready || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center' }}>
-        <ActivityIndicator color={colors.accent} size="large" />
+      <View style={{ flex: 1, backgroundColor: colors.ground, justifyContent: 'center' }}>
+        <ActivityIndicator color={colors.purple} size="large" />
       </View>
     );
   }

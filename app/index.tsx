@@ -1,15 +1,14 @@
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
-import { Screen, T } from '../src/ui/components';
-import { colors, spacing } from '../src/ui/theme';
+import { StyleSheet, View } from 'react-native';
+import { Screen } from '../src/ui/components';
+import { Logo } from '../src/ui/Logo';
+import { spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
-import { ar } from '../src/i18n/ar';
-import { en } from '../src/i18n/en';
 
 /**
- * Splash. Held for a beat so the title lands, then routes to the language
- * picker on a first run or straight to the home screen afterwards.
+ * Splash. Held for a beat so the brand mark lands, then routes to the
+ * language picker on a first run or straight to the home screen afterwards.
  */
 export default function Splash() {
   const { prefs } = useApp();
@@ -28,24 +27,7 @@ export default function Splash() {
   return (
     <Screen>
       <View style={styles.center}>
-        <Image
-          source={require('../assets/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-          accessibilityRole="image"
-          accessibilityLabel={`${ar['app.name']} / ${en['app.name']}`}
-        />
-        {/* Always both languages, regardless of the current app language —
-            this is the brand mark, shown before a language is even chosen
-            on a first run. Reads from the translation catalogues directly
-            (rather than duplicating the strings here) so there is exactly
-            one place each name is spelled. */}
-        <T variant="display" align="center">
-          {ar['app.name']}
-        </T>
-        <T variant="heading" color={colors.textMuted} align="center">
-          {en['app.name']}
-        </T>
+        <Logo size="lg" />
       </View>
     </Screen>
   );
@@ -53,5 +35,4 @@ export default function Splash() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  logo: { width: 140, height: 140, borderRadius: 28, marginBottom: spacing.lg },
 });

@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Yalla Mithilha",
+    "name": "Bas Bedoon Kalam",
     "slug": "yalla-mithilha",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "yallamithilha",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#F7F0DF",
+    "backgroundColor": "#F3F2F2",
     "icon": "./assets/images/icon.png",
     "splash": {
       "image": "./assets/images/splash-icon.png",
-      "backgroundColor": "#F7F0DF",
+      "backgroundColor": "#F3F2F2",
       "resizeMode": "contain"
     },
     "assetBundlePatterns": ["**/*"],
@@ -25,12 +25,16 @@
       "package": "com.example.yallamithilha",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
-        "backgroundColor": "#246E9C"
+        "backgroundColor": "#8038D1"
       },
       "permissions": []
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Bas Bedoon Kalam",
+      "shortName": "Bas Bedoon Kalam",
+      "themeColor": "#8038D1",
+      "backgroundColor": "#F3F2F2"
     },
     "plugins": ["expo-router", "expo-localization"],
     "extra": {

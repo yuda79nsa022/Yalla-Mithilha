@@ -1,10 +1,10 @@
 import type { TranslationKey } from './ar';
 
 export const en: Record<TranslationKey, string> = {
-  'app.name': 'Yalla Mithilha',
+  'app.name': 'Bas Bedoon Kalam',
   'app.tagline': 'You do not need to know the answer. You need your friends to understand you.',
   'app.writeup':
-    'Yalla Mithilha is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
+    'Bas Bedoon Kalam is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
 
   'common.next': 'Next',
   'common.back': 'Back',
@@ -34,10 +34,18 @@ export const en: Record<TranslationKey, string> = {
   'charades.home.guestNotice': 'Sign in to keep your wallet and find it again later',
   'charades.home.startNew': 'Start a new game',
 
+  'home.statTeams': 'Teams',
+  'home.statRounds': 'Rounds',
+  'home.statTalking': 'Talking',
+  'home.loggedInAsLabel': 'Signed in as',
+  'home.creditsLabel': 'games left',
+
   'charades.draft.title': 'Set up your game',
   'charades.draft.subtitle': 'Two teams, twenty rounds between them — the server picks a random category and title each round',
   'charades.draft.teamAName': 'Team A name',
   'charades.draft.teamBName': 'Team B name',
+  'charades.draft.teamALabel': 'Team 1',
+  'charades.draft.teamBLabel': 'Team 2',
   'charades.draft.confirm': 'Continue to checkout',
 
   'charades.checkout.title': 'Start the game',
@@ -79,6 +87,15 @@ export const en: Record<TranslationKey, string> = {
   'charades.play.quit': 'End game',
   'charades.play.quitConfirm': 'End this game? Progress will be lost.',
   'charades.play.home': 'Home',
+  'charades.play.newGame': 'New game',
+  'charades.play.winningTeam': 'Winning team',
+  'charades.play.nextTurn': "Next round: {{team}}'s turn",
+  'charades.play.guessedIt': 'Got it!',
+  'charades.play.notGuessed': 'Not guessed',
+  'charades.play.turnLabel': "It's",
+  'charades.play.handoffInstruction': 'Have the actor get their camera ready to scan the code and see the title privately.',
+  'charades.play.roundTeam': 'Round {{round}} · {{team}}',
+  'charades.play.timeLabel': 'Time',
 
   'charades.reveal.warning': 'Show this to yourself only — don’t let your team see the screen',
   'charades.reveal.category': 'Category: {{category}}',

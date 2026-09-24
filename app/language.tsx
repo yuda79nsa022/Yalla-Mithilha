@@ -19,7 +19,7 @@ export default function LanguageScreen() {
   const restartNeeded = prefs.lang !== null && needsRestartForDirection(lang);
 
   return (
-    <Screen scroll>
+    <Screen scroll footer={<Button label={t('common.continue')} disabled={!prefs.lang} onPress={() => router.replace('/home')} />}>
       <Spacer size={spacing.xl} />
       <T variant="title">{t('lang.title')}</T>
       <Spacer />
@@ -33,14 +33,14 @@ export default function LanguageScreen() {
           subtitle="واجهة من اليمين لليسار"
           selected={prefs.lang === 'ar'}
           onPress={() => choose('ar')}
-          accent={colors.act}
+          accent={colors.purple}
         />
         <OptionCard
           title="English"
           subtitle="Left-to-right interface"
           selected={prefs.lang === 'en'}
           onPress={() => choose('en')}
-          accent={colors.who}
+          accent={colors.green}
         />
       </View>
 
@@ -48,19 +48,11 @@ export default function LanguageScreen() {
         <>
           <Spacer />
           {/* Being honest about the reload beats showing a half-mirrored screen. */}
-          <T variant="label" color={colors.accent}>
+          <T variant="label" color={colors.purple}>
             {t('lang.restartNotice')}
           </T>
         </>
       ) : null}
-
-      <View style={{ flex: 1 }} />
-      <Button
-        label={t('common.continue')}
-        disabled={!prefs.lang}
-        onPress={() => router.replace('/home')}
-      />
-      <Spacer />
     </Screen>
   );
 }

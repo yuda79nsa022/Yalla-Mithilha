@@ -39,9 +39,9 @@ const DEFAULT_HOME_CONTENT: HomeContent = {
   taglineAr: 'ما تحتاج تعرف الجواب، تحتاج ربعك يفهمونك',
   taglineEn: 'You do not need to know the answer. You need your friends to understand you.',
   writeupAr:
-    'يلا مثّلها لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
+    'بس بدون كلام لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
   writeupEn:
-    'Yalla Mithilha is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
+    'Bas Bedoon Kalam is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
 };
 
 db.exec(`

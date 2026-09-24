@@ -4,10 +4,10 @@
  * English idioms.
  */
 export const ar = {
-  'app.name': 'يلا مثّلها',
+  'app.name': 'بس بدون كلام',
   'app.tagline': 'ما تحتاج تعرف الجواب، تحتاج ربعك يفهمونك',
   'app.writeup':
-    'يلا مثّلها لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
+    'بس بدون كلام لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
 
   'common.next': 'التالي',
   'common.back': 'رجوع',
@@ -38,10 +38,18 @@ export const ar = {
   'charades.home.guestNotice': 'سجّل دخولك عشان محفظتك تنحفظ وتلقاها بعدين',
   'charades.home.startNew': 'ابدأ لعبة جديدة',
 
+  'home.statTeams': 'فريقين',
+  'home.statRounds': 'جولة',
+  'home.statTalking': 'كلام',
+  'home.loggedInAsLabel': 'مسجّل باسم',
+  'home.creditsLabel': 'لعبة برصيدك',
+
   'charades.draft.title': 'جهّزوا لعبتكم',
   'charades.draft.subtitle': 'فريقين، عشرين جولة بينهم — السيرفر يختار الفئة والعنوان عشوائي كل جولة',
   'charades.draft.teamAName': 'اسم الفريق الأول',
   'charades.draft.teamBName': 'اسم الفريق الثاني',
+  'charades.draft.teamALabel': 'الفريق الأول',
+  'charades.draft.teamBLabel': 'الفريق الثاني',
   'charades.draft.confirm': 'كمّل للدفع',
 
   'charades.checkout.title': 'ابدأوا اللعبة',
@@ -83,6 +91,15 @@ export const ar = {
   'charades.play.quit': 'إنهاء اللعبة',
   'charades.play.quitConfirm': 'تبي تنهي اللعبة؟ راح تضيع النتيجة.',
   'charades.play.home': 'الرئيسية',
+  'charades.play.newGame': 'لعبة جديدة',
+  'charades.play.winningTeam': 'الفريق الفائز',
+  'charades.play.nextTurn': 'الجولة الجاية: دور {{team}}',
+  'charades.play.guessedIt': 'عرفوها!',
+  'charades.play.notGuessed': 'ما عرفوها',
+  'charades.play.turnLabel': 'دور فريق',
+  'charades.play.handoffInstruction': 'خلّوا اللي يمثّل يجهّز كاميرا جواله عشان يصوّر الرمز ويشوف العنوان لحاله.',
+  'charades.play.roundTeam': 'الجولة {{round}} · {{team}}',
+  'charades.play.timeLabel': 'الوقت',
 
   'charades.reveal.warning': 'وريّ هذا لك بس — لا تخلي فريقك يشوف الشاشة',
   'charades.reveal.category': 'الفئة: {{category}}',
