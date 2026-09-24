@@ -122,6 +122,7 @@ export default function Home() {
             </View>
             <View style={styles.statBadge}>
               <RoundsIcon color={colors.ink} />
+              <T style={{ fontFamily: fonts.displayBlack, fontSize: 22 }}>20</T>
               <T variant="label" style={{ fontWeight: '700', fontSize: 12 }}>
                 {t('home.statRounds')}
               </T>
