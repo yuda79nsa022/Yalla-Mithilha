@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { colors, fonts } from './theme';
 import { T } from './components';
 import { useApp } from '../state/AppProvider';
@@ -9,13 +9,23 @@ type Size = 'lg' | 'md' | 'sm';
 const CUBE_FACE: Record<Size, number> = { lg: 100, md: 44, sm: 32 };
 
 /**
- * The zipped-mouth cube face — brows, eye slits, zip bar/teeth/pull —
+ * `perspective`, `transform-style` and a `translateZ` transform op aren't
+ * part of React Native's core ViewStyle type — they're real CSS properties
+ * react-native-web forwards straight through to the DOM, though, and this
+ * app's actual deployment is the web export (server/README.md), so casting
+ * past the type here buys a real 3D cube on the platform that matters, at
+ * the cost of falling back to a flat face on native (untested there).
+ */
+const web3d = (style: Record<string, unknown>) => (Platform.OS === 'web' ? (style as ViewStyle) : {});
+
+/**
+ * The zipped-mouth face content — brows, eye slits, zip bar/teeth/pull —
  * proportioned as percentages of the face so it scales cleanly across the
  * three sizes. Ported from design/reference.html screen 01's markup.
  */
-function CubeFace({ face }: { face: number }) {
+function CubeFaceContent({ face }: { face: number }) {
   return (
-    <View style={[styles.face, { width: face, height: face, backgroundColor: colors.purple }]}>
+    <>
       <View style={[styles.brow, { top: '21%', right: '17%', width: '24%', height: '7%', transform: [{ rotate: '-18deg' }] }]} />
       <View style={[styles.brow, { top: '21%', left: '17%', width: '24%', height: '7%', transform: [{ rotate: '18deg' }] }]} />
       <View style={[styles.eye, { top: '37%', right: '25%', width: '12%', height: '5%' }]} />
@@ -27,14 +37,15 @@ function CubeFace({ face }: { face: number }) {
           <View style={[styles.zipPull, { bottom: '22%', left: '10%', width: '9%', height: '15%' }]} />
         </>
       ) : null}
-    </View>
+    </>
   );
 }
 
-/** The 3D cube: front (zipped-mouth), side and top faces in perspective. */
+/** The 3D cube: front (zipped-mouth), side and top faces in true CSS 3D on web. */
 function Cube({ size }: { size: Size }) {
   const face = CUBE_FACE[size];
   const wrap = face + 40;
+  const half = face / 2;
   return (
     <View style={{ width: wrap, height: wrap * 1.07, position: 'relative' }}>
       {size === 'lg' ? (
@@ -45,27 +56,47 @@ function Cube({ size }: { size: Size }) {
         </View>
       ) : null}
       <View
-        style={{
-          position: 'absolute',
-          left: (wrap - face) / 2,
-          top: size === 'lg' ? 48 : (wrap * 1.07 - face) / 2,
-          width: face,
-          height: face,
-        }}
+        style={[
+          {
+            position: 'absolute',
+            left: (wrap - face) / 2,
+            top: size === 'lg' ? 48 : (wrap * 1.07 - face) / 2,
+            width: face,
+            height: face,
+          },
+          web3d({ perspective: 800 }),
+        ]}
       >
-        <CubeFace face={face} />
         <View
           style={[
-            styles.side,
-            { width: face * 0.42, height: face, right: -face * 0.42 * 0.94, backgroundColor: colors.purpleSide },
+            { width: face, height: face },
+            web3d({ transformStyle: 'preserve-3d', transform: 'rotateX(-22deg) rotateY(-32deg)' }),
           ]}
-        />
-        <View
-          style={[
-            styles.top,
-            { width: face, height: face * 0.42, top: -face * 0.42 * 0.94, backgroundColor: colors.purpleTop },
-          ]}
-        />
+        >
+          <View
+            style={[
+              styles.cubeFace,
+              { width: face, height: face, backgroundColor: colors.purple },
+              web3d({ transform: `translateZ(${half}px)` }),
+            ]}
+          >
+            <CubeFaceContent face={face} />
+          </View>
+          <View
+            style={[
+              styles.cubeFace,
+              { width: face, height: face, backgroundColor: colors.purpleSide, backfaceVisibility: 'hidden' },
+              web3d({ transform: `rotateY(90deg) translateZ(${half}px)` }),
+            ]}
+          />
+          <View
+            style={[
+              styles.cubeFace,
+              { width: face, height: face, backgroundColor: colors.purpleTop },
+              web3d({ transform: `rotateX(90deg) translateZ(${half}px)` }),
+            ]}
+          />
+        </View>
       </View>
     </View>
   );
@@ -122,9 +153,7 @@ const styles = StyleSheet.create({
   rowReversed: { flexDirection: 'row' },
   steamRow: { position: 'absolute', top: 0, left: 22, flexDirection: 'row', gap: 12, alignItems: 'flex-end' },
   steam: { backgroundColor: colors.mutedText },
-  face: { position: 'absolute', top: 0, left: 0 },
-  side: { position: 'absolute', top: 0 },
-  top: { position: 'absolute', left: 0 },
+  cubeFace: { position: 'absolute', top: 0, left: 0 },
   brow: { position: 'absolute', backgroundColor: colors.ink },
   eye: { position: 'absolute', backgroundColor: colors.white },
   zipBar: { position: 'absolute', backgroundColor: colors.ink },
