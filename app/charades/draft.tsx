@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { Button, CategoryTile, Screen, Spacer, T } from '../../src/ui/components';
+import { Button, CategoryTile, Divider, Screen, Spacer, T } from '../../src/ui/components';
+import { Hero } from '../../src/ui/Hero';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../../src/config';
@@ -50,6 +51,10 @@ export default function CharadesDraft() {
       footer={<Button label={t('charades.draft.confirm')} disabled={!canConfirm} onPress={confirmDraft} />}
     >
       <>
+        <Spacer size={spacing.md} />
+        <Hero />
+        <Spacer size={spacing.md} />
+        <Divider />
         <Spacer size={spacing.md} />
         <T variant="title" style={{ fontSize: 34 }}>
           {t('charades.draft.title')}

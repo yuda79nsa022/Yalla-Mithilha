@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Button, ConfirmModal, Divider, Screen, Spacer, T } from '../src/ui/components';
+import { Hero } from '../src/ui/Hero';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
@@ -17,6 +18,10 @@ export default function Settings() {
 
   return (
     <Screen scroll header={{ onBack: () => router.back() }}>
+      <Spacer size={spacing.md} />
+      <Hero />
+      <Spacer size={spacing.md} />
+      <Divider />
       <Spacer size={spacing.md} />
       <T variant="title">{t('settings.title')}</T>
       <Spacer />

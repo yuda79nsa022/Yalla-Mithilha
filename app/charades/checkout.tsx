@@ -2,6 +2,7 @@ import { Redirect, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Divider, Screen, Spacer, T } from '../../src/ui/components';
+import { Hero } from '../../src/ui/Hero';
 import { colors, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 
@@ -69,6 +70,10 @@ export default function CharadesCheckout() {
       header={{ onBack: () => router.back() }}
       footer={<Button label={t('charades.checkout.start')} disabled={walletBalance < 1} busy={busy === 'start'} onPress={start} />}
     >
+      <Spacer size={spacing.md} />
+      <Hero />
+      <Spacer size={spacing.md} />
+      <Divider />
       <Spacer size={spacing.md} />
       <T variant="title" style={{ fontSize: 30 }}>
         {t('charades.checkout.title')}

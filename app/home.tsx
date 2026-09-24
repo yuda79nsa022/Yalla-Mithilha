@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
 import { Button, ConfirmModal, Divider, Screen, Spacer, T, TextLink } from '../src/ui/components';
+import { CategoryGrid } from '../src/ui/Hero';
 import { Logo } from '../src/ui/Logo';
-import { colors, fonts, hardShadow, spacing } from '../src/ui/theme';
+import { colors, fonts, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { needsRestartForDirection } from '../src/platform';
 import { track } from '../src/services/analytics';
@@ -42,66 +42,12 @@ function LanguageToggle() {
   );
 }
 
-function MoviesIcon({ color }: { color: string }) {
-  return (
-    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
-      <Rect x={3} y={9} width={18} height={11} stroke={color} strokeWidth={1.6} />
-      <Path
-        d="M3 9l2-5h3l-2 5M10 9l2-5h3l-2 5M17 9l1.5-5"
-        stroke={color}
-        strokeWidth={1.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SongsIcon({ color }: { color: string }) {
-  return (
-    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
-      <Rect x={9} y={3} width={6} height={11} rx={3} stroke={color} strokeWidth={1.6} />
-      <Path d="M6 11a6 6 0 0 0 12 0" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-      <Path d="M12 17v4M9 21h6" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function PlaysIcon({ color }: { color: string }) {
-  return (
-    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 8c2 2 5 2 8 0s6-2 8 0" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-      <Path d="M4 8c0 4 2.5 8 8 8s8-4 8-8" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-      <Path d="M9 12.5c.6.6 1.4.9 3 .9s2.4-.3 3-.9" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function SeriesIcon({ color }: { color: string }) {
-  return (
-    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
-      <Rect x={3} y={6} width={18} height={13} stroke={color} strokeWidth={1.6} />
-      <Path d="M8 6l3-3M16 6l-3-3" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-      <Path d="M7 22h10" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-const CATEGORY_TILT = [-2, 1.5, -1.5, 2];
-
 export default function Home() {
   const { t, lang, homeContent, player, walletBalance, refreshWallet, logoutPlayerAccount, charades, quitCharades } =
     useApp();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
-
-  const categories = [
-    { Icon: MoviesIcon, label: t('home.catMovies') },
-    { Icon: SongsIcon, label: t('home.catSongs') },
-    { Icon: PlaysIcon, label: t('home.catPlays') },
-    { Icon: SeriesIcon, label: t('home.catSeries') },
-  ];
 
   useEffect(() => {
     if (player) void refreshWallet();
@@ -150,23 +96,7 @@ export default function Home() {
             {!player ? (
               <>
                 <Spacer size={spacing.md} />
-                <View style={styles.categoryGrid}>
-                  {categories.map(({ Icon, label }, i) => (
-                    <View
-                      key={label}
-                      style={[
-                        styles.categoryCard,
-                        { transform: [{ rotate: `${CATEGORY_TILT[i]}deg` }] },
-                        hardShadow(lang, colors.ink, 'sm'),
-                      ]}
-                    >
-                      <Icon color={colors.purple} />
-                      <T variant="label" style={{ fontWeight: '700', fontSize: 12 }}>
-                        {label}
-                      </T>
-                    </View>
-                  ))}
-                </View>
+                <CategoryGrid />
               </>
             ) : null}
           </View>
@@ -185,23 +115,7 @@ export default function Home() {
                 {writeup}
               </T>
               <Spacer size={spacing.sm} />
-              <View style={styles.categoryGrid}>
-                {categories.map(({ Icon, label }, i) => (
-                  <View
-                    key={label}
-                    style={[
-                      styles.categoryCard,
-                      { transform: [{ rotate: `${CATEGORY_TILT[i]}deg` }] },
-                      hardShadow(lang, colors.ink, 'sm'),
-                    ]}
-                  >
-                    <Icon color={colors.purple} />
-                    <T variant="label" style={{ fontWeight: '700', fontSize: 12 }}>
-                      {label}
-                    </T>
-                  </View>
-                ))}
-              </View>
+              <CategoryGrid />
             </>
           ) : null}
         </>
@@ -302,19 +216,6 @@ const styles = StyleSheet.create({
   heroTextCol: { flex: 1.15, justifyContent: 'center' },
   heroMediaCol: { flex: 1, justifyContent: 'center' },
   heroLogoWrap: { alignItems: 'center' },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  categoryCard: {
-    flexBasis: '46%',
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: colors.white,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-  },
   accountCard: { flexDirection: 'row', borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white },
   accountCardInfo: { flex: 1, padding: 14, gap: 2 },
   accountCardCredit: {
