@@ -59,9 +59,6 @@ export const en: Record<TranslationKey, string> = {
   'charades.checkout.devNotice':
     'Placeholder checkout. Real payment (KNET) is not wired up yet — these buttons simulate a purchase against a real, account-owned wallet on the server.',
   'charades.checkout.start': 'Start the game',
-  'charades.checkout.signInTitle': 'Sign in to top up your wallet',
-  'charades.checkout.signInBody':
-    'Your wallet belongs to your account, not this device, so you can find it again later. Guest play and setting up a game never need this.',
   'charades.checkout.signInButton': 'Sign in or create an account',
   'charades.checkout.simulateFailure': 'Simulate a failed payment (dev)',
   'charades.draft.decksTitle': 'Which decks do you want to play?',

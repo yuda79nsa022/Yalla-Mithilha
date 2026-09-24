@@ -63,9 +63,6 @@ export const ar = {
   'charades.checkout.devNotice':
     'دفع تجريبي مؤقت. الدفع الحقيقي (كي‌نت) ما ربطناه بعد — هالأزرار تحاكي عملية شراء على رصيد حقيقي مرتبط بحسابك على السيرفر.',
   'charades.checkout.start': 'ابدأ اللعبة',
-  'charades.checkout.signInTitle': 'سجّل دخولك عشان تشحن رصيدك',
-  'charades.checkout.signInBody':
-    'الرصيد المدفوع مرتبط بحسابك مو بهالجهاز، عشان تلقاه مرة ثانية وين ما كنت. اللعب كضيف وتجهيز اللعبة ما يحتاجون هذا.',
   'charades.checkout.signInButton': 'سجّل دخولك أو أنشئ حساب',
   'charades.checkout.simulateFailure': 'حاكِ عملية دفع فاشلة (تجريبي)',
   'charades.draft.decksTitle': 'أي مجموعات عناوين تبون تلعبون؟',
