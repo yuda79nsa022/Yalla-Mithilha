@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { Button, ConfirmModal, Divider, Screen, Spacer, T, TextLink } from '../src/ui/components';
 import { Logo } from '../src/ui/Logo';
 import { colors, fonts, spacing } from '../src/ui/theme';
@@ -27,7 +28,7 @@ function LanguageToggle() {
         style={({ pressed }) => [styles.langToggle, pressed && { backgroundColor: colors.ink }]}
       >
         {({ pressed }: { pressed: boolean }) => (
-          <T style={{ fontFamily: fonts.display, fontSize: 13, letterSpacing: 1, color: pressed ? colors.white : colors.ink }}>
+          <T style={{ fontFamily: fonts.display, fontSize: 13, letterSpacing: 1, color: pressed ? colors.white : colors.purple }}>
             {label}
           </T>
         )}
@@ -38,6 +39,35 @@ function LanguageToggle() {
         </T>
       ) : null}
     </View>
+  );
+}
+
+function TeamsIcon({ color }: { color: string }) {
+  return (
+    <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
+      <Circle cx={8} cy={8} r={3.2} stroke={color} strokeWidth={1.6} />
+      <Circle cx={16} cy={8} r={3.2} stroke={color} strokeWidth={1.6} />
+      <Path d="M2.5 20c.6-3.6 3-5.6 5.5-5.6s4.9 2 5.5 5.6" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
+      <Path d="M11 20c.5-3 2.6-5 5-5s4.5 2 5 5" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function RoundsIcon({ color }: { color: string }) {
+  return (
+    <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={8.5} stroke={color} strokeWidth={1.6} />
+      <Path d="M12 7v5l3.5 2" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function NoTalkingIcon({ color }: { color: string }) {
+  return (
+    <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 9v6h4l5 4V5L8 9H4z" stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
+      <Path d="M17 9l5 6M22 9l-5 6" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
+    </Svg>
   );
 }
 
@@ -67,7 +97,7 @@ export default function Home() {
   return (
     <Screen
       scroll
-      header={{ end: <LanguageToggle /> }}
+      header={{ end: <LanguageToggle />, titleColor: colors.purple }}
       footer={charades ? undefined : footer}
     >
       <Spacer size={spacing.sm} />
@@ -83,22 +113,23 @@ export default function Home() {
             {writeup}
           </T>
           <Spacer size={spacing.sm} />
-          <View style={styles.statStrip}>
-            <View style={[styles.statCell, { borderRightWidth: 2, borderRightColor: colors.ink }]}>
-              <T style={{ fontFamily: fonts.displayBlack, fontSize: 22 }}>2</T>
-              <T variant="label" style={{ fontWeight: '500', fontSize: 11 }}>
+          <View style={styles.statRow}>
+            <View style={[styles.statBadge, { transform: [{ rotate: '-3deg' }] }]}>
+              <TeamsIcon color={colors.ink} />
+              <T variant="label" style={{ fontWeight: '700', fontSize: 12 }}>
                 {t('home.statTeams')}
               </T>
             </View>
-            <View style={[styles.statCell, { borderRightWidth: 2, borderRightColor: colors.ink }]}>
-              <T style={{ fontFamily: fonts.displayBlack, fontSize: 22 }}>20</T>
-              <T variant="label" style={{ fontWeight: '500', fontSize: 11 }}>
+            <View style={styles.statBadge}>
+              <RoundsIcon color={colors.ink} />
+              <T variant="label" style={{ fontWeight: '700', fontSize: 12 }}>
                 {t('home.statRounds')}
               </T>
             </View>
-            <View style={[styles.statCell, { backgroundColor: colors.purple }]}>
+            <View style={[styles.statBadge, styles.statBadgeFilled, { transform: [{ rotate: '3deg' }] }]}>
+              <NoTalkingIcon color={colors.white} />
               <T style={{ fontFamily: fonts.displayBlack, fontSize: 22, color: colors.white }}>0</T>
-              <T variant="label" color={colors.white} style={{ fontWeight: '500', fontSize: 11 }}>
+              <T variant="label" color={colors.white} style={{ fontWeight: '700', fontSize: 12 }}>
                 {t('home.statTalking')}
               </T>
             </View>
@@ -196,8 +227,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
   },
-  statStrip: { flexDirection: 'row', borderWidth: 2, borderColor: colors.ink },
-  statCell: { flex: 1, padding: 8, gap: 2 },
+  statRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 26, paddingVertical: spacing.sm },
+  statBadge: { alignItems: 'center', gap: 6 },
+  statBadgeFilled: { backgroundColor: colors.purple, paddingHorizontal: 16, paddingVertical: 14 },
   accountCard: { flexDirection: 'row', borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white },
   accountCardInfo: { flex: 1, padding: 14, gap: 2 },
   accountCardCredit: {
