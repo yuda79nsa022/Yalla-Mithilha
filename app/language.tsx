@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
-import { Button, OptionCard, Screen, Spacer, T } from '../src/ui/components';
+import { Button, Divider, OptionCard, Screen, Spacer, T } from '../src/ui/components';
+import { Hero } from '../src/ui/Hero';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { needsRestartForDirection } from '../src/platform';
@@ -21,6 +22,10 @@ export default function LanguageScreen() {
   return (
     <Screen scroll footer={<Button label={t('common.continue')} disabled={!prefs.lang} onPress={() => router.replace('/home')} />}>
       <Spacer size={spacing.xl} />
+      <Hero />
+      <Spacer size={spacing.md} />
+      <Divider />
+      <Spacer size={spacing.md} />
       <T variant="title">{t('lang.title')}</T>
       <Spacer />
       {/* title/subtitle here are deliberately not run through t(): each

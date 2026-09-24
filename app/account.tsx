@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
-import { Button, ConfirmModal, Field, Screen, Spacer, T, TextLink } from '../src/ui/components';
-import { Logo } from '../src/ui/Logo';
+import { Button, ConfirmModal, Divider, Field, Screen, Spacer, T, TextLink } from '../src/ui/components';
+import { Hero } from '../src/ui/Hero';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../src/config';
@@ -110,9 +110,13 @@ export default function Account() {
     return (
       <Screen
         scroll
-        header={{ onBack: () => router.back(), end: <Logo size="md" /> }}
+        header={{ onBack: () => router.back() }}
         footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
       >
+        <Spacer size={spacing.md} />
+        <Hero />
+        <Spacer size={spacing.md} />
+        <Divider />
         <Spacer size={spacing.md} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <T variant="title" style={{ fontSize: 44 }}>
@@ -176,11 +180,14 @@ export default function Account() {
   return (
     <Screen scroll header={{ onBack: () => router.back() }} footer={footer}>
       <Spacer size={spacing.md} />
+      <Hero />
+      <Spacer size={spacing.md} />
+      <Divider />
+      <Spacer size={spacing.md} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <T variant="title" style={{ fontSize: 44 }}>
           {title}
         </T>
-        {mode === 'signIn' || mode === 'create' ? <Logo size="md" /> : null}
       </View>
 
       {mode !== 'signIn' && mode !== 'create' ? (
