@@ -101,7 +101,6 @@ export function Screen({
 }) {
   const { t, lang } = useApp();
   const inner = <View style={[styles.screenInner, style]}>{children}</View>;
-  const ruleColor = header?.light ? colors.white : colors.ink;
   return (
     // Genuinely fills the available viewport width at any screen size —
     // header, scroll body and pinned footer all stretch edge-to-edge
@@ -110,7 +109,7 @@ export function Screen({
     <View style={styles.pageOuter}>
       <SafeAreaView style={[styles.screen, styles.pageColumn, { backgroundColor: background }]} edges={['top', 'bottom']}>
         {header ? (
-        <View style={[styles.headerBar, { borderBottomColor: ruleColor }]}>
+        <View style={styles.headerBar}>
           {header.onBack ? (
             <Pressable
               accessibilityRole="button"
@@ -142,7 +141,7 @@ export function Screen({
         inner
       )}
         {footer ? (
-          <View style={[styles.footer, { borderTopColor: ruleColor, backgroundColor: background }]}>{footer}</View>
+          <View style={[styles.footer, { backgroundColor: background }]}>{footer}</View>
         ) : null}
       </SafeAreaView>
     </View>
@@ -636,10 +635,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderBottomWidth: 2,
   },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  footer: { padding: 20, borderTopWidth: 2 },
+  footer: { padding: 20 },
   button: {
     minHeight: HIT_SIZE,
     paddingHorizontal: spacing.lg,
