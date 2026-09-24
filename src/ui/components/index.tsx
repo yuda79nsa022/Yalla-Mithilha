@@ -103,11 +103,13 @@ export function Screen({
   const inner = <View style={[styles.screenInner, style]}>{children}</View>;
   const ruleColor = header?.light ? colors.white : colors.ink;
   return (
-    // A neutral outer canvas plus a bordered, max-480px column centered
-    // inside it — on a phone this just fills the viewport (the border sits
-    // flush at the true edges), but on a wide desktop window it keeps the
-    // whole screen — header, scroll body and pinned footer alike — reading
-    // as one contiguous card instead of three full-bleed bands.
+    // A neutral outer canvas plus a max-640px column centered inside it —
+    // on a phone this is a no-op (the column just fills the viewport), but
+    // on a wide desktop window it keeps the whole screen — header, scroll
+    // body and pinned footer alike — at one comfortable reading width
+    // instead of stretching edge-to-edge. No border/frame around it: it
+    // blends into the ground background rather than reading as a boxed
+    // card floating in empty space.
     <View style={styles.pageOuter}>
       <SafeAreaView style={[styles.screen, styles.pageColumn, { backgroundColor: background }]} edges={['top', 'bottom']}>
         {header ? (
@@ -627,7 +629,7 @@ export function BigChoice({
 
 const styles = StyleSheet.create({
   pageOuter: { flex: 1, alignItems: 'center', backgroundColor: colors.ground },
-  pageColumn: { width: '100%', maxWidth: 480, borderLeftWidth: 2, borderRightWidth: 2, borderColor: colors.ink },
+  pageColumn: { width: '100%', maxWidth: 640 },
   screen: { flex: 1 },
   screenInner: { flex: 1, padding: spacing.lg, gap: spacing.md },
   scrollContent: { flexGrow: 1 },
