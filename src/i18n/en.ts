@@ -39,6 +39,10 @@ export const en: Record<TranslationKey, string> = {
   'home.statTalking': 'Talking',
   'home.loggedInAsLabel': 'Signed in as',
   'home.creditsLabel': 'games left',
+  'home.catMovies': 'Movies',
+  'home.catSongs': 'Songs',
+  'home.catPlays': 'Plays',
+  'home.catSeries': 'Series',
 
   'charades.draft.title': 'Set up your game',
   'charades.draft.subtitle': 'Two teams, twenty rounds between them — the server picks a random category and title each round',
