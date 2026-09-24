@@ -30,8 +30,17 @@ export default function CharadesCheckout() {
     if (player) void refreshWallet();
   }, [player, refreshWallet]);
 
+  // A guest lands here with nothing to configure — skip straight to sign-in
+  // instead of showing an explanatory stop first. `push` (not `replace`)
+  // keeps checkout in the stack, so `router.back()` after a successful
+  // sign-in on the account screen returns here to continue unlocking.
+  useEffect(() => {
+    if (charades && charades.lock !== 'unlocked' && !player) router.push('/account');
+  }, [charades, player]);
+
   if (!charades) return <Redirect href="/charades/draft" />;
   if (charades.lock === 'unlocked') return <Redirect href="/charades/play" />;
+  if (!player) return null;
 
   const topUp = async () => {
     setBusy('topup');
@@ -53,24 +62,6 @@ export default function CharadesCheckout() {
     setBusy(null);
     if (unlocked) router.push('/charades/play');
   };
-
-  if (!player) {
-    return (
-      <Screen
-        scroll
-        header={{ onBack: () => router.back() }}
-        footer={<Button label={t('charades.checkout.signInButton')} onPress={() => router.push('/account')} />}
-      >
-        <Spacer size={spacing.md} />
-        <T variant="title" style={{ fontSize: 30 }}>
-          {t('charades.checkout.signInTitle')}
-        </T>
-        <T variant="body" color={colors.neutral700}>
-          {t('charades.checkout.signInBody')}
-        </T>
-      </Screen>
-    );
-  }
 
   return (
     <Screen
