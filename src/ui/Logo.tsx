@@ -33,8 +33,15 @@ function CubeFaceContent({ face }: { face: number }) {
       <View style={[styles.zipBar, { bottom: '26%', left: '18%', right: '18%', height: '8%' }]} />
       {face >= 60 ? (
         <>
-          <View style={[styles.zipTeeth, { bottom: '21%', left: '21%', right: '21%', height: '18%' }]} />
-          <View style={[styles.zipPull, { bottom: '22%', left: '10%', width: '9%', height: '15%' }]} />
+          {/* Individual tooth marks, not a solid bar — a zipper reads as a
+              row of distinct teeth, not a plain stripe. */}
+          {Array.from({ length: 7 }, (_, i) => (
+            <View
+              key={i}
+              style={[styles.zipTooth, { bottom: '23%', left: `${23 + i * 8}%`, width: '3.5%', height: '12%' }]}
+            />
+          ))}
+          <View style={[styles.zipPull, { bottom: '21%', left: '9%', width: '10%', height: '17%' }]} />
         </>
       ) : null}
     </>
@@ -157,7 +164,7 @@ const styles = StyleSheet.create({
   brow: { position: 'absolute', backgroundColor: colors.ink },
   eye: { position: 'absolute', backgroundColor: colors.white },
   zipBar: { position: 'absolute', backgroundColor: colors.ink },
-  zipTeeth: { position: 'absolute', backgroundColor: colors.white, opacity: 0.9 },
+  zipTooth: { position: 'absolute', backgroundColor: colors.white },
   zipPull: { position: 'absolute', backgroundColor: colors.ink },
   wordmark: { gap: 2 },
   bassRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
