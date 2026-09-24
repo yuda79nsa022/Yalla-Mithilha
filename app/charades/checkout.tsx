@@ -5,6 +5,7 @@ import { Button, Divider, Screen, Spacer, T } from '../../src/ui/components';
 import { Hero } from '../../src/ui/Hero';
 import { colors, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
+import { goBack } from '../../src/platform/navigation';
 
 function formatKwd(fils: number): string {
   return `${(fils / 1000).toFixed(3)} KD`;
@@ -67,7 +68,7 @@ export default function CharadesCheckout() {
   return (
     <Screen
       scroll
-      header={{ onBack: () => router.back() }}
+      header={{ onBack: () => goBack('/charades/draft') }}
       footer={<Button label={t('charades.checkout.start')} disabled={walletBalance < 1} busy={busy === 'start'} onPress={start} />}
     >
       <Spacer size={spacing.md} />

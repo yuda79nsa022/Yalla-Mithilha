@@ -4,6 +4,7 @@ import { Linking, Platform, View } from 'react-native';
 import { Button, ConfirmModal, Divider, Field, Screen, Spacer, T, TextLink } from '../src/ui/components';
 import { Hero } from '../src/ui/Hero';
 import { colors, spacing } from '../src/ui/theme';
+import { goBack } from '../src/platform/navigation';
 import { useApp } from '../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../src/config';
 import { loginAdmin } from '../src/services/adminAuthApi';
@@ -110,7 +111,7 @@ export default function Account() {
     return (
       <Screen
         scroll
-        header={{ onBack: () => router.back() }}
+        header={{ onBack: () => goBack() }}
         footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
       >
         <Spacer size={spacing.md} />
@@ -178,7 +179,7 @@ export default function Account() {
     );
 
   return (
-    <Screen scroll header={{ onBack: () => router.back() }} footer={footer}>
+    <Screen scroll header={{ onBack: () => goBack() }} footer={footer}>
       <Spacer size={spacing.md} />
       <Hero />
       <Spacer size={spacing.md} />

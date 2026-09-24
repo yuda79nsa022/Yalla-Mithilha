@@ -4,6 +4,7 @@ import { Button, ConfirmModal, Divider, Screen, Spacer, T } from '../src/ui/comp
 import { Hero } from '../src/ui/Hero';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
+import { goBack } from '../src/platform/navigation';
 
 export default function Settings() {
   const { t, prefs, wipeEverything, player } = useApp();
@@ -17,7 +18,7 @@ export default function Settings() {
   };
 
   return (
-    <Screen scroll header={{ onBack: () => router.back() }}>
+    <Screen scroll header={{ onBack: () => goBack() }}>
       <Spacer size={spacing.md} />
       <Hero />
       <Spacer size={spacing.md} />
