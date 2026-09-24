@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, TextInput } from 'react-native';
-import { Button, OptionCard, Screen, Spacer, T } from '../../src/ui/components';
-import { HIT_SIZE, colors, radius, spacing, type } from '../../src/ui/theme';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { Button, CategoryTile, Screen, Spacer, T } from '../../src/ui/components';
+import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../../src/config';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
@@ -44,86 +44,114 @@ export default function CharadesDraft() {
   };
 
   return (
-    <Screen scroll>
-      <Spacer size={spacing.md} />
-      <T variant="title">{t('charades.draft.title')}</T>
-      <T variant="body" color={colors.textMuted}>
-        {t('charades.draft.subtitle')}
-      </T>
-      <Spacer size={spacing.xl} />
-
-      <TextInput
-        value={teamAName}
-        onChangeText={setTeamAName}
-        placeholder={t('charades.draft.teamAName')}
-        placeholderTextColor={colors.textMuted}
-        maxLength={20}
-        accessibilityLabel={t('charades.draft.teamAName')}
-        style={[styles.input, { borderColor: colors.teamA }]}
-      />
-      <Spacer size={spacing.md} />
-      <TextInput
-        value={teamBName}
-        onChangeText={setTeamBName}
-        placeholder={t('charades.draft.teamBName')}
-        placeholderTextColor={colors.textMuted}
-        maxLength={20}
-        accessibilityLabel={t('charades.draft.teamBName')}
-        style={[styles.input, { borderColor: colors.teamB }]}
-      />
-
-      <Spacer size={spacing.xl} />
-      <T variant="heading">{t('charades.draft.decksTitle')}</T>
-      <Spacer size={spacing.sm} />
-
-      {decksError ? (
-        <>
-          <T variant="label" color={colors.skip}>
-            {t('charades.draft.decksError')}
-          </T>
-          <Spacer size={spacing.xs} />
-          <Button label={t('charades.draft.decksRetry')} tone="ghost" onPress={loadDecks} />
-        </>
-      ) : decks === null ? (
-        <T variant="label" color={colors.textMuted}>
-          {t('charades.draft.decksLoading')}
+    <Screen
+      scroll
+      header={{ onBack: () => router.back() }}
+      footer={<Button label={t('charades.draft.confirm')} disabled={!canConfirm} onPress={confirmDraft} />}
+    >
+      <>
+        <Spacer size={spacing.md} />
+        <T variant="title" style={{ fontSize: 34 }}>
+          {t('charades.draft.title')}
         </T>
-      ) : decks.length === 0 ? (
-        <T variant="label" color={colors.textMuted}>
-          {t('charades.draft.decksEmpty')}
+        <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
+          {t('charades.draft.subtitle')}
         </T>
-      ) : (
-        decks.map((deck) => (
-          <React.Fragment key={deck.id}>
-            <OptionCard
-              role="checkbox"
-              title={lang === 'ar' ? deck.nameAr : deck.nameEn}
-              selected={selectedDeckIds.includes(deck.id)}
-              onPress={() => toggleDeck(deck.id)}
-              imageUri={deck.imageUrl ? `${CATALOGUE_API_URL}${deck.imageUrl}` : undefined}
+        <Spacer size={spacing.lg} />
+
+        <View style={styles.teamRow}>
+          <View style={[styles.teamPanel, { backgroundColor: colors.purple }]}>
+            <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
+              {t('charades.draft.teamALabel')}
+            </T>
+            <TextInput
+              value={teamAName}
+              onChangeText={setTeamAName}
+              placeholder={t('charades.draft.teamAName')}
+              placeholderTextColor={colors.neutral700}
+              maxLength={20}
+              accessibilityLabel={t('charades.draft.teamAName')}
+              style={styles.teamInput}
             />
-            <Spacer size={spacing.sm} />
-          </React.Fragment>
-        ))
-      )}
+          </View>
+          <View style={styles.vsStrip}>
+            <T style={{ fontFamily: fonts.display, fontSize: 14, color: colors.white }}>VS</T>
+          </View>
+          <View style={[styles.teamPanel, { backgroundColor: colors.green }]}>
+            <T variant="label" color={colors.ink} style={{ fontSize: 11 }}>
+              {t('charades.draft.teamBLabel')}
+            </T>
+            <TextInput
+              value={teamBName}
+              onChangeText={setTeamBName}
+              placeholder={t('charades.draft.teamBName')}
+              placeholderTextColor={colors.neutral700}
+              maxLength={20}
+              accessibilityLabel={t('charades.draft.teamBName')}
+              style={styles.teamInput}
+            />
+          </View>
+        </View>
 
-      <Spacer size={spacing.xl} />
-      <Button label={t('charades.draft.confirm')} disabled={!canConfirm} accent={colors.accent} onPress={confirmDraft} />
-      <Spacer size={spacing.sm} />
-      <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
+        <Spacer size={spacing.lg} />
+        <View style={styles.decksHeader}>
+          <T variant="heading" style={{ fontSize: 18 }}>
+            {t('charades.draft.decksTitle')}
+          </T>
+          <T style={{ fontFamily: fonts.display, fontSize: 13, color: colors.purple700 }}>
+            {selectedDeckIds.length}/{decks?.length ?? 0}
+          </T>
+        </View>
+        <Spacer size={spacing.sm} />
+
+        {decksError ? (
+          <>
+            <T variant="label" color={colors.red}>
+              {t('charades.draft.decksError')}
+            </T>
+            <Spacer size={spacing.xs} />
+            <Button label={t('charades.draft.decksRetry')} tone="secondary" showArrow={false} onPress={loadDecks} />
+          </>
+        ) : decks === null ? (
+          <T variant="label" color={colors.neutral700}>
+            {t('charades.draft.decksLoading')}
+          </T>
+        ) : decks.length === 0 ? (
+          <T variant="label" color={colors.neutral700}>
+            {t('charades.draft.decksEmpty')}
+          </T>
+        ) : (
+          <View style={styles.grid}>
+            {decks.map((deck, i) => (
+              <CategoryTile
+                key={deck.id}
+                index={i}
+                name={lang === 'ar' ? deck.nameAr : deck.nameEn}
+                selected={selectedDeckIds.includes(deck.id)}
+                onPress={() => toggleDeck(deck.id)}
+              />
+            ))}
+          </View>
+        )}
+        <Spacer size={spacing.lg} />
+      </>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  input: {
-    minHeight: HIT_SIZE,
+  teamRow: { flexDirection: 'row', alignItems: 'stretch', borderWidth: 2, borderColor: colors.ink },
+  teamPanel: { flex: 1, padding: 14, gap: 6, justifyContent: 'center' },
+  vsStrip: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: colors.ink },
+  teamInput: {
+    fontFamily: 'NotoKufiArabic_700Bold',
+    fontSize: 15,
+    padding: 8,
     borderWidth: 2,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    color: colors.text,
-    backgroundColor: colors.bgSunken,
-    ...type.body,
-    textAlign: 'auto',
+    borderColor: colors.ink,
+    backgroundColor: colors.white,
+    color: colors.ink,
   },
+  decksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 });

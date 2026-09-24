@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { Image, View } from 'react-native';
 import { Screen, Spacer, T } from '../src/ui/components';
-import { colors, radius, spacing } from '../src/ui/theme';
+import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { parseRevealToken } from '../src/engine/reveal';
 
@@ -28,13 +28,15 @@ export default function CharadesReveal() {
       <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
         {text ? (
           <>
-            <T variant="label" align="center" color={colors.textMuted}>
+            <T variant="label" align="center" color={colors.neutral700}>
               {t('charades.reveal.warning')}
             </T>
             {category ? (
-              <T variant="heading" align="center" color={colors.accent}>
-                {t('charades.reveal.category', { category })}
-              </T>
+              <View style={{ alignSelf: 'center', backgroundColor: colors.purple, paddingHorizontal: 12, paddingVertical: 4 }}>
+                <T variant="label" color={colors.white}>
+                  {t('charades.reveal.category', { category })}
+                </T>
+              </View>
             ) : null}
             <T variant="display" align="center">
               {text}
@@ -42,14 +44,14 @@ export default function CharadesReveal() {
             {imageUrl ? (
               <Image
                 source={{ uri: imageUrl }}
-                style={{ width: '100%', height: 220, borderRadius: radius.lg }}
+                style={{ width: '100%', height: 220 }}
                 resizeMode="contain"
                 accessibilityLabel={text}
               />
             ) : null}
           </>
         ) : (
-          <T variant="heading" align="center" color={colors.textMuted}>
+          <T variant="heading" align="center" color={colors.neutral700}>
             {t('charades.reveal.missing')}
           </T>
         )}

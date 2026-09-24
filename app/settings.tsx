@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { View } from 'react-native';
 import { Button, ConfirmModal, Divider, Screen, Spacer, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
@@ -17,7 +16,7 @@ export default function Settings() {
   };
 
   return (
-    <Screen scroll>
+    <Screen scroll header={{ onBack: () => router.back() }}>
       <Spacer size={spacing.md} />
       <T variant="title">{t('settings.title')}</T>
       <Spacer />
@@ -37,22 +36,18 @@ export default function Settings() {
 
       <Spacer />
       <Divider />
+      <Spacer />
       <Button label={t('home.about')} tone="secondary" onPress={() => router.push('/privacy')} />
       <Spacer size={spacing.sm} />
-      <Button label={t('settings.reset')} tone="danger" onPress={() => setConfirmingReset(true)} />
+      <Button label={t('settings.reset')} tone="danger" showArrow={false} onPress={() => setConfirmingReset(true)} />
       {wiped ? (
         <>
           <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.correct}>
+          <T variant="label" color={colors.green}>
             {t('settings.resetDone')}
           </T>
         </>
       ) : null}
-
-      <View style={{ flex: 1 }} />
-      <Spacer />
-      <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
-      <Spacer />
 
       <ConfirmModal
         visible={confirmingReset}

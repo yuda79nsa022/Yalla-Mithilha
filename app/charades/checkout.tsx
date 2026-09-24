@@ -56,31 +56,39 @@ export default function CharadesCheckout() {
 
   if (!player) {
     return (
-      <Screen scroll>
+      <Screen
+        scroll
+        header={{ onBack: () => router.back() }}
+        footer={<Button label={t('charades.checkout.signInButton')} onPress={() => router.push('/account')} />}
+      >
         <Spacer size={spacing.md} />
-        <T variant="title">{t('charades.checkout.signInTitle')}</T>
-        <T variant="body" color={colors.textMuted}>
+        <T variant="title" style={{ fontSize: 30 }}>
+          {t('charades.checkout.signInTitle')}
+        </T>
+        <T variant="body" color={colors.neutral700}>
           {t('charades.checkout.signInBody')}
         </T>
-        <Spacer size={spacing.xl} />
-        <Button label={t('charades.checkout.signInButton')} onPress={() => router.push('/account')} />
-        <Spacer size={spacing.sm} />
-        <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
       </Screen>
     );
   }
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      header={{ onBack: () => router.back() }}
+      footer={<Button label={t('charades.checkout.start')} disabled={walletBalance < 1} busy={busy === 'start'} onPress={start} />}
+    >
       <Spacer size={spacing.md} />
-      <T variant="title">{t('charades.checkout.title')}</T>
-      <T variant="body" color={colors.textMuted}>
+      <T variant="title" style={{ fontSize: 30 }}>
+        {t('charades.checkout.title')}
+      </T>
+      <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
         {t('charades.checkout.subtitle')}
       </T>
       <Spacer size={spacing.xl} />
 
       <View style={styles.card}>
-        <T variant="heading" color={colors.accent}>
+        <T variant="heading" color={colors.white}>
           {t('charades.checkout.walletBalance', { count: walletBalance })}
         </T>
       </View>
@@ -96,30 +104,21 @@ export default function CharadesCheckout() {
       {walletError ? (
         <>
           <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.skip}>
+          <T variant="label" color={colors.red}>
             {walletError}
           </T>
         </>
       ) : null}
 
       <Spacer size={spacing.sm} />
-      <T variant="label" color={colors.textMuted}>
+      <T variant="label" color={colors.neutral700}>
         {t('charades.checkout.devNotice')}
       </T>
       <Spacer size={spacing.xs} />
-      <Button label={t('charades.checkout.simulateFailure')} tone="ghost" onPress={simulateFailure} />
+      <Button label={t('charades.checkout.simulateFailure')} tone="ghost" showArrow={false} onPress={simulateFailure} />
 
       <Spacer size={spacing.xl} />
       <Divider />
-      <Spacer />
-      <Button
-        label={t('charades.checkout.start')}
-        disabled={walletBalance < 1}
-        busy={busy === 'start'}
-        onPress={start}
-      />
-      <Spacer size={spacing.sm} />
-      <Button label={t('common.back')} tone="ghost" onPress={() => router.back()} />
     </Screen>
   );
 }
@@ -127,10 +126,9 @@ export default function CharadesCheckout() {
 const styles = {
   card: {
     borderWidth: 2,
-    borderColor: colors.accent,
-    borderRadius: 18,
+    borderColor: colors.ink,
     padding: spacing.md,
-    backgroundColor: colors.bgRaised,
+    backgroundColor: colors.purple,
     alignItems: 'center' as const,
   },
 };
