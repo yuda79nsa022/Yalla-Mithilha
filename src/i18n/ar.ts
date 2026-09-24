@@ -43,6 +43,10 @@ export const ar = {
   'home.statTalking': 'كلام',
   'home.loggedInAsLabel': 'مسجّل باسم',
   'home.creditsLabel': 'لعبة برصيدك',
+  'home.catMovies': 'أفلام',
+  'home.catSongs': 'أغاني',
+  'home.catPlays': 'مسرحيات',
+  'home.catSeries': 'مسلسلات',
 
   'charades.draft.title': 'جهّزوا لعبتكم',
   'charades.draft.subtitle': 'فريقين، عشرين جولة بينهم — السيرفر يختار الفئة والعنوان عشوائي كل جولة',
