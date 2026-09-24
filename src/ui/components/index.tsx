@@ -95,7 +95,7 @@ export function Screen({
   background?: string;
   style?: StyleProp<ViewStyle>;
   /** Header bar: a back button or wordmark on the start side, custom content (EN toggle, logo) on the end side. */
-  header?: { title?: string; onBack?: () => void; end?: React.ReactNode; light?: boolean };
+  header?: { title?: string; onBack?: () => void; end?: React.ReactNode; light?: boolean; titleColor?: string };
   /** Pinned footer content (primary CTA) — always visible, never scrolls with the content above it. */
   footer?: React.ReactNode;
 }) {
@@ -128,7 +128,7 @@ export function Screen({
               </T>
             </Pressable>
           ) : (
-            <T variant="heading" style={{ fontSize: 15 }} color={header.light ? colors.white : colors.ink}>
+            <T variant="heading" style={{ fontSize: 15 }} color={header.titleColor ?? (header.light ? colors.white : colors.ink)}>
               {header.title ?? t('app.name')}
             </T>
           )}
