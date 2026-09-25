@@ -270,6 +270,16 @@ export default function CharadesPlay() {
     const nextTeamName = nextTeamIndex === 0 ? charades.teamAName : charades.teamBName;
     const elapsed = ROUND_SECONDS - timeLeft;
     const bannerBg = pendingOutcome.awarded ? colors.green : colors.mutedBg;
+    // The actual score update only lands in `charades.scores` once "next
+    // round" is tapped (see `nextRound` above), but showing that stale,
+    // not-yet-updated total right next to a "+N for {team}!" banner reads as
+    // the wrong team having scored — so this recap previews the outcome
+    // already applied, purely for display.
+    const previewScores: [number, number] = pendingOutcome.awarded
+      ? pendingOutcome.team === 0
+        ? [charades.scores[0] + pendingOutcome.points, charades.scores[1]]
+        : [charades.scores[0], charades.scores[1] + pendingOutcome.points]
+      : charades.scores;
     return (
       <Screen
         scroll
@@ -317,9 +327,9 @@ export default function CharadesPlay() {
         <Spacer size={spacing.md} />
         <ScoreBlock
           teamAName={charades.teamAName}
-          teamAScore={charades.scores[0]}
+          teamAScore={previewScores[0]}
           teamBName={charades.teamBName}
-          teamBScore={charades.scores[1]}
+          teamBScore={previewScores[1]}
         />
       </Screen>
     );
