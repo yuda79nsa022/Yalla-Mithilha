@@ -89,7 +89,7 @@ export function CategoryGrid() {
  * a custom layout, but every other screen just wants this combo as-is:
  * side by side on wide screens, stacked on narrow ones.
  */
-export function Hero() {
+export function Hero({ animateLogo = false }: { animateLogo?: boolean }) {
   const { lang } = useApp();
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
@@ -99,7 +99,7 @@ export function Hero() {
       <View style={[styles.heroRow, lang === 'en' && styles.heroRowEn]}>
         <View style={styles.heroCol}>
           <View style={styles.heroLogoWrap}>
-            <Logo size="lg" />
+            <Logo size="lg" animated={animateLogo} />
           </View>
         </View>
         <View style={styles.heroCol}>
@@ -111,7 +111,7 @@ export function Hero() {
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Logo size="lg" />
+      <Logo size="lg" animated={animateLogo} />
       <CategoryGrid />
     </View>
   );

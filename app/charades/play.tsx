@@ -494,7 +494,7 @@ export default function CharadesPlay() {
 
       {quitButton}
       <View style={{ flex: 1, justifyContent: 'center' }}>
-        <Hero />
+        <Hero animateLogo />
       </View>
       {confirmModal}
     </Screen>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { colors, fonts } from './theme';
 import { T } from './components';
 import { useApp } from '../state/AppProvider';
@@ -48,67 +48,103 @@ function CubeFaceContent({ face }: { face: number }) {
   );
 }
 
+/**
+ * A slow, gentle up/down float — opt-in per call site (the timer/acting
+ * screen only; see Hero's `animateLogo` prop) rather than always-on, since
+ * the cube now appears on every screen and a constant bob everywhere would
+ * wear thin fast.
+ */
+function useBob(enabled: boolean) {
+  const value = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!enabled) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(value, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(value, {
+          toValue: 0,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [enabled, value]);
+
+  return value.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
+}
+
 /** The 3D cube: front (zipped-mouth), side and top faces in true CSS 3D on web. */
-function Cube({ size }: { size: Size }) {
+function Cube({ size, animated = false }: { size: Size; animated?: boolean }) {
   const face = CUBE_FACE[size];
   const wrap = face + 40;
   const half = face / 2;
+  const translateY = useBob(animated);
   return (
-    <View style={{ width: wrap, height: wrap * 1.07, position: 'relative' }}>
-      {size === 'lg' ? (
-        <View style={styles.steamRow}>
-          <View style={[styles.steam, { width: 12, height: 12, transform: [{ rotate: '12deg' }, { translateY: 8 }] }]} />
-          <View style={[styles.steam, { width: 18, height: 18, transform: [{ rotate: '-8deg' }] }]} />
-          <View style={[styles.steam, { width: 10, height: 10, transform: [{ rotate: '20deg' }, { translateY: 12 }] }]} />
-        </View>
-      ) : null}
-      <View
-        style={[
-          {
-            position: 'absolute',
-            left: (wrap - face) / 2,
-            top: size === 'lg' ? 48 : (wrap * 1.07 - face) / 2,
-            width: face,
-            height: face,
-          },
-          web3d({ perspective: 800 }),
-        ]}
-      >
+    <Animated.View style={animated ? { transform: [{ translateY }] } : undefined}>
+      <View style={{ width: wrap, height: wrap * 1.07, position: 'relative' }}>
+        {size === 'lg' ? (
+          <View style={styles.steamRow}>
+            <View style={[styles.steam, { width: 12, height: 12, transform: [{ rotate: '12deg' }, { translateY: 8 }] }]} />
+            <View style={[styles.steam, { width: 18, height: 18, transform: [{ rotate: '-8deg' }] }]} />
+            <View style={[styles.steam, { width: 10, height: 10, transform: [{ rotate: '20deg' }, { translateY: 12 }] }]} />
+          </View>
+        ) : null}
         <View
           style={[
-            { width: face, height: face },
-            web3d({ transformStyle: 'preserve-3d', transform: 'rotateX(-22deg) rotateY(-32deg)' }),
+            {
+              position: 'absolute',
+              left: (wrap - face) / 2,
+              top: size === 'lg' ? 48 : (wrap * 1.07 - face) / 2,
+              width: face,
+              height: face,
+            },
+            web3d({ perspective: 800 }),
           ]}
         >
           <View
             style={[
-              styles.cubeFace,
-              { width: face, height: face, backgroundColor: colors.purple },
-              web3d({ transform: `translateZ(${half}px)` }),
+              { width: face, height: face },
+              web3d({ transformStyle: 'preserve-3d', transform: 'rotateX(-22deg) rotateY(-32deg)' }),
             ]}
           >
-            <CubeFaceContent face={face} />
+            <View
+              style={[
+                styles.cubeFace,
+                { width: face, height: face, backgroundColor: colors.purple },
+                web3d({ transform: `translateZ(${half}px)` }),
+              ]}
+            >
+              <CubeFaceContent face={face} />
+            </View>
+            <View
+              style={[
+                styles.cubeFace,
+                { width: face, height: face, backgroundColor: colors.purpleSide, backfaceVisibility: 'hidden' },
+                web3d({ transform: `rotateY(90deg) translateZ(${half}px)` }),
+              ]}
+            />
+            <View
+              style={[
+                styles.cubeFace,
+                { width: face, height: face, backgroundColor: colors.purpleTop },
+                web3d({ transform: `rotateX(90deg) translateZ(${half}px)` }),
+              ]}
+            />
           </View>
-          <View
-            style={[
-              styles.cubeFace,
-              { width: face, height: face, backgroundColor: colors.purpleSide, backfaceVisibility: 'hidden' },
-              web3d({ transform: `rotateY(90deg) translateZ(${half}px)` }),
-            ]}
-          />
-          <View
-            style={[
-              styles.cubeFace,
-              { width: face, height: face, backgroundColor: colors.purpleTop },
-              web3d({ transform: `rotateX(90deg) translateZ(${half}px)` }),
-            ]}
-          />
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
-
 /** The stacked "بس! / بدون كلام / BAS BEDOON KALAM" wordmark next to the cube, RTL. */
 function Wordmark() {
   return (
@@ -142,17 +178,17 @@ function Wordmark() {
  * is a page-title accessory (cube only, no steam/wordmark), `sm` is for
  * favicon/app-icon rendering (cube only).
  */
-export function Logo({ size = 'lg' }: { size?: Size }) {
+export function Logo({ size = 'lg', animated = false }: { size?: Size; animated?: boolean }) {
   const { lang } = useApp();
   if (size === 'lg') {
     return (
       <View style={[styles.row, lang === 'en' && styles.rowReversed]}>
-        <Cube size="lg" />
+        <Cube size="lg" animated={animated} />
         <Wordmark />
       </View>
     );
   }
-  return <Cube size={size} />;
+  return <Cube size={size} animated={animated} />;
 }
 
 const styles = StyleSheet.create({
