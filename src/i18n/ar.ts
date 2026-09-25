@@ -72,7 +72,6 @@ export const ar = {
   'charades.draft.decksRetry': 'أعد المحاولة',
   'charades.play.round': 'الجولة {{round}} من {{total}}',
   'charades.play.turn': 'دور {{team}}',
-  'charades.play.scanInstruction': 'خلّي اللي بيمثّل من {{team}} يصوّر هذا الرمز بكاميرا جواله عشان يوضّح له العنوان — ما بيظهر هنا',
   'charades.play.scanUnavailable':
     'ما نقدر نسوي رمز الاستجابة السريعة على هذا الجهاز. لازم تحدد رابط الأساس (EXPO_PUBLIC_REVEAL_BASE_URL) عشان يشتغل هذا على شاشة مو متصفح.',
   'charades.play.award': 'أعطِ النقطة لـ {{team}}',

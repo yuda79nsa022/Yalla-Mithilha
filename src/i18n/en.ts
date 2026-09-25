@@ -68,7 +68,6 @@ export const en: Record<TranslationKey, string> = {
   'charades.draft.decksRetry': 'Retry',
   'charades.play.round': 'Round {{round}} of {{total}}',
   'charades.play.turn': '{{team}}’s turn',
-  'charades.play.scanInstruction': 'Have {{team}}’s actor scan this with their phone’s camera to see the title — it never shows here',
   'charades.play.scanUnavailable':
     'Can’t generate a QR code on this device. Set EXPO_PUBLIC_REVEAL_BASE_URL for this to work on a non-browser screen.',
   'charades.play.award': 'Award {{team}}',
