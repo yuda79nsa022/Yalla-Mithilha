@@ -547,6 +547,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   finalTop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  resultBanner: { padding: spacing.lg, gap: spacing.sm, borderBottomWidth: 2, borderBottomColor: colors.ink },
+  resultBanner: { padding: spacing.lg, gap: spacing.xl, borderBottomWidth: 2, borderBottomColor: colors.ink },
   resultTag: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingHorizontal: 12, paddingVertical: 4, transform: [{ rotate: '2deg' }] },
 });
