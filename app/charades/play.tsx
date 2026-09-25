@@ -198,7 +198,7 @@ export default function CharadesPlay() {
             <T variant="label" color={colors.green} style={{ fontSize: 15 }}>
               {t('charades.play.winningTeam')}
             </T>
-            <T style={{ fontFamily: fonts.displayBlack, fontSize: 56, color: colors.white, transform: [{ rotate: '-3deg' }] }}>
+            <T style={{ fontFamily: fonts.displayBlack, fontSize: 56, lineHeight: 62, color: colors.white, transform: [{ rotate: '-3deg' }] }}>
               {winner ? winner : t('charades.play.tie')}
             </T>
           </View>
@@ -289,6 +289,7 @@ export default function CharadesPlay() {
             style={{
               fontFamily: fonts.displayBlack,
               fontSize: 56,
+              lineHeight: 62,
               color: colors.ink,
               transform: [{ rotate: '-4deg' }],
             }}
@@ -370,7 +371,7 @@ export default function CharadesPlay() {
         </View>
         <Spacer size={spacing.lg} />
         <View style={[styles.titleCard, cardShadow(lang, teamColor)]}>
-          <T style={{ fontFamily: fonts.displayBlack, fontSize: 40 }}>{currentTitle.text}</T>
+          <T style={{ fontFamily: fonts.displayBlack, fontSize: 40, lineHeight: 46 }}>{currentTitle.text}</T>
           {absoluteImageUrl ? (
             <Image
               source={{ uri: absoluteImageUrl }}
@@ -417,12 +418,8 @@ export default function CharadesPlay() {
             {t('charades.play.turnLabel')}
           </T>
           <T
-            style={{
-              fontFamily: fonts.displayBlack,
-              fontSize: 64,
-              color: colors.white,
-              transform: [{ rotate: '-3deg' }],
-            }}
+            variant="timer"
+            style={{ fontFamily: fonts.displayBlack, color: colors.white, transform: [{ rotate: '-3deg' }] }}
             numberOfLines={1}
           >
             {teamName}
@@ -435,6 +432,15 @@ export default function CharadesPlay() {
           <T variant="body" color={colors.white} style={{ fontSize: 15, maxWidth: 300 }}>
             {t('charades.play.handoffInstruction')}
           </T>
+          <View style={[styles.qrCard, cardShadow(lang, colors.ink)]}>
+            {revealUrl ? (
+              <QRCode value={revealUrl} size={160} />
+            ) : (
+              <T variant="label" align="center" color={colors.neutral700}>
+                {t('charades.play.scanUnavailable')}
+              </T>
+            )}
+          </View>
         </View>
       </Screen>
     );
@@ -462,11 +468,8 @@ export default function CharadesPlay() {
             {t('charades.play.timeLabel')}
           </T>
           <T
-            style={{
-              fontFamily: fonts.displayBlack,
-              fontSize: 64,
-              color: timeLeft <= 10 ? colors.red : colors.purple,
-            }}
+            variant="timer"
+            style={{ fontFamily: fonts.displayBlack, color: timeLeft <= 10 ? colors.red : colors.purple }}
             accessibilityLabel={t('charades.play.timeRemaining', { time: formatTime(timeLeft) })}
           >
             {formatTime(timeLeft)}
@@ -483,21 +486,6 @@ export default function CharadesPlay() {
               },
             ]}
           />
-        </View>
-      </View>
-
-      <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
-        <T variant="label" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '700' }}>
-          {t('charades.play.scanInstruction', { team: teamName })}
-        </T>
-        <View style={[styles.qrCard, cardShadow(lang, teamColor)]}>
-          {revealUrl ? (
-            <QRCode value={revealUrl} size={180} />
-          ) : (
-            <T variant="label" align="center" color={colors.neutral700}>
-              {t('charades.play.scanUnavailable')}
-            </T>
-          )}
         </View>
       </View>
 
