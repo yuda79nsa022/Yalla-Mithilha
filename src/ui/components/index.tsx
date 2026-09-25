@@ -520,13 +520,22 @@ export function ScoreBlock({
         <T variant="label" color={colors.white} style={{ fontSize: 14 }}>
           {teamAName}
         </T>
-        <T style={{ fontFamily: fonts.displayBlack, fontSize: big ? 72 : 64, color: colors.white }}>{teamAScore}</T>
+        <T style={{ fontFamily: fonts.displayBlack, fontSize: big ? 72 : 64, lineHeight: big ? 78 : 70, color: colors.white }}>
+          {teamAScore}
+        </T>
       </View>
       <View style={[styles.scoreCell, { backgroundColor: light ? 'transparent' : colors.white }]}>
         <T variant="label" color={light ? colors.white : colors.ink} style={{ fontSize: 14 }}>
           {teamBName}
         </T>
-        <T style={{ fontFamily: fonts.displayBlack, fontSize: big ? 72 : 64, color: light ? colors.white : colors.ink }}>
+        <T
+          style={{
+            fontFamily: fonts.displayBlack,
+            fontSize: big ? 72 : 64,
+            lineHeight: big ? 78 : 70,
+            color: light ? colors.white : colors.ink,
+          }}
+        >
           {teamBScore}
         </T>
       </View>

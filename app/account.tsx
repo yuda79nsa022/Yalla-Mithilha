@@ -120,7 +120,7 @@ export default function Account() {
         <Divider />
         <Spacer size={spacing.md} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <T variant="title" style={{ fontSize: 44 }}>
+          <T variant="title" style={{ fontSize: 44, lineHeight: 50 }}>
             {t('account.title')}
           </T>
         </View>
@@ -186,7 +186,7 @@ export default function Account() {
       <Divider />
       <Spacer size={spacing.md} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <T variant="title" style={{ fontSize: 44 }}>
+        <T variant="title" style={{ fontSize: 44, lineHeight: 50 }}>
           {title}
         </T>
       </View>
