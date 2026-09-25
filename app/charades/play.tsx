@@ -431,11 +431,6 @@ export default function CharadesPlay() {
           >
             {teamName}
           </T>
-          <View style={styles.handoffTag}>
-            <T variant="label" color={colors.white} numberOfLines={1}>
-              {t('charades.reveal.category', { category })}
-            </T>
-          </View>
           <T variant="body" color={colors.white} style={{ fontSize: 15, maxWidth: 300 }}>
             {t('charades.play.handoffInstruction')}
           </T>
@@ -534,13 +529,6 @@ const styles = StyleSheet.create({
   },
   actingFooterGrid: { flexDirection: 'row', gap: spacing.sm },
   quitLink: { alignSelf: 'center', paddingVertical: spacing.sm },
-  handoffTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.ink,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    transform: [{ rotate: '-2deg' }],
-  },
   timerBlock: { gap: 6, paddingBottom: spacing.md, borderBottomWidth: 2, borderBottomColor: colors.ink },
   timerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   timerTrack: { height: 12, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, position: 'relative' },
