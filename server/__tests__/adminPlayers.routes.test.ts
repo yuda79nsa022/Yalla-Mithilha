@@ -7,7 +7,8 @@ process.env.PLAYER_SESSION_SECRET = 'test-player-secret';
 
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { resetDbForTests } from '../src/db';
+import { createPlayer, resetDbForTests } from '../src/db';
+import { hashPassword } from '../src/auth';
 import { makeAdminAuthHeader } from './helpers/testAuth';
 
 const app = createApp();
@@ -25,8 +26,12 @@ describe('admin player management', () => {
   });
 
   it('lists players registered through the public route, without ever including a password hash', async () => {
-    await request(app).post('/players/register').send({ username: 'gamer1', password: 'password1234' });
-    await request(app).post('/players/register').send({ username: 'gamer2', password: 'password1234' });
+    await request(app)
+      .post('/players/register')
+      .send({ username: 'gamer1', password: 'password1234', email: 'gamer1@example.com' });
+    await request(app)
+      .post('/players/register')
+      .send({ username: 'gamer2', password: 'password1234', email: 'gamer2@example.com' });
 
     const res = await request(app).get('/admin/players').set(auth);
     expect(res.status).toBe(200);
@@ -37,7 +42,7 @@ describe('admin player management', () => {
   it('renames a player and resets their password', async () => {
     const register = await request(app)
       .post('/players/register')
-      .send({ username: 'original', password: 'password1234' });
+      .send({ username: 'original', password: 'password1234', email: 'original@example.com' });
     const id = register.body.player.id;
 
     const update = await request(app)
@@ -55,10 +60,12 @@ describe('admin player management', () => {
   });
 
   it('rejects a duplicate username on update with 409', async () => {
-    await request(app).post('/players/register').send({ username: 'taken', password: 'password1234' });
+    await request(app)
+      .post('/players/register')
+      .send({ username: 'taken', password: 'password1234', email: 'taken@example.com' });
     const register = await request(app)
       .post('/players/register')
-      .send({ username: 'other', password: 'password1234' });
+      .send({ username: 'other', password: 'password1234', email: 'other@example.com' });
 
     const res = await request(app)
       .put(`/admin/players/${register.body.player.id}`)
@@ -73,10 +80,11 @@ describe('admin player management', () => {
   });
 
   it('lets an admin set an email on a player with none, enabling self-service reset', async () => {
-    const register = await request(app)
-      .post('/players/register')
-      .send({ username: 'noemailyet', password: 'password1234' });
-    const id = register.body.player.id;
+    // Registration now requires an email, but a legacy/no-email account can
+    // still exist in the DB, so insert one directly rather than via the
+    // now-email-requiring public endpoint.
+    const player = createPlayer({ username: 'noemailyet', passwordHash: await hashPassword('password1234') });
+    const id = player.id;
 
     const before = await request(app).get('/admin/players').set(auth);
     expect(before.body.find((p: any) => p.id === id).email).toBeNull();
@@ -100,7 +108,7 @@ describe('admin player management', () => {
   it('rejects a malformed email on update with 400', async () => {
     const register = await request(app)
       .post('/players/register')
-      .send({ username: 'bademailupdate', password: 'password1234' });
+      .send({ username: 'bademailupdate', password: 'password1234', email: 'bademailupdate@example.com' });
 
     const res = await request(app)
       .put(`/admin/players/${register.body.player.id}`)
@@ -112,7 +120,7 @@ describe('admin player management', () => {
   it('deletes a player — with no last-player guard, unlike admin accounts', async () => {
     const register = await request(app)
       .post('/players/register')
-      .send({ username: 'onlyplayer', password: 'password1234' });
+      .send({ username: 'onlyplayer', password: 'password1234', email: 'onlyplayer@example.com' });
 
     const del = await request(app).delete(`/admin/players/${register.body.player.id}`).set(auth);
     expect(del.status).toBe(204);

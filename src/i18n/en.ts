@@ -108,7 +108,7 @@ export const en: Record<TranslationKey, string> = {
   'account.username': 'Username',
   'account.password': 'Password',
   'account.email': 'Email',
-  'account.emailOptionalHint': 'Optional — lets you reset your password later if you forget it',
+  'account.emailRequiredHint': 'Required — lets you reset your password later if you forget it',
   'account.signIn': 'Sign in',
   'account.createAccount': 'Create account',
   'account.switchToSignIn': 'Already have an account? Sign in',

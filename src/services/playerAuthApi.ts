@@ -62,11 +62,11 @@ async function postJsonForAuthResult(path: string, body: unknown, baseUrl: strin
   return { token: d.token, player: d.player };
 }
 
-/** Optional — guest play never calls this. Only a player who chooses to create an account does. `email` is optional too — without one, the account has no forgot-password channel until one is added later. */
+/** Optional — guest play never calls this. Only a player who chooses to create an account does. `email` is mandatory — it's the account's only forgot-password channel. */
 export function registerPlayer(
   username: string,
   password: string,
-  email?: string,
+  email: string,
   baseUrl: string = CATALOGUE_API_URL,
   timeoutMs = 8000
 ): Promise<PlayerAuthResult> {

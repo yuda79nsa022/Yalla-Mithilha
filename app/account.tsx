@@ -11,6 +11,8 @@ import { loginAdmin } from '../src/services/adminAuthApi';
 
 type Mode = 'signIn' | 'create' | 'forgotRequest' | 'forgotConfirm';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function Account() {
   const {
     t,
@@ -49,7 +51,7 @@ export default function Account() {
   const submit = async () => {
     setAdminRedirecting(false);
     if (mode !== 'signIn') {
-      const ok = await registerPlayerAccount(username.trim(), password, email.trim() || undefined);
+      const ok = await registerPlayerAccount(username.trim(), password, email.trim());
       if (ok) router.back();
       return;
     }
@@ -144,6 +146,7 @@ export default function Account() {
   const title =
     mode === 'signIn' || mode === 'create' ? t('account.title') : t('account.forgotRequestTitle');
   const canSubmitSignIn = Boolean(username.trim() && password);
+  const canSubmitCreate = Boolean(username.trim() && password && EMAIL_PATTERN.test(email.trim()));
   const canSendReset = Boolean(username.trim());
   const canSubmitReset = resetCode.trim().length === 6 && Boolean(newPassword);
 
@@ -152,7 +155,7 @@ export default function Account() {
       <>
         <Button
           label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
-          disabled={!canSubmitSignIn || playerAuthBusy || tryingAdmin}
+          disabled={!(mode === 'signIn' ? canSubmitSignIn : canSubmitCreate) || playerAuthBusy || tryingAdmin}
           busy={playerAuthBusy || tryingAdmin}
           onPress={submit}
         />
@@ -255,7 +258,7 @@ export default function Account() {
           />
           <Spacer size={spacing.xs} />
           <T variant="label" color={colors.neutral700}>
-            {t('account.emailOptionalHint')}
+            {t('account.emailRequiredHint')}
           </T>
         </>
       ) : null}

@@ -83,7 +83,9 @@ describe('admin and player account actions are audited, never with a password ha
   });
 
   it('logs player rename and deletion', async () => {
-    await request(app).post('/players/register').send({ username: 'testplayer', password: 'password1234' });
+    await request(app)
+      .post('/players/register')
+      .send({ username: 'testplayer', password: 'password1234', email: 'testplayer@example.com' });
     const list = await request(app).get('/admin/players').set(auth);
     const playerId = list.body[0].id;
 
