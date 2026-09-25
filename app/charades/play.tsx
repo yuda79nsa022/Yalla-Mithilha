@@ -34,15 +34,6 @@ function webOrigin(): string | null {
   return g.location?.origin ?? null;
 }
 
-/** The compact "score — score" readout used in headers on the full-colour handoff/acting screens. */
-function ScoreReadout({ a, b }: { a: number; b: number }) {
-  return (
-    <T style={{ fontFamily: fonts.display, fontWeight: '800', fontSize: 13, color: colors.white }}>
-      {a} — {b}
-    </T>
-  );
-}
-
 /** The adjustable score chip shown on the reveal/scoring screen — the one place mid-game score corrections happen. */
 function ScoreChip({
   name,
@@ -407,7 +398,6 @@ export default function CharadesPlay() {
         header={{
           light: true,
           title: t('charades.play.round', { round: charades.index + 1, total: charades.titles.length }),
-          end: <ScoreReadout a={charades.scores[0]} b={charades.scores[1]} />,
         }}
         footer={
           <Button
@@ -423,6 +413,13 @@ export default function CharadesPlay() {
         }
       >
         <RoundProgress round={charades.index + 1} total={charades.titles.length} />
+        <Spacer size={spacing.md} />
+        <ScoreBlock
+          teamAName={charades.teamAName}
+          teamAScore={charades.scores[0]}
+          teamBName={charades.teamBName}
+          teamBScore={charades.scores[1]}
+        />
         <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
           <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 18 }}>
             {t('charades.play.turnLabel')}

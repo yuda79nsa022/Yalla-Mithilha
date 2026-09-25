@@ -136,7 +136,7 @@ export default function Home() {
               </T>
             </View>
             <View style={styles.accountCardCredit}>
-              <T style={{ fontFamily: fonts.displayBlack, fontSize: 32, color: colors.white }}>{walletBalance}</T>
+              <T style={{ fontFamily: fonts.displayBlack, fontSize: 32, lineHeight: 38, color: colors.white }}>{walletBalance}</T>
               <T variant="label" color={colors.white} style={{ fontSize: 11, fontWeight: '500' }}>
                 {t('home.creditsLabel')}
               </T>
