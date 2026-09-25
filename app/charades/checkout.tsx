@@ -1,5 +1,5 @@
-import { Redirect, router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Redirect, router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Divider, Screen, Spacer, T } from '../../src/ui/components';
 import { Hero } from '../../src/ui/Hero';
@@ -33,12 +33,19 @@ export default function CharadesCheckout() {
   }, [player, refreshWallet]);
 
   // A guest lands here with nothing to configure — skip straight to sign-in
-  // instead of showing an explanatory stop first. `push` (not `replace`)
-  // keeps checkout in the stack, so `router.back()` after a successful
-  // sign-in on the account screen returns here to continue unlocking.
-  useEffect(() => {
-    if (charades && charades.lock !== 'unlocked' && !player) router.push('/account');
-  }, [charades, player]);
+  // instead of showing an explanatory stop first. `useFocusEffect` (not a
+  // plain `useEffect`) is required: React Navigation keeps this screen
+  // mounted after navigating away from it, so a plain effect's unchanged
+  // dependencies would never refire if the guest hit "back" from the account
+  // screen without signing in — leaving a blank screen stuck in the stack.
+  // `replace` (not `push`) drops checkout from the stack entirely, so that
+  // "back" is exactly the screen that led here (draft or home), not another
+  // visit to this same dead end.
+  useFocusEffect(
+    useCallback(() => {
+      if (charades && charades.lock !== 'unlocked' && !player) router.replace('/account');
+    }, [charades, player])
+  );
 
   if (!charades) return <Redirect href="/charades/draft" />;
   if (charades.lock === 'unlocked') return <Redirect href="/charades/play" />;
