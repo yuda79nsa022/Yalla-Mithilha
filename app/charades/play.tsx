@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Button, ConfirmModal, RoundProgress, ScoreBlock, Screen, Spacer, T } from '../../src/ui/components';
+import { Hero } from '../../src/ui/Hero';
 import { cardShadow, colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
@@ -492,6 +493,9 @@ export default function CharadesPlay() {
       </View>
 
       {quitButton}
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        <Hero />
+      </View>
       {confirmModal}
     </Screen>
   );
