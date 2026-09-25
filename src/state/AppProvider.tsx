@@ -91,8 +91,8 @@ interface AppValue {
   player: { id: string; username: string } | null;
   playerAuthBusy: boolean;
   playerAuthError: string | null;
-  /** `email` is optional — without one, this account has no forgot-password channel until one is added later. */
-  registerPlayerAccount: (username: string, password: string, email?: string) => Promise<boolean>;
+  /** `email` is mandatory — it's the account's only forgot-password channel. */
+  registerPlayerAccount: (username: string, password: string, email: string) => Promise<boolean>;
   loginPlayerAccount: (username: string, password: string) => Promise<boolean>;
   logoutPlayerAccount: () => void;
   /**
@@ -319,7 +319,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     void clearCharades(deviceStore);
   }, []);
 
-  const registerPlayerAccount = useCallback(async (username: string, password: string, email?: string) => {
+  const registerPlayerAccount = useCallback(async (username: string, password: string, email: string) => {
     setPlayerAuthBusy(true);
     setPlayerAuthError(null);
     try {

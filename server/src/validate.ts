@@ -128,6 +128,16 @@ function optionalEmail(value: unknown, field: string): string | undefined {
   return value;
 }
 
+function requireEmail(value: unknown, field: string): string {
+  if (value === undefined || value === null || value === '') {
+    throw new ValidationError(`"${field}" is required`);
+  }
+  if (typeof value !== 'string' || value.length > 254 || !EMAIL_PATTERN.test(value)) {
+    throw new ValidationError(`"${field}" must be a valid email address`);
+  }
+  return value;
+}
+
 /** The 6-digit code a reset email contains — always exactly 6 digits, never trimmed/coerced, so a malformed value fails validation instead of silently mismatching every stored hash. */
 function requireResetCode(value: unknown): string {
   if (typeof value !== 'string' || !/^\d{6}$/.test(value)) {
@@ -157,17 +167,16 @@ export function parseUpdateAdminUserBody(body: unknown): UpdateAdminUserBody {
 export interface RegisterPlayerBody {
   username: string;
   password: string;
-  /** Optional at signup — without one, this account has no forgot-password channel until it's added later. */
-  email?: string;
+  /** Mandatory at signup — it's the account's only forgot-password channel. */
+  email: string;
 }
 
 export function parseRegisterPlayerBody(body: unknown): RegisterPlayerBody {
   const b = (body ?? {}) as Record<string, unknown>;
-  const email = optionalEmail(b.email, 'email');
   return {
     username: requireUsername(b.username),
     password: requirePassword(b.password),
-    ...(email !== undefined ? { email } : {}),
+    email: requireEmail(b.email, 'email'),
   };
 }
 

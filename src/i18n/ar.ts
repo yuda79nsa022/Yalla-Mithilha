@@ -112,7 +112,7 @@ export const ar = {
   'account.username': 'اسم المستخدم',
   'account.password': 'كلمة السر',
   'account.email': 'البريد الإلكتروني',
-  'account.emailOptionalHint': 'اختياري — يخليك ترجع تسوي كلمة سر جديدة لو نسيتها',
+  'account.emailRequiredHint': 'مطلوب — يخليك ترجع تسوي كلمة سر جديدة لو نسيتها',
   'account.signIn': 'تسجيل الدخول',
   'account.createAccount': 'إنشاء حساب',
   'account.switchToSignIn': 'عندك حساب؟ سجّل دخولك',

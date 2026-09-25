@@ -7,7 +7,8 @@ process.env.PLAYER_SESSION_SECRET = 'test-player-secret';
 
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { db, resetDbForTests, setGamePriceFils, signupBonusCredits } from '../src/db';
+import { createPlayer, db, resetDbForTests, setGamePriceFils, signupBonusCredits } from '../src/db';
+import { hashPassword } from '../src/auth';
 import { resetCodeProvider } from '../src/notifications/resetCodeProvider';
 
 const app = createApp();
@@ -29,7 +30,7 @@ describe('CORS on /players', () => {
   it('sets Access-Control-Allow-Origin on the actual response, unlike /admin routes', async () => {
     const res = await request(app)
       .post('/players/register')
-      .send({ username: 'corscheck', password: 'password1234' });
+      .send({ username: 'corscheck', password: 'password1234', email: 'corscheck@example.com' });
     expect(res.headers['access-control-allow-origin']).toBe('*');
   });
 });
@@ -38,7 +39,7 @@ describe('POST /players/register', () => {
   it('creates a player account and returns a token', async () => {
     const res = await request(app)
       .post('/players/register')
-      .send({ username: 'newplayer', password: 'password1234' });
+      .send({ username: 'newplayer', password: 'password1234', email: 'newplayer@example.com' });
     expect(res.status).toBe(201);
     expect(typeof res.body.token).toBe('string');
     expect(res.body.player).toMatchObject({ username: 'newplayer' });
@@ -46,15 +47,19 @@ describe('POST /players/register', () => {
   });
 
   it('rejects a duplicate username with 409', async () => {
-    await request(app).post('/players/register').send({ username: 'dup', password: 'password1234' });
-    const res = await request(app).post('/players/register').send({ username: 'dup', password: 'password1234' });
+    await request(app)
+      .post('/players/register')
+      .send({ username: 'dup', password: 'password1234', email: 'dup@example.com' });
+    const res = await request(app)
+      .post('/players/register')
+      .send({ username: 'dup', password: 'password1234', email: 'dup2@example.com' });
     expect(res.status).toBe(409);
   });
 
   it('rejects a password shorter than 8 characters with 400', async () => {
     const res = await request(app)
       .post('/players/register')
-      .send({ username: 'shortpw', password: 'short' });
+      .send({ username: 'shortpw', password: 'short', email: 'shortpw@example.com' });
     expect(res.status).toBe(400);
   });
 
@@ -62,7 +67,7 @@ describe('POST /players/register', () => {
     setGamePriceFils(1500); // 1.500 KD/game, so 3.00 KD is exactly 2 games
     const register = await request(app)
       .post('/players/register')
-      .send({ username: 'bonusplayer', password: 'password1234' });
+      .send({ username: 'bonusplayer', password: 'password1234', email: 'bonusplayer@example.com' });
     expect(register.status).toBe(201);
 
     const wallet = await request(app)
@@ -75,7 +80,7 @@ describe('POST /players/register', () => {
   it('never re-grants the bonus on login, only on registration', async () => {
     const register = await request(app)
       .post('/players/register')
-      .send({ username: 'onceonly', password: 'password1234' });
+      .send({ username: 'onceonly', password: 'password1234', email: 'onceonly@example.com' });
 
     await request(app).post('/players/login').send({ username: 'onceonly', password: 'password1234' });
     const wallet = await request(app)
@@ -87,7 +92,7 @@ describe('POST /players/register', () => {
   it('a player token does not work as an admin session', async () => {
     const register = await request(app)
       .post('/players/register')
-      .send({ username: 'notanadmin', password: 'password1234' });
+      .send({ username: 'notanadmin', password: 'password1234', email: 'notanadmin@example.com' });
 
     const res = await request(app)
       .get('/admin/categories')
@@ -95,18 +100,18 @@ describe('POST /players/register', () => {
     expect(res.status).toBe(401);
   });
 
-  it('accepts an optional email at signup', async () => {
+  it('accepts a valid email at signup', async () => {
     const res = await request(app)
       .post('/players/register')
       .send({ username: 'withemail', password: 'password1234', email: 'withemail@example.com' });
     expect(res.status).toBe(201);
   });
 
-  it('works fine with no email at all, same as before this field existed', async () => {
+  it('rejects registration with no email at all, now that it is mandatory', async () => {
     const res = await request(app)
       .post('/players/register')
       .send({ username: 'noemail', password: 'password1234' });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(400);
   });
 
   it('rejects a malformed email with 400', async () => {
@@ -119,7 +124,9 @@ describe('POST /players/register', () => {
 
 describe('POST /players/login', () => {
   it('logs in with the correct username and password', async () => {
-    await request(app).post('/players/register').send({ username: 'jane', password: 'correct-horse' });
+    await request(app)
+      .post('/players/register')
+      .send({ username: 'jane', password: 'correct-horse', email: 'jane@example.com' });
 
     const res = await request(app).post('/players/login').send({ username: 'jane', password: 'correct-horse' });
     expect(res.status).toBe(200);
@@ -129,7 +136,9 @@ describe('POST /players/login', () => {
   });
 
   it('rejects the wrong password', async () => {
-    await request(app).post('/players/register').send({ username: 'jane', password: 'correct-horse' });
+    await request(app)
+      .post('/players/register')
+      .send({ username: 'jane', password: 'correct-horse', email: 'jane@example.com' });
 
     const res = await request(app).post('/players/login').send({ username: 'jane', password: 'wrong-password' });
     expect(res.status).toBe(401);
@@ -176,7 +185,10 @@ describe('POST /players/password-reset/request + /confirm', () => {
   });
 
   it('never sends a code for an account with no email on file, but still responds generically', async () => {
-    await request(app).post('/players/register').send({ username: 'noemailreset', password: 'password1234' });
+    // Registration now requires an email, but legacy/no-email accounts can
+    // still exist in the DB (e.g. from before this field was mandatory), so
+    // insert one directly rather than via the now-email-requiring endpoint.
+    createPlayer({ username: 'noemailreset', passwordHash: await hashPassword('password1234') });
 
     const spy = jest.spyOn(resetCodeProvider, 'sendResetCode').mockResolvedValue(undefined);
     const res = await request(app).post('/players/password-reset/request').send({ username: 'noemailreset' });

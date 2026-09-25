@@ -12,7 +12,10 @@
 import './loadEnv';
 import { createPlayer, creditBalance, DuplicatePlayerUsernameError, getPlayerByUsernameWithHash, grantCredits } from './db';
 import { hashPassword } from './auth';
-import { parseRegisterPlayerBody, ValidationError } from './validate';
+// This script never sets an email on the player it creates, so it validates
+// username/password with the same rules `parseRegisterPlayerBody` uses for
+// those two fields, without that function's now-mandatory email.
+import { parseCreateAdminUserBody as parseUsernamePassword, ValidationError } from './validate';
 
 function parseArgs(argv: string[]): Record<string, string> {
   const out: Record<string, string> = {};
@@ -33,7 +36,7 @@ async function main() {
   }
 
   try {
-    const { username, password } = parseRegisterPlayerBody(args);
+    const { username, password } = parseUsernamePassword(args);
     const existing = getPlayerByUsernameWithHash(username);
 
     const player = existing ?? createPlayer({ username, passwordHash: await hashPassword(password) });
