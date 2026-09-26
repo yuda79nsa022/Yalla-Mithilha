@@ -32,6 +32,7 @@ function loadAll(): Promise<void> {
 /** Call ahead of time (e.g. when the play screen mounts) so the first `playSound` has no load latency. */
 export function preloadSounds(): void {
   loadAll().catch(() => undefined);
+  loadTimerMusic().catch(() => undefined);
 }
 
 /**
@@ -47,5 +48,50 @@ export async function playSound(name: SoundName): Promise<void> {
     await sound.replayAsync();
   } catch {
     // See above — playback failures are silently ignored on purpose.
+  }
+}
+
+/**
+ * The background track that plays for the full 2-minute acting round —
+ * shorter than the round itself, so it loops (`isLooping`) rather than
+ * cutting out partway through. Kept separate from `SOURCES`/`playSound`
+ * above since it needs looping and explicit start/stop rather than a
+ * one-shot replay.
+ */
+const TIMER_MUSIC_SOURCE = require('../../assets/sounds/timer-music.mp3');
+
+let timerMusicSound: Audio.Sound | null = null;
+let timerMusicLoadPromise: Promise<Audio.Sound> | null = null;
+
+function loadTimerMusic(): Promise<Audio.Sound> {
+  if (!timerMusicLoadPromise) {
+    timerMusicLoadPromise = Audio.Sound.createAsync(TIMER_MUSIC_SOURCE, { isLooping: true, volume: 0.5 }).then(
+      ({ sound }) => {
+        timerMusicSound = sound;
+        return sound;
+      }
+    );
+  }
+  return timerMusicLoadPromise;
+}
+
+/** Starts the timer's background track from the beginning — safe to call even before preloading finishes. */
+export async function startTimerMusic(): Promise<void> {
+  try {
+    const sound = await loadTimerMusic();
+    await sound.setPositionAsync(0);
+    await sound.playAsync();
+  } catch {
+    // See playSound above — playback failures are silently ignored on purpose.
+  }
+}
+
+/** Stops the timer's background track — called the instant a round ends, however it ends. */
+export async function stopTimerMusic(): Promise<void> {
+  try {
+    if (!timerMusicSound) return;
+    await timerMusicSound.stopAsync();
+  } catch {
+    // See playSound above — playback failures are silently ignored on purpose.
   }
 }

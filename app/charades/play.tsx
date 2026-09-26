@@ -7,7 +7,7 @@ import { Hero } from '../../src/ui/Hero';
 import { cardShadow, colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
-import { playSound, preloadSounds } from '../../src/platform/sound';
+import { playSound, preloadSounds, startTimerMusic, stopTimerMusic } from '../../src/platform/sound';
 import { adjustScore, awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
 import { buildRevealUrl, resolveRevealBaseUrl } from '../../src/engine/reveal';
 import { CATALOGUE_API_URL, REVEAL_BASE_URL } from '../../src/config';
@@ -138,10 +138,24 @@ export default function CharadesPlay() {
     if (!started || prev === timeLeft) return;
     if (timeLeft === 0) {
       void playSound('buzzer');
+      void stopTimerMusic();
     } else if (timeLeft <= TICK_SECONDS) {
       void playSound('tick');
     }
   }, [timeLeft, started]);
+
+  // The background track plays for the whole round while the actor is up —
+  // started once here rather than alongside the bell tap, so it also covers
+  // a re-render/remount mid-round, and stopped the instant the round ends,
+  // however it ends (time runs out — handled above — or "end early" is
+  // tapped, or the player quits/navigates away entirely).
+  useEffect(() => {
+    if (!roundActive || !started || endedEarly) return;
+    void startTimerMusic();
+    return () => {
+      void stopTimerMusic();
+    };
+  }, [roundActive, started, endedEarly, roundKey]);
 
   if (!charades) return <Redirect href="/charades/draft" />;
   if (charades.lock !== 'unlocked') return <Redirect href="/charades/checkout" />;
