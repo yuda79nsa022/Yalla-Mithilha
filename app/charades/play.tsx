@@ -2,12 +2,13 @@ import { Redirect, router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import Svg, { Path } from 'react-native-svg';
 import { Button, ConfirmModal, RoundProgress, ScoreBlock, Screen, Spacer, T } from '../../src/ui/components';
 import { Hero } from '../../src/ui/Hero';
 import { cardShadow, colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
-import { playSound, preloadSounds, startTimerMusic, stopTimerMusic } from '../../src/platform/sound';
+import { playSound, preloadSounds, setTimerMusicVolume, startTimerMusic, stopTimerMusic } from '../../src/platform/sound';
 import { adjustScore, awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
 import { buildRevealUrl, resolveRevealBaseUrl } from '../../src/engine/reveal';
 import { CATALOGUE_API_URL, REVEAL_BASE_URL } from '../../src/config';
@@ -81,9 +82,74 @@ function ScoreChip({
   );
 }
 
+const VOLUME_STEPS = 5;
+
+function SpeakerIcon({ muted, color }: { muted: boolean; color: string }) {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 9v6h4l5 4V5L8 9H4z" fill={color} />
+      {muted ? (
+        <Path d="M16 9.5l5 5M21 9.5l-5 5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      ) : (
+        <Path d="M16 8.5a5 5 0 010 7" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      )}
+    </Svg>
+  );
+}
+
+/**
+ * The background-music volume bar on the acting screen — tapping a segment
+ * sets the level directly (rather than a drag gesture, so it works the same
+ * with mouse, touch and a screen reader's own "activate" gesture); the
+ * speaker button mutes/unmutes without losing the chosen level.
+ */
+function VolumeControl({
+  volume,
+  muted,
+  onChangeVolume,
+  onToggleMute,
+}: {
+  volume: number;
+  muted: boolean;
+  onChangeVolume: (volume: number) => void;
+  onToggleMute: () => void;
+}) {
+  const { t } = useApp();
+  const activeSegments = muted ? 0 : Math.round(volume * VOLUME_STEPS);
+  return (
+    <View style={styles.volumeRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t(muted ? 'charades.play.musicUnmute' : 'charades.play.musicMute')}
+        onPress={onToggleMute}
+        style={({ pressed }) => [styles.volumeMuteButton, pressed && styles.pressed]}
+      >
+        <SpeakerIcon muted={muted} color={colors.ink} />
+      </Pressable>
+      <T variant="label" style={{ fontSize: 12 }} numberOfLines={1}>
+        {t('charades.play.musicVolume')}
+      </T>
+      <View style={styles.volumeBar}>
+        {Array.from({ length: VOLUME_STEPS }, (_, i) => (
+          <Pressable
+            key={i}
+            accessibilityRole="button"
+            accessibilityLabel={t('charades.play.musicVolumeLevel', {
+              percent: Math.round(((i + 1) / VOLUME_STEPS) * 100),
+            })}
+            onPress={() => onChangeVolume((i + 1) / VOLUME_STEPS)}
+            style={[styles.volumeSegment, { backgroundColor: i < activeSegments ? colors.purple : colors.white }]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function CharadesPlay() {
   useKeepAwake();
-  const { t, lang, charades, updateCharades, quitCharades } = useApp();
+  const { t, lang, charades, updateCharades, quitCharades, prefs, setPrefs } = useApp();
+  const musicVolume = prefs.musicMuted ? 0 : prefs.musicVolume;
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [endedEarly, setEndedEarly] = useState(false);
@@ -148,14 +214,24 @@ export default function CharadesPlay() {
   // started once here rather than alongside the bell tap, so it also covers
   // a re-render/remount mid-round, and stopped the instant the round ends,
   // however it ends (time runs out — handled above — or "end early" is
-  // tapped, or the player quits/navigates away entirely).
+  // tapped, or the player quits/navigates away entirely). `musicVolume` is
+  // deliberately left out of the dependency list: the volume-slider effect
+  // just below adjusts an already-playing track live, and including it here
+  // too would restart the track (and its loop position) on every drag.
   useEffect(() => {
     if (!roundActive || !started || endedEarly) return;
-    void startTimerMusic();
+    void startTimerMusic(musicVolume);
     return () => {
       void stopTimerMusic();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundActive, started, endedEarly, roundKey]);
+
+  // Live volume-slider / mute changes reach an already-playing track without
+  // restarting it. A no-op before any round has started (nothing loaded yet).
+  useEffect(() => {
+    void setTimerMusicVolume(musicVolume);
+  }, [musicVolume]);
 
   if (!charades) return <Redirect href="/charades/draft" />;
   if (charades.lock !== 'unlocked') return <Redirect href="/charades/checkout" />;
@@ -506,6 +582,13 @@ export default function CharadesPlay() {
         </View>
       </View>
 
+      <VolumeControl
+        volume={prefs.musicVolume}
+        muted={prefs.musicMuted}
+        onChangeVolume={(v) => setPrefs({ musicVolume: v, musicMuted: false })}
+        onToggleMute={() => setPrefs({ musicMuted: !prefs.musicMuted })}
+      />
+
       {quitButton}
       <View style={{ flex: 1, justifyContent: 'center' }}>
         <Hero animateLogo />
@@ -551,6 +634,24 @@ const styles = StyleSheet.create({
   timerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   timerTrack: { height: 12, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, position: 'relative' },
   timerFill: { position: 'absolute', top: 0, bottom: 0 },
+  volumeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.ink,
+  },
+  volumeMuteButton: {
+    width: 30,
+    height: 30,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  volumeBar: { flexDirection: 'row', gap: 3, flex: 1 },
+  volumeSegment: { flex: 1, height: 14, borderWidth: 2, borderColor: colors.ink },
   qrCard: {
     borderWidth: 3,
     borderColor: colors.ink,

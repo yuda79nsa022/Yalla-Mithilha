@@ -100,6 +100,10 @@ export const ar = {
   'charades.play.handoffInstruction': 'خلّوا اللي يمثّل يجهّز كاميرا جواله عشان يصوّر الرمز ويشوف العنوان لحاله.',
   'charades.play.roundTeam': 'الجولة {{round}} · {{team}}',
   'charades.play.timeLabel': 'الوقت',
+  'charades.play.musicVolume': 'موسيقى الخلفية',
+  'charades.play.musicMute': 'كتم موسيقى الخلفية',
+  'charades.play.musicUnmute': 'شغّل موسيقى الخلفية',
+  'charades.play.musicVolumeLevel': 'خلّي موسيقى الخلفية {{percent}}%',
 
   'charades.reveal.warning': 'وريّ هذا لك بس — لا تخلي فريقك يشوف الشاشة',
   'charades.reveal.category': 'الفئة: {{category}}',
