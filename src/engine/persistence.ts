@@ -33,10 +33,15 @@ export const KEYS = {
 
 export interface Preferences {
   lang: Lang | null;
+  /** The acting round's background music volume (0-1) when not muted. */
+  musicVolume: number;
+  musicMuted: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
   lang: null,
+  musicVolume: 0.25,
+  musicMuted: false,
 };
 
 async function readJson<T>(store: KeyValueStore, key: string, fallback: T): Promise<T> {

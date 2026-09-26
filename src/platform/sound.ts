@@ -65,22 +65,36 @@ let timerMusicLoadPromise: Promise<Audio.Sound> | null = null;
 
 function loadTimerMusic(): Promise<Audio.Sound> {
   if (!timerMusicLoadPromise) {
-    timerMusicLoadPromise = Audio.Sound.createAsync(TIMER_MUSIC_SOURCE, { isLooping: true, volume: 0.25 }).then(
-      ({ sound }) => {
-        timerMusicSound = sound;
-        return sound;
-      }
-    );
+    timerMusicLoadPromise = Audio.Sound.createAsync(TIMER_MUSIC_SOURCE, { isLooping: true }).then(({ sound }) => {
+      timerMusicSound = sound;
+      return sound;
+    });
   }
   return timerMusicLoadPromise;
 }
 
-/** Starts the timer's background track from the beginning — safe to call even before preloading finishes. */
-export async function startTimerMusic(): Promise<void> {
+/** Starts the timer's background track from the beginning at the given volume (0-1) — safe to call even before preloading finishes. */
+export async function startTimerMusic(volume: number): Promise<void> {
   try {
     const sound = await loadTimerMusic();
+    await sound.setVolumeAsync(volume);
     await sound.setPositionAsync(0);
     await sound.playAsync();
+  } catch {
+    // See playSound above — playback failures are silently ignored on purpose.
+  }
+}
+
+/**
+ * Adjusts the volume of a track that's already playing (a volume-slider drag
+ * mid-round) without restarting it — unlike `startTimerMusic`, this never
+ * touches playback position. A no-op if nothing has loaded yet, which is
+ * fine: the next `startTimerMusic` call always sets its own volume anyway.
+ */
+export async function setTimerMusicVolume(volume: number): Promise<void> {
+  try {
+    if (!timerMusicSound) return;
+    await timerMusicSound.setVolumeAsync(volume);
   } catch {
     // See playSound above — playback failures are silently ignored on purpose.
   }

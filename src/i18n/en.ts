@@ -96,6 +96,10 @@ export const en: Record<TranslationKey, string> = {
   'charades.play.handoffInstruction': 'Have the actor get their camera ready to scan the code and see the title privately.',
   'charades.play.roundTeam': 'Round {{round}} · {{team}}',
   'charades.play.timeLabel': 'Time',
+  'charades.play.musicVolume': 'Background music',
+  'charades.play.musicMute': 'Mute background music',
+  'charades.play.musicUnmute': 'Unmute background music',
+  'charades.play.musicVolumeLevel': 'Set background music to {{percent}}%',
 
   'charades.reveal.warning': 'Show this to yourself only — don’t let your team see the screen',
   'charades.reveal.category': 'Category: {{category}}',
