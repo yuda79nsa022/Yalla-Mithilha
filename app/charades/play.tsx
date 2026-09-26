@@ -545,13 +545,6 @@ export default function CharadesPlay() {
       scroll
       header={{
         title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }),
-        end: (
-          <View style={[styles.categoryChip, { backgroundColor: colors.purple }]}>
-            <T variant="label" color={colors.white} numberOfLines={1}>
-              {category}
-            </T>
-          </View>
-        ),
       }}
       footer={<Button label={t('charades.play.endEarly')} tone="secondary" showArrow={false} onPress={() => setEndedEarly(true)} />}
     >
