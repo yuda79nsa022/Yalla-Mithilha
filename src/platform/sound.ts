@@ -65,7 +65,7 @@ let timerMusicLoadPromise: Promise<Audio.Sound> | null = null;
 
 function loadTimerMusic(): Promise<Audio.Sound> {
   if (!timerMusicLoadPromise) {
-    timerMusicLoadPromise = Audio.Sound.createAsync(TIMER_MUSIC_SOURCE, { isLooping: true, volume: 0.5 }).then(
+    timerMusicLoadPromise = Audio.Sound.createAsync(TIMER_MUSIC_SOURCE, { isLooping: true, volume: 0.25 }).then(
       ({ sound }) => {
         timerMusicSound = sound;
         return sound;
