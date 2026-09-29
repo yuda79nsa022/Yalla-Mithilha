@@ -18,10 +18,18 @@ export const loginLimiter = rateLimit({
   message: { error: 'too many attempts, try again later' },
 });
 
-/** Account creation: tighter, since it is the more attractive target for abuse/enumeration. */
+/**
+ * Account creation: tighter than login, since it is the more attractive
+ * target for abuse/enumeration — but this app is a party game, often played
+ * by a whole group on one shared WiFi/NAT (and so one IP address). A load
+ * test confirmed the previous limit of 10/hour blocks the 11th person in a
+ * single group from signing up for an hour; 30/hour covers a much larger
+ * gathering while still being far below what a scripted abuse attempt would
+ * want.
+ */
 export const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  limit: 10,
+  limit: 30,
   standardHeaders: true,
   legacyHeaders: false,
   skip,
