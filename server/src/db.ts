@@ -508,16 +508,35 @@ export function listPlayableDecks(deckIds?: string[]): DeckWithTitles[] {
   return listDecks().filter((d) => d.titles.length > 0 && (deckIds === undefined || deckIds.includes(d.id)));
 }
 
-/** What a player picks from before checkout — every playable deck, without its titles (a spoiler, and needless payload for a deck of hundreds). */
+/**
+ * What a player picks from before checkout — every playable deck, without
+ * its titles (a spoiler, and needless payload for a deck of hundreds).
+ * Deliberately doesn't go through `listPlayableDecks`/`listDecks`: those
+ * load every title row for every deck just to report a count, which a load
+ * test showed serializing this unauthenticated, every-page-load endpoint
+ * under concurrent traffic (a `SELECT *` over the full titles table on each
+ * call). A single grouped `COUNT(*)` gets the same numbers in one query.
+ */
 export function listPublicDecks(): PublicDeck[] {
-  return listPlayableDecks().map((d) => ({
-    id: d.id,
-    nameAr: d.nameAr,
-    nameEn: d.nameEn,
-    language: d.language,
-    imageUrl: d.imagePath ?? undefined,
-    titleCount: d.titles.length,
-  }));
+  const counts = new Map(
+    (db.prepare('SELECT deck_id as deckId, COUNT(*) as count FROM titles GROUP BY deck_id').all() as {
+      deckId: string;
+      count: number;
+    }[]).map((r) => [r.deckId, r.count])
+  );
+  return db
+    .prepare('SELECT * FROM decks ORDER BY id')
+    .all()
+    .map(rowToDeck)
+    .map((d) => ({
+      id: d.id,
+      nameAr: d.nameAr,
+      nameEn: d.nameEn,
+      language: d.language,
+      imageUrl: d.imagePath ?? undefined,
+      titleCount: counts.get(d.id) ?? 0,
+    }))
+    .filter((d) => d.titleCount > 0);
 }
 
 /* --------------------------------------------------------------- players */
