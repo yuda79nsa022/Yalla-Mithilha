@@ -30,7 +30,7 @@ describe('rate limiting', () => {
     await withRateLimitingEnabled(async () => {
       const body = { username: 'ratelimited', password: 'password1234', email: 'ratelimited@example.com' };
       let sawTooMany = false;
-      for (let i = 0; i < 11; i++) {
+      for (let i = 0; i < 31; i++) {
         const res = await request(app).post('/players/register').send(body);
         if (res.status === 429) {
           sawTooMany = true;

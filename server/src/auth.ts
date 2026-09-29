@@ -1,10 +1,16 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import type { RequestHandler } from 'express';
 
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const PLAYER_SESSION_SECRET = process.env.PLAYER_SESSION_SECRET;
 const TOKEN_TTL = '12h';
+// bcrypt (native, libuv-threadpool-backed), not bcryptjs (pure JS, runs on
+// the main thread) — a load test found bcryptjs serializing every
+// concurrent register/login onto Node's single thread, so a burst of
+// simultaneous signups queued up and got linearly slower (~1s at 10
+// concurrent, ~16s at 200). Native bcrypt offloads the hashing to libuv's
+// thread pool, so concurrent hashes actually run in parallel.
 const BCRYPT_ROUNDS = 10;
 
 export interface SessionPayload {
