@@ -12,6 +12,7 @@ import { auditLogRouter } from './routes/auditLog';
 import { authRouter } from './routes/auth';
 import { charadesRouter } from './routes/charades';
 import { playerAuthRouter } from './routes/playerAuth';
+import { revealRouter } from './routes/reveal';
 
 // Both portals — the admin tool and the player-facing web app — are served
 // by this one process, deployed as the single pm2 process "yalla" (see
@@ -42,6 +43,7 @@ export function createApp(): express.Express {
 
   app.use('/players', playerAuthRouter);
   app.use('/charades', charadesRouter);
+  app.use('/reveal-tokens', revealRouter);
   app.use('/admin/auth', authRouter);
   app.use('/admin/users', requireAdminSession, adminUsersRouter);
   app.use('/admin/players', requireAdminSession, adminPlayersRouter);

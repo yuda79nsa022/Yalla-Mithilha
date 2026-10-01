@@ -104,6 +104,9 @@ export const en: Record<TranslationKey, string> = {
   'charades.reveal.warning': 'Show this to yourself only — don’t let your team see the screen',
   'charades.reveal.category': 'Category: {{category}}',
   'charades.reveal.missing': 'Nothing to reveal here. Scan the code on the game screen to see the title.',
+  'charades.reveal.loading': 'Loading…',
+  'charades.reveal.alreadyUsed': 'This code has already been used — ask your team to start the round again.',
+  'charades.reveal.error': "Couldn't load this — check your connection and try again.",
 
   'charades.resume.title': 'You have a game in progress',
   'charades.resume.body': 'Pick up where you stopped?',

@@ -10,7 +10,7 @@ import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
 import { playSound, preloadSounds, setTimerMusicVolume, startTimerMusic, stopTimerMusic } from '../../src/platform/sound';
 import { adjustScore, awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
-import { buildRevealUrl, resolveRevealBaseUrl } from '../../src/engine/reveal';
+import { resolveRevealBaseUrl } from '../../src/engine/reveal';
 import { CATALOGUE_API_URL, REVEAL_BASE_URL } from '../../src/config';
 
 /** Each round gets 2 minutes to act before the score buttons appear — unless the actor's team ends it early. */
@@ -148,7 +148,7 @@ function VolumeControl({
 
 export default function CharadesPlay() {
   useKeepAwake();
-  const { t, lang, charades, updateCharades, quitCharades, prefs, setPrefs } = useApp();
+  const { t, lang, charades, updateCharades, quitCharades, prefs, setPrefs, mintRevealToken } = useApp();
   const musicVolume = prefs.musicMuted ? 0 : prefs.musicVolume;
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
@@ -168,6 +168,7 @@ export default function CharadesPlay() {
   // every dependency here has to tolerate `charades` being null.
   const roundKey = charades?.index ?? -1;
   const roundActive = charades !== null && charades.lock === 'unlocked' && !isCharadesComplete(charades);
+  const currentTitleForMint = charades ? charades.titles[charades.index] : null;
 
   useEffect(() => {
     setTimeLeft(ROUND_SECONDS);
@@ -175,6 +176,30 @@ export default function CharadesPlay() {
     setStarted(false);
     setPendingOutcome(null);
   }, [roundKey]);
+
+  // The QR code on the handoff screen below links to a single-use token
+  // minted here, server-side — not built client-side the way it used to be
+  // — so the server can refuse every scan after the first one (see
+  // server/src/routes/reveal.ts). Without that, the same code stayed
+  // scannable by anyone pointed at the shared screen for as long as it was
+  // up, including an opposing player sneaking a peek at the answer.
+  const [revealTokenId, setRevealTokenId] = useState<string | null>(null);
+  useEffect(() => {
+    setRevealTokenId(null);
+  }, [roundKey]);
+  useEffect(() => {
+    if (!roundActive || started || !currentTitleForMint) return;
+    let cancelled = false;
+    const { text, deckNameAr, deckNameEn, imageUrl } = currentTitleForMint;
+    const absoluteImageUrl = imageUrl ? `${CATALOGUE_API_URL}${imageUrl}` : undefined;
+    void mintRevealToken(text, deckNameAr, deckNameEn, absoluteImageUrl).then((id) => {
+      if (!cancelled) setRevealTokenId(id);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundActive, started, currentTitleForMint?.id, mintRevealToken]);
 
   useEffect(() => {
     preloadSounds();
@@ -301,9 +326,10 @@ export default function CharadesPlay() {
 
   const baseUrl = resolveRevealBaseUrl(REVEAL_BASE_URL, webOrigin());
   const absoluteImageUrl = currentTitle.imageUrl ? `${CATALOGUE_API_URL}${currentTitle.imageUrl}` : undefined;
-  const revealUrl = baseUrl
-    ? buildRevealUrl(baseUrl, currentTitle.text, currentTitle.deckNameAr, currentTitle.deckNameEn, absoluteImageUrl)
-    : null;
+  // `revealTokenId` is minted server-side, above, the moment this round's
+  // handoff screen becomes active — null until that round-trip resolves (a
+  // brief "scan unavailable" instead of a QR code) or if it fails outright.
+  const revealUrl = baseUrl && revealTokenId ? `${baseUrl}/reveal?id=${encodeURIComponent(revealTokenId)}` : null;
 
   const nextRound = () => {
     if (!pendingOutcome) return;

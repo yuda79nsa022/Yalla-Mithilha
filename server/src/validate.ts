@@ -244,6 +244,27 @@ export function parseStartSessionBody(body: unknown): StartSessionBody {
   return { sessionId, deckIds: optionalDeckIds(b.deckIds, 'deckIds') };
 }
 
+export interface CreateRevealTokenBody {
+  sessionId: string;
+  title: string;
+  categoryAr: string;
+  categoryEn: string;
+  imageUrl?: string;
+}
+
+/** Everything the handoff screen already has in hand for the round it's about to show a QR code for — minted into a single-use token rather than trusted straight from the client at reveal time, since the reveal link itself carries no session/auth at all. */
+export function parseCreateRevealTokenBody(body: unknown): CreateRevealTokenBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const imageUrl = b.imageUrl;
+  return {
+    sessionId: requireString(b.sessionId, 'sessionId'),
+    title: requireString(b.title, 'title'),
+    categoryAr: requireString(b.categoryAr, 'categoryAr'),
+    categoryEn: requireString(b.categoryEn, 'categoryEn'),
+    ...(typeof imageUrl === 'string' && imageUrl ? { imageUrl } : {}),
+  };
+}
+
 export interface UpdateHomeContentBody {
   taglineAr?: string;
   taglineEn?: string;

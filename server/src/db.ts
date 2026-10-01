@@ -14,6 +14,7 @@ import type {
   PaymentRow,
   PlayerRow,
   PublicDeck,
+  RevealPayload,
   TitleRow,
 } from './types';
 
@@ -159,6 +160,19 @@ db.exec(`
     player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
     deck_id TEXT REFERENCES decks(id) ON DELETE SET NULL,
     titles_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
+  -- A single-use link behind the handoff screen's QR code, minted right
+  -- before it's shown and permanently spent the instant anyone opens it
+  -- (see claimRevealToken) — without this, the same code stays scannable by
+  -- anyone pointed at the shared screen for as long as it's up, including an
+  -- opposing player sneaking a peek at the answer before their own turn.
+  CREATE TABLE IF NOT EXISTS reveal_tokens (
+    id TEXT PRIMARY KEY,
+    game_session_id TEXT NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
+    payload_json TEXT NOT NULL,
+    used_at INTEGER,
     created_at INTEGER NOT NULL
   );
 
@@ -1069,6 +1083,37 @@ export function startGameSession(
   return { session: getGameSession(sessionId)!, balance: creditBalance(playerId) };
 }
 
+export class RevealTokenNotFoundError extends Error {}
+export class RevealTokenAlreadyUsedError extends Error {}
+
+/** Minted right before the handoff screen's QR code is shown, one per round. */
+export function createRevealToken(gameSessionId: string, payload: RevealPayload): { id: string } {
+  const id = crypto.randomUUID();
+  db.prepare(
+    `INSERT INTO reveal_tokens (id, game_session_id, payload_json, created_at)
+     VALUES (@id, @gameSessionId, @payloadJson, @now)`
+  ).run({ id, gameSessionId, payloadJson: JSON.stringify(payload), now: Date.now() });
+  return { id };
+}
+
+/**
+ * Marks a reveal token used and returns the payload it was minted with — but
+ * only the first caller ever gets it. The `used_at IS NULL` in the UPDATE's
+ * WHERE clause makes the claim atomic: two requests racing for the same
+ * token can both run this, but SQLite serializes the writes, so only one of
+ * them ever actually flips the row (and sees `changes === 1`) — the other
+ * sees 0 and throws, exactly as if it had arrived after the first.
+ */
+export function claimRevealToken(id: string): RevealPayload {
+  const row = db.prepare('SELECT payload_json FROM reveal_tokens WHERE id = ?').get(id) as
+    | { payload_json: string }
+    | undefined;
+  if (!row) throw new RevealTokenNotFoundError(`reveal token "${id}" not found`);
+  const result = db.prepare('UPDATE reveal_tokens SET used_at = ? WHERE id = ? AND used_at IS NULL').run(Date.now(), id);
+  if (result.changes === 0) throw new RevealTokenAlreadyUsedError(`reveal token "${id}" was already used`);
+  return JSON.parse(row.payload_json) as RevealPayload;
+}
+
 /* --------------------------------------------------------------- audit log */
 
 export interface RecordAuditInput {
@@ -1125,7 +1170,7 @@ export function listAuditLog(limit = 200): AuditLogRow[] {
 
 export function resetDbForTests(): void {
   db.exec(
-    `DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM game_sessions;
+    `DELETE FROM audit_log; DELETE FROM credit_transactions; DELETE FROM reveal_tokens; DELETE FROM game_sessions;
      DELETE FROM payments; DELETE FROM password_resets; DELETE FROM titles; DELETE FROM decks;
      DELETE FROM admin_users; DELETE FROM players;`
   );

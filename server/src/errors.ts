@@ -11,6 +11,8 @@ import {
   NoTitlesAvailableError,
   PaymentNotFoundError,
   PlayerNotFoundError,
+  RevealTokenAlreadyUsedError,
+  RevealTokenNotFoundError,
   TitleNotFoundError,
 } from './db';
 import { ValidationError } from './validate';
@@ -40,9 +42,14 @@ export function handleError(err: unknown, res: Response): void {
     err instanceof AdminUserNotFoundError ||
     err instanceof PlayerNotFoundError ||
     err instanceof PaymentNotFoundError ||
-    err instanceof GameSessionNotFoundError
+    err instanceof GameSessionNotFoundError ||
+    err instanceof RevealTokenNotFoundError
   ) {
     res.status(404).json({ error: err.message });
+    return;
+  }
+  if (err instanceof RevealTokenAlreadyUsedError) {
+    res.status(410).json({ error: err.message });
     return;
   }
   // eslint-disable-next-line no-console

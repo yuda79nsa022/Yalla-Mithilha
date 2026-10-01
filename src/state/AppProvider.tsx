@@ -29,6 +29,7 @@ import {
 import {
   WalletError,
   confirmCheckout as confirmCheckoutApi,
+  createRevealToken as createRevealTokenApi,
   failCheckout as failCheckoutApi,
   getGamePrice,
   getHomeContent,
@@ -70,6 +71,13 @@ interface AppValue {
    */
   unlockCurrentCharades: () => Promise<boolean>;
   quitCharades: () => void;
+  /**
+   * Mints the single-use token the handoff screen's QR code links to for
+   * the round currently being handed off — `null` if there's no player
+   * session or the request fails, in which case the caller falls back to
+   * showing "scan unavailable" rather than a broken/no QR code.
+   */
+  mintRevealToken: (title: string, categoryAr: string, categoryEn: string, imageUrl?: string) => Promise<string | null>;
 
   /**
    * Real, server-authoritative wallet balance — owned by the signed-in
@@ -267,6 +275,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [charades, playerSession, updateCharades, handleWalletError]
   );
 
+  const mintRevealToken = useCallback(
+    async (title: string, categoryAr: string, categoryEn: string, imageUrl?: string) => {
+      if (!charades || !playerSession) return null;
+      try {
+        const { id } = await createRevealTokenApi(playerSession.token, charades.id, title, categoryAr, categoryEn, imageUrl);
+        return id;
+      } catch {
+        // Scan-unavailable is a reasonable fallback for the handoff screen —
+        // not worth surfacing as a wallet error the way a failed charge is.
+        return null;
+      }
+    },
+    [charades, playerSession]
+  );
+
   const startTopUp = useCallback(async () => {
     if (!playerSession) return null;
     setWalletBusy(true);
@@ -417,6 +440,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateCharades,
     unlockCurrentCharades,
     quitCharades,
+    mintRevealToken,
     walletBalance,
     walletBusy,
     walletError,
