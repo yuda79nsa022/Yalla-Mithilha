@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, creditBalance, failPayment, getGamePriceFils, getGameSession, getHomeContent, getPayment, listPublicDecks, startGameSession } from '../db';
+import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFils, getGameSession, getHomeContent, getPayment, listPublicDecks, startGameSession } from '../db';
 import { requirePlayerSession } from '../auth';
 import { handleError } from '../errors';
 import { paymentProvider } from '../payments/provider';
-import { parseStartSessionBody } from '../validate';
+import { parseCreateRevealTokenBody, parseStartSessionBody } from '../validate';
 
 export const charadesRouter = Router();
 
@@ -120,6 +120,28 @@ charadesRouter.get('/sessions/:id', requirePlayerSession, (req, res) => {
       throw new GameSessionNotFoundError(`session "${req.params.id}" not found`);
     }
     res.json(session);
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+/**
+ * Mints the single-use token the handoff screen's QR code links to (see
+ * ../routes/reveal.ts for where a bare camera scan actually redeems it).
+ * Requires a player session like every other route here, unlike the public
+ * redemption endpoint itself — minting is part of the authenticated app's
+ * own flow, while redeeming has to work for a phone camera carrying no
+ * session or app at all.
+ */
+charadesRouter.post('/reveal-tokens', requirePlayerSession, (req, res) => {
+  try {
+    const { sessionId, title, categoryAr, categoryEn, imageUrl } = parseCreateRevealTokenBody(req.body);
+    const session = getGameSession(sessionId);
+    if (!session || session.playerId !== req.player!.sub) {
+      throw new GameSessionNotFoundError(`session "${sessionId}" not found`);
+    }
+    const token = createRevealToken(sessionId, { t: title, ca: categoryAr, ce: categoryEn, img: imageUrl });
+    res.status(201).json(token);
   } catch (err) {
     handleError(err, res);
   }

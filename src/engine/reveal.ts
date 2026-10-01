@@ -1,16 +1,17 @@
-import { decodeRevealToken, encodeRevealToken, type RevealPayload } from './revealToken';
-
 /**
  * The actor's phone is a separate device from whatever is showing the game
  * (a laptop mirrored to a TV, a tablet propped up, or just the phone being
  * passed around). Instead of the title ever appearing on that shared
- * screen, it renders a QR code linking to this app's own `/reveal` page with
- * the round's payload encoded into a single opaque token (see
- * `revealToken.ts`) — any phone's stock camera recognises the link and
- * offers to open it, no app install required. Deliberately not under
- * `/charades`: the server claims that whole path prefix for its API and
- * requires a player session for everything under it, which would 401 a
- * plain camera scan that carries no session at all.
+ * screen, it renders a QR code linking to this app's own `/reveal` page,
+ * carrying a single-use token the server minted for this round (see
+ * `mintRevealToken` in AppProvider.tsx and server/src/routes/reveal.ts) —
+ * any phone's stock camera recognises the link and offers to open it, no
+ * app install required. The server, not this opaque-but-decodable token
+ * encoding an earlier version of this file used, is what actually stops a
+ * second scan of the same code from showing the answer again. Deliberately
+ * not under `/charades`: the server claims that whole path prefix for its
+ * API and requires a player session for everything under it, which would
+ * 401 a plain camera scan that carries no session at all.
  */
 
 /**
@@ -24,27 +25,4 @@ export function resolveRevealBaseUrl(configured: string | null, webOrigin: strin
   const base = configured?.trim() || webOrigin?.trim() || null;
   if (!base) return null;
   return base.endsWith('/') ? base.slice(0, -1) : base;
-}
-
-/**
- * `imageUrl`, when given, must already be a fully-qualified absolute URL —
- * the reveal page has no config or API context of its own, so everything it
- * shows has to be self-contained in this link (see the file comment above).
- */
-export function buildRevealUrl(
-  baseUrl: string,
-  title: string,
-  categoryAr: string,
-  categoryEn: string,
-  imageUrl?: string
-): string {
-  const payload: RevealPayload = { t: title, ca: categoryAr, ce: categoryEn };
-  if (imageUrl) payload.img = imageUrl;
-  const token = encodeRevealToken(payload);
-  return `${baseUrl}/reveal?d=${token}`;
-}
-
-/** The `/reveal` screen's own counterpart to `buildRevealUrl` — turns the `d` query param back into the round's payload, or `null` for a missing/malformed one. */
-export function parseRevealToken(token: string | undefined): RevealPayload | null {
-  return token ? decodeRevealToken(token) : null;
 }

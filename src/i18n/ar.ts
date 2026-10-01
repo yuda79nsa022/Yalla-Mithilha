@@ -108,6 +108,9 @@ export const ar = {
   'charades.reveal.warning': 'وريّ هذا لك بس — لا تخلي فريقك يشوف الشاشة',
   'charades.reveal.category': 'الفئة: {{category}}',
   'charades.reveal.missing': 'ما فيه شي نوضّحه هنا. صوّر الرمز من شاشة اللعبة عشان تشوف العنوان.',
+  'charades.reveal.loading': 'يحمّل...',
+  'charades.reveal.alreadyUsed': 'هذا الرمز انستخدم من قبل — خلّوا فريقكم يبدأون الجولة من جديد.',
+  'charades.reveal.error': 'ما قدرنا نحمّل — تأكد من الاتصال وحاول مرة ثانية.',
 
   'charades.resume.title': 'عندك لعبة ما خلصت',
   'charades.resume.body': 'تبي تكمّل من وين وقفتوا؟',

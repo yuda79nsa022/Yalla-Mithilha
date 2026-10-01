@@ -1,4 +1,4 @@
-import { getHomeContent, startGameSession } from '../src/services/walletApi';
+import { createRevealToken, getHomeContent, startGameSession } from '../src/services/walletApi';
 
 function mockFetch(impl: typeof fetch) {
   (global as unknown as { fetch: typeof fetch }).fetch = impl;
@@ -31,6 +31,39 @@ describe('startGameSession', () => {
     await startGameSession('tok', 'sess-1', ['kuwaiti-plays', 'us-movies']);
 
     expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['kuwaiti-plays', 'us-movies'] });
+  });
+});
+
+describe('createRevealToken', () => {
+  it('sends the session id, title, category and image to the server', async () => {
+    let sentBody: unknown;
+    mockFetch(async (_url, init) => {
+      sentBody = JSON.parse((init as RequestInit).body as string);
+      return new Response(JSON.stringify({ id: 'rt-1' }), { status: 201 });
+    });
+
+    const result = await createRevealToken('tok', 'sess-1', 'Spartacus', 'أفلام', 'Movies', 'https://x.example/a.png');
+
+    expect(sentBody).toEqual({
+      sessionId: 'sess-1',
+      title: 'Spartacus',
+      categoryAr: 'أفلام',
+      categoryEn: 'Movies',
+      imageUrl: 'https://x.example/a.png',
+    });
+    expect(result).toEqual({ id: 'rt-1' });
+  });
+
+  it('omits imageUrl entirely when the title has no picture', async () => {
+    let sentBody: unknown;
+    mockFetch(async (_url, init) => {
+      sentBody = JSON.parse((init as RequestInit).body as string);
+      return new Response(JSON.stringify({ id: 'rt-2' }), { status: 201 });
+    });
+
+    await createRevealToken('tok', 'sess-1', 'Spartacus', 'أفلام', 'Movies');
+
+    expect(sentBody).toEqual({ sessionId: 'sess-1', title: 'Spartacus', categoryAr: 'أفلام', categoryEn: 'Movies' });
   });
 });
 

@@ -122,6 +122,14 @@ export interface GameSessionRow {
   createdAt: number;
 }
 
+/** What the QR code on the handoff screen ultimately shows the actor — title, category in both languages, and an optional picture. */
+export interface RevealPayload {
+  t: string;
+  ca: string;
+  ce: string;
+  img?: string;
+}
+
 /**
  * The admin-editable copy shown on the player app's home screen — a tagline
  * and a longer explanatory paragraph, each in both languages. Single row,

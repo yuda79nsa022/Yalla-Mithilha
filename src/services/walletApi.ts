@@ -134,3 +134,26 @@ export function startGameSession(
     timeoutMs
   ).then((r) => ({ titles: r.session.titles, balance: r.balance }));
 }
+
+/**
+ * Mints the single-use token the handoff screen's QR code links to — the
+ * server stores the payload server-side and hands back only an opaque id,
+ * so the `/reveal` page (opened by a bare camera scan, no session of its
+ * own) can claim it exactly once. See server/src/routes/reveal.ts.
+ */
+export function createRevealToken(
+  token: string,
+  sessionId: string,
+  title: string,
+  categoryAr: string,
+  categoryEn: string,
+  imageUrl?: string,
+  timeoutMs = 8000
+): Promise<{ id: string }> {
+  return authedPost<{ id: string }>(
+    '/charades/reveal-tokens',
+    token,
+    { sessionId, title, categoryAr, categoryEn, imageUrl },
+    timeoutMs
+  );
+}
