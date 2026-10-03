@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "Bas Bedoon Kalam",
-    "slug": "yalla-mithilha",
+    "slug": "bas-bedoon-kalam",
     "version": "0.1.0",
     "orientation": "portrait",
-    "scheme": "yallamithilha",
+    "scheme": "basbedoonkalam",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F3F2F2",
     "icon": "./assets/images/icon.png",
@@ -42,7 +42,7 @@
     "extra": {
       "note": "No camera, microphone, contacts or network permissions are requested.",
       "eas": {
-        "projectId": "e476074f-cb5e-40c9-ab42-7c2da34612bc"
+        "projectId": "eb7a6e1d-6845-4dd9-b0c8-cbfb0bc08ddf"
       }
     },
     "owner": "drdds2005"
