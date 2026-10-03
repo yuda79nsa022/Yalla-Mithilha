@@ -16,18 +16,20 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.example.yallamithilha",
+      "bundleIdentifier": "com.basbedoonkalam.app",
       "infoPlist": {
         "UIRequiresPersistentWiFi": false
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
-      "package": "com.example.yallamithilha",
+      "package": "com.basbedoonkalam.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
         "backgroundColor": "#8038D1"
       },
-      "permissions": []
+      "permissions": [],
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/images/favicon.png",
@@ -38,7 +40,11 @@
     },
     "plugins": ["expo-router", "expo-localization"],
     "extra": {
-      "note": "No camera, microphone, contacts or network permissions are requested."
-    }
+      "note": "No camera, microphone, contacts or network permissions are requested.",
+      "eas": {
+        "projectId": "e476074f-cb5e-40c9-ab42-7c2da34612bc"
+      }
+    },
+    "owner": "drdds2005"
   }
 }
