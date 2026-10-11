@@ -1,9 +1,12 @@
-# Streaming-era decks
+# New decks
 
-Four import-ready title lists built from what players in Kuwait are actually
-watching now: the last five Ramadan seasons (2022–2026), Shahid, Netflix,
-Yango Play, OSN+ and the 51 Kuwait app, plus recent cinema box-office hits.
-They answer the feedback that the original decks felt hard and old.
+Seven import-ready title lists. Decks 01–04 are built from what players in
+Kuwait are actually watching now: the last five Ramadan seasons
+(2022–2026), Shahid, Netflix, Yango Play, OSN+ and the 51 Kuwait app, plus
+recent cinema box-office hits. They answer the feedback that the original
+decks felt hard and old. Decks 05–07 are everyday words anyone can act out
+(a window, stairs, a pilot, a clock), in Arabic, in English, and a bonus
+Kuwaiti-dialect set.
 
 | File | Suggested deck name | Language | Titles |
 | --- | --- | --- | --- |
@@ -11,6 +14,9 @@ They answer the feedback that the original decks felt hard and old.
 | `02-egyptian-series-recent.xlsx` | مسلسلات مصرية – الموسم الجديد | ar | 146 |
 | `03-arabic-films-recent.xlsx` | أفلام عربية – السينما والمنصات | ar | 105 |
 | `04-global-streaming-hits.xlsx` | Streaming Hits | en | 233 |
+| `05-arabic-everyday-words.xlsx` | كلمات من حياتنا | ar | 502 |
+| `06-english-everyday-words.xlsx` | Everyday Words | en | 613 |
+| `07-kuwaiti-words.xlsx` | كلمات كويتية | ar | 119 |
 
 `REVIEW-all-decks.xlsx` holds the same titles with three extra columns
 (type, origin, where people saw it) for a human pass before import. It is

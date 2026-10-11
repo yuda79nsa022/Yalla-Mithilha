@@ -644,11 +644,239 @@ GLOBAL_HITS = [
     ("Home Alone", "Film", "US", "Disney+"),
 ]
 
+# Everyday words: things, people, animals, actions and places anyone can act
+# out. The (type, origin, note) columns carry the category so a reviewer can
+# skim by theme in the review workbook.
+def _words(category, origin, items):
+    return [(w, "كلمة" if origin != "عالمي" else "Word", origin, category) for w in items]
+
+
+ARABIC_WORDS = (
+    _words("البيت", "عربي", [
+        "دريشة", "باب", "درج", "سطح", "حديقة", "مطبخ", "حمام", "غرفة نوم", "صالة",
+        "كراج", "سرير", "مخدة", "بطانية", "كنبة", "كرسي", "طاولة", "دولاب", "مراية",
+        "ستارة", "سجادة", "مكيف", "مروحة", "تلفزيون", "ريموت", "ثلاجة", "فرن", "غاز",
+        "مايكروويف", "غسالة", "مكنسة", "مكوى", "جرس", "مفتاح", "قفل", "شمعة", "لمبة",
+        "ساعة", "صورة", "مزهرية", "مرتبة", "سلة زبالة", "شماغ", "علاقة ملابس",
+    ])
+    + _words("المطبخ والأكل", "عربي", [
+        "ملعقة", "شوكة", "سكين", "صحن", "كاسة", "قدر", "مقلاة", "إبريق", "ترمس",
+        "فنجان", "صينية", "خبز", "رز", "دجاج", "لحم", "سمك", "بيض", "حليب", "جبن",
+        "زبدة", "عصير", "ماي", "قهوة", "شاي", "كرك", "تمر", "موز", "تفاح", "برتقال",
+        "بطيخ", "عنب", "رمان", "ليمون", "خيار", "طماط", "بصل", "ثوم", "فلفل", "ملح",
+        "سكر", "عسل", "آيس كريم", "كيك", "شوكولاتة", "بيتزا", "برجر", "شاورما",
+        "فلافل", "مجبوس", "مطبق", "لقيمات", "بوظة", "مكرونة", "سلطة", "شوربة", "دقوس",
+    ])
+    + _words("الملابس", "عربي", [
+        "دشداشة", "غترة", "عقال", "عباية", "حجاب", "بشت", "قميص", "بنطلون", "جاكيت",
+        "فستان", "تنورة", "جوتي", "نعال", "جوارب", "قبعة", "نظارة", "ساعة يد", "خاتم",
+        "سلسال", "حلق", "حزام", "محفظة", "شنطة", "مظلة", "قفازات", "بيجامة", "لباس سباحة",
+    ])
+    + _words("الجسم", "عربي", [
+        "راس", "شعر", "عين", "أذن", "خشم", "فم", "سن", "لسان", "رقبة", "كتف", "يد",
+        "إصبع", "ظفر", "بطن", "ركبة", "رجل", "قدم", "قلب", "عظم", "لحية", "شنب", "حواجب",
+    ])
+    + _words("الحيوانات", "عربي", [
+        "قطو", "كلب", "حصان", "جمل", "خروف", "بقرة", "ماعز", "حمار", "أسد", "نمر", "فيل",
+        "زرافة", "قرد", "دب", "ذيب", "ثعلب", "أرنب", "فار", "سلحفاة", "ثعبان", "تمساح",
+        "ضب", "سمكة", "قرش", "دولفين", "حوت", "أخطبوط", "ربيان", "طير", "صقر", "بومة",
+        "ببغاء", "ديك", "دجاجة", "بطة", "نعامة", "فراشة", "نحلة", "نملة", "بعوضة", "صرصور",
+        "عنكبوت", "عقرب", "بطريق", "كنغر", "غزال", "خفاش",
+    ])
+    + _words("المهن", "عربي", [
+        "طيار", "دكتور", "ممرضة", "مدرس", "مهندس", "شرطي", "إطفائي", "جندي", "طباخ",
+        "خباز", "حلاق", "خياط", "نجار", "سباك", "كهربائي", "ميكانيكي", "سواق", "مزارع",
+        "صياد", "رسام", "مصور", "مغني", "ممثل", "مذيع", "لاعب كرة", "حكم", "مدرب",
+        "قاضي", "محامي", "صيدلي", "طبيب أسنان", "جراح", "دكتور عيون", "مهندس معماري",
+        "عالم", "رائد فضاء", "غواص", "حراس أمن", "بائع", "كاشير", "نادل", "مضيفة طيران",
+        "إمام", "مؤذن", "معلم سواقة", "ساحر", "مهرج", "راقص",
+    ])
+    + _words("الأماكن", "عربي", [
+        "مدرسة", "جامعة", "مستشفى", "مسجد", "سوق", "مجمع", "مطعم", "كافيه", "سينما",
+        "مطار", "محطة بنزين", "بنك", "صيدلية", "مكتبة", "ملعب", "نادي", "مسبح", "شاليه",
+        "بحر", "صحراء", "جزيرة", "جبل", "نهر", "غابة", "مزرعة", "حديقة حيوانات",
+        "سجن", "فندق", "مخبز", "جمعية", "بقالة", "مغسلة", "صالون", "جم", "ملعب كرة",
+        "ديوانية", "مخيم", "مقبرة", "مصنع", "ميناء", "جسر", "إشارة", "مواقف",
+    ])
+    + _words("المواصلات", "عربي", [
+        "سيارة", "باص", "تاكسي", "دراجة", "سيكل", "موتسيكل", "طيارة", "هليكوبتر", "قطار",
+        "مترو", "سفينة", "قارب", "يخت", "لنج", "غواصة", "صاروخ", "شاحنة", "جرار", "سكوتر",
+        "سيارة إسعاف", "سيارة شرطة", "سيارة إطفاء", "بالون هوا",
+    ])
+    + _words("الرياضة والألعاب", "عربي", [
+        "كرة قدم", "كرة سلة", "كرة طائرة", "تنس", "بادل", "بولينج", "سباحة", "غوص",
+        "ملاكمة", "كاراتيه", "مصارعة", "جري", "جمباز", "ركوب خيل", "تزلج", "شطرنج",
+        "كيرم", "كوت بو ستة", "بلوت", "بلايستيشن", "دومينو", "حبل", "نط الحبل", "غميضة",
+        "صيد", "جولف", "ركوب أمواج", "تسلق", "رفع أثقال", "يوغا", "دحروج",
+    ])
+    + _words("أفعال", "عربي", [
+        "ينام", "يصحى", "يأكل", "يشرب", "يطبخ", "يغسل", "ينشف", "يكنس", "يكوي", "يسوق",
+        "يمشي", "يركض", "يقفز", "يرقص", "يغني", "يصلي", "يقرأ", "يكتب", "يرسم", "يصور",
+        "يتصل", "يرسل رسالة", "يلعب", "يسبح", "يغوص", "يطير", "يتسلق", "يصيد", "يخيط",
+        "يحلق", "يتمكيج", "يتعطر", "يستحم", "ينظف أسنانه", "يتثاوب", "يعطس", "يكح",
+        "يضحك", "يبكي", "يزعل", "يخاف", "يستحي", "يتعب", "يبوس", "يحضن", "يسلم", "يودع",
+        "يصافح", "يصفق", "يصفر", "يحسب فلوس", "يدفع", "يشتري", "يبيع", "يسافر", "يحزم شنطة",
+        "يفتح باب", "يسكر باب", "يطق الجرس", "يطبخ على الفحم", "يشوي", "يعزف", "يصلح سيارة",
+    ])
+    + _words("الطبيعة والجو", "عربي", [
+        "شمس", "قمر", "نجمة", "سماء", "غيمة", "مطر", "برق", "رعد", "ثلج", "ريح", "غبار",
+        "عاصفة", "قوس قزح", "حر", "برد", "نار", "دخان", "موج", "رمل", "شجرة", "وردة",
+        "عشب", "صخرة", "بركان", "زلزال", "فيضان", "سيل",
+    ])
+    + _words("التقنية والأشياء", "عربي", [
+        "تلفون", "آيباد", "لابتوب", "كمبيوتر", "كاميرا", "سماعات", "شاحن", "واي فاي",
+        "طابعة", "ريموت", "بطارية", "روبوت", "درون", "ساعة ذكية", "سيلفي", "فلاش", "تيك توك",
+        "سناب", "انستقرام", "يوتيوب", "واتساب", "قوقل", "نتفلكس", "بلايستيشن", "إكس بوكس",
+        "صراف آلي", "كاشير ذاتي", "باركود", "كاش", "بطاقة", "كي نت",
+    ])
+    + _words("مناسبات ومواقف", "عربي", [
+        "عرس", "عيد", "رمضان", "إفطار", "سحور", "قرقيعان", "عيدية", "ميلاد", "تخرج",
+        "امتحان", "واجب", "دوام", "إجازة", "سفر", "مطار", "حج", "عمرة", "كشتة", "بر",
+        "عزيمة", "فطور", "غدا", "عشا", "قهوة الصبح", "نوم القيلولة", "زحمة", "حادث",
+        "مخالفة", "موعد دكتور", "حقنة", "دوا", "صداع", "زكام", "كسر", "ولادة", "خطوبة",
+        "طلاق", "فوز", "خسارة", "هدف", "ركلة جزاء", "مباراة", "حفلة", "ألعاب نارية",
+    ])
+)
+
+KUWAITI_WORDS = _words("كويتي", "كويتي", [
+    "دريشة", "دريول", "جوتي", "قوطي", "جدر", "بزران", "يا هلا", "شكو ماكو", "وايد",
+    "زين", "خوش", "شفيك", "ياي", "صج", "عيل", "شلونك", "دقوس", "مطبق", "محموس",
+    "جريش", "مرقوق", "هريس", "بالاليط", "درابيل", "زلابية", "لقيمات", "غبقة", "فوالة",
+    "قرقيعان", "ديوانية", "كشتة", "بر", "شاليه", "جاخور", "برقع", "بوشية", "دشداشة",
+    "غترة", "عقال", "نعال", "شماغ", "هندل", "سيكل", "لنج", "بانوش", "محمل", "طواش",
+    "نوخذة", "غيص", "فريج", "حوطة", "ليوان", "سطح", "بادكير", "بومية", "طنطل",
+    "حمارة القايلة", "أم السعف", "خراريف", "بوطبيلة", "مسحراتي", "جاسوم", "بوحمد",
+    "شيوخ", "طقاقة", "عرضة", "سامري", "يولة", "فن البحر", "شيلة", "طاسة", "دلة", "فنجال",
+    "سماور", "تنور", "مهفة", "صندوق مبيت", "مرش", "دهن عود", "بخور", "مبخرة", "حنة",
+    "عيد", "عيدية", "حق الله", "صرافة", "جمعية", "بقالة", "برادة", "تنكة", "صفرية",
+    "بطل", "قاري", "درعمة", "تعرف", "ضب", "جربوع", "حمام", "قطو", "جليب", "فيران",
+    "سبال", "ليفة", "مشط", "كحل", "عطر", "بشت", "زري", "خنجر", "سيف", "رمح",
+    "طبل", "مزمار", "عود", "ربابة", "قانون", "دف", "منيور", "مرواس",
+])
+
+ENGLISH_WORDS = (
+    _words("Home", "عالمي", [
+        "Window", "Door", "Stairs", "Roof", "Garden", "Kitchen", "Bathroom", "Bedroom",
+        "Living room", "Garage", "Bed", "Pillow", "Blanket", "Sofa", "Chair", "Table",
+        "Wardrobe", "Mirror", "Curtain", "Carpet", "Air conditioner", "Fan", "Television",
+        "Remote control", "Fridge", "Oven", "Stove", "Microwave", "Washing machine",
+        "Vacuum cleaner", "Iron", "Doorbell", "Key", "Lock", "Candle", "Light bulb",
+        "Clock", "Painting", "Vase", "Trash can", "Hanger", "Ladder", "Toilet", "Shower",
+        "Bathtub", "Sink", "Towel", "Toothbrush", "Soap", "Shampoo", "Hair dryer",
+    ])
+    + _words("Kitchen and food", "عالمي", [
+        "Spoon", "Fork", "Knife", "Plate", "Cup", "Pot", "Frying pan", "Kettle",
+        "Bottle", "Tray", "Bread", "Rice", "Chicken", "Meat", "Fish", "Egg", "Milk",
+        "Cheese", "Butter", "Juice", "Water", "Coffee", "Tea", "Dates", "Banana",
+        "Apple", "Orange", "Watermelon", "Grapes", "Lemon", "Cucumber", "Tomato", "Onion",
+        "Garlic", "Pepper", "Salt", "Sugar", "Honey", "Ice cream", "Cake", "Chocolate",
+        "Pizza", "Burger", "Hot dog", "Sandwich", "Pasta", "Salad", "Soup", "Popcorn",
+        "Donut", "Cookie", "Pancake", "Sushi", "Taco", "French fries", "Milkshake",
+    ])
+    + _words("Clothes", "عالمي", [
+        "Shirt", "T-shirt", "Trousers", "Jeans", "Jacket", "Coat", "Dress", "Skirt",
+        "Shoes", "Sneakers", "Boots", "Slippers", "Socks", "Hat", "Cap", "Glasses",
+        "Sunglasses", "Watch", "Ring", "Necklace", "Earrings", "Belt", "Wallet", "Bag",
+        "Backpack", "Umbrella", "Gloves", "Scarf", "Pajamas", "Swimsuit", "Tie", "Suit",
+    ])
+    + _words("Body", "عالمي", [
+        "Head", "Hair", "Eye", "Ear", "Nose", "Mouth", "Tooth", "Tongue", "Neck",
+        "Shoulder", "Arm", "Hand", "Finger", "Nail", "Stomach", "Knee", "Leg", "Foot",
+        "Heart", "Bone", "Beard", "Mustache", "Eyebrow", "Elbow", "Back",
+    ])
+    + _words("Animals", "عالمي", [
+        "Cat", "Dog", "Horse", "Camel", "Sheep", "Cow", "Goat", "Donkey", "Lion",
+        "Tiger", "Elephant", "Giraffe", "Monkey", "Bear", "Wolf", "Fox", "Rabbit",
+        "Mouse", "Turtle", "Snake", "Crocodile", "Lizard", "Fish", "Shark", "Dolphin",
+        "Whale", "Octopus", "Shrimp", "Crab", "Bird", "Falcon", "Eagle", "Owl", "Parrot",
+        "Rooster", "Chicken", "Duck", "Ostrich", "Butterfly", "Bee", "Ant", "Mosquito",
+        "Cockroach", "Spider", "Scorpion", "Penguin", "Kangaroo", "Deer", "Bat", "Frog",
+        "Pig", "Zebra", "Hippo", "Rhino", "Gorilla", "Panda", "Squirrel", "Dinosaur",
+    ])
+    + _words("Jobs", "عالمي", [
+        "Pilot", "Doctor", "Nurse", "Teacher", "Engineer", "Police officer", "Firefighter",
+        "Soldier", "Chef", "Baker", "Barber", "Tailor", "Carpenter", "Plumber",
+        "Electrician", "Mechanic", "Driver", "Farmer", "Fisherman", "Painter",
+        "Photographer", "Singer", "Actor", "News anchor", "Football player", "Referee",
+        "Coach", "Judge", "Lawyer", "Pharmacist", "Dentist", "Surgeon", "Architect",
+        "Scientist", "Astronaut", "Diver", "Security guard", "Cashier", "Waiter",
+        "Flight attendant", "Magician", "Clown", "Dancer", "DJ", "YouTuber", "Lifeguard",
+        "Detective", "Spy", "King", "Queen", "Pirate", "Ninja", "Cowboy", "Superhero",
+    ])
+    + _words("Places", "عالمي", [
+        "School", "University", "Hospital", "Mosque", "Market", "Mall", "Restaurant",
+        "Cafe", "Cinema", "Airport", "Gas station", "Bank", "Pharmacy", "Library",
+        "Stadium", "Gym", "Swimming pool", "Beach", "Desert", "Island", "Mountain",
+        "River", "Forest", "Farm", "Zoo", "Prison", "Hotel", "Bakery", "Supermarket",
+        "Laundry", "Salon", "Camp", "Cemetery", "Factory", "Port", "Bridge", "Traffic light",
+        "Parking", "Castle", "Museum", "Theme park", "Playground", "Church", "Office",
+        "Elevator", "Escalator", "Waterfall", "Cave", "Volcano", "Space",
+    ])
+    + _words("Transport", "عالمي", [
+        "Car", "Bus", "Taxi", "Bicycle", "Motorcycle", "Airplane", "Helicopter", "Train",
+        "Metro", "Ship", "Boat", "Yacht", "Submarine", "Rocket", "Truck", "Tractor",
+        "Scooter", "Ambulance", "Police car", "Fire truck", "Hot air balloon", "Skateboard",
+        "Jet ski", "Tank", "Limousine", "Wheelchair",
+    ])
+    + _words("Sports and games", "عالمي", [
+        "Football", "Basketball", "Volleyball", "Tennis", "Padel", "Bowling", "Swimming",
+        "Diving", "Boxing", "Karate", "Wrestling", "Running", "Gymnastics", "Horse riding",
+        "Skiing", "Chess", "Cards", "PlayStation", "Dominoes", "Jump rope", "Hide and seek",
+        "Fishing", "Golf", "Surfing", "Climbing", "Weightlifting", "Yoga", "Baseball",
+        "Cricket", "Hockey", "Archery", "Fencing", "Cycling", "Skating", "Darts", "Billiards",
+        "Ping pong", "Marathon", "Sumo", "Rugby", "Formula 1", "Video games", "Puzzle",
+    ])
+    + _words("Actions", "عالمي", [
+        "Sleeping", "Waking up", "Eating", "Drinking", "Cooking", "Washing dishes",
+        "Sweeping", "Ironing", "Driving", "Walking", "Running", "Jumping", "Dancing",
+        "Singing", "Praying", "Reading", "Writing", "Drawing", "Taking a photo",
+        "Phone call", "Texting", "Swimming", "Flying", "Climbing", "Fishing", "Sewing",
+        "Shaving", "Makeup", "Showering", "Brushing teeth", "Yawning", "Sneezing",
+        "Coughing", "Laughing", "Crying", "Angry", "Scared", "Shy", "Tired", "Hugging",
+        "Waving", "Handshake", "Clapping", "Whistling", "Counting money", "Paying",
+        "Shopping", "Traveling", "Packing", "Opening a door", "Knocking", "Barbecue",
+        "Playing guitar", "Fixing a car", "Juggling", "Sleepwalking", "Snoring", "Hiccups",
+        "Tying shoes", "Thinking", "Winking", "Falling", "Hiding", "Searching", "Pushing",
+        "Pulling", "Lifting", "Throwing", "Catching", "Kicking", "Pointing", "Nodding",
+    ])
+    + _words("Nature and weather", "عالمي", [
+        "Sun", "Moon", "Star", "Sky", "Cloud", "Rain", "Lightning", "Thunder", "Snow",
+        "Wind", "Dust storm", "Storm", "Rainbow", "Hot", "Cold", "Fire", "Smoke", "Wave",
+        "Sand", "Tree", "Flower", "Grass", "Rock", "Earthquake", "Flood", "Tornado",
+        "Sunrise", "Sunset", "Ice", "Fog", "Leaf", "Seed", "Cactus", "Palm tree",
+    ])
+    + _words("Technology and things", "عالمي", [
+        "Phone", "iPad", "Laptop", "Computer", "Camera", "Headphones", "Charger", "Wi-Fi",
+        "Printer", "Battery", "Robot", "Drone", "Smart watch", "Selfie", "Flash", "TikTok",
+        "Snapchat", "Instagram", "YouTube", "WhatsApp", "Google", "Netflix", "Xbox",
+        "ATM", "Barcode", "Cash", "Credit card", "Keyboard", "Mouse", "Password",
+        "Emoji", "Video call", "Alarm", "Calculator", "Microphone", "Speaker", "Antenna",
+        "Satellite", "Telescope", "Microscope", "Magnet", "Compass", "Map", "Flashlight",
+        "Scissors", "Hammer", "Screwdriver", "Saw", "Drill", "Rope", "Tape", "Glue",
+        "Pencil", "Pen", "Eraser", "Ruler", "Notebook", "Book", "Newspaper", "Envelope",
+        "Stamp", "Gift", "Balloon", "Kite", "Teddy bear", "Doll", "Lego", "Dice",
+    ])
+    + _words("Events and situations", "عالمي", [
+        "Wedding", "Birthday", "Graduation", "Exam", "Homework", "Work", "Vacation",
+        "Travel", "Camping", "Picnic", "Breakfast", "Lunch", "Dinner", "Nap", "Traffic jam",
+        "Car accident", "Speeding ticket", "Doctor's appointment", "Injection", "Medicine",
+        "Headache", "Cold", "Broken arm", "Toothache", "Pregnancy", "Engagement", "Divorce",
+        "Winning", "Losing", "Goal", "Penalty kick", "Match", "Party", "Fireworks",
+        "Haircut", "Job interview", "First day of school", "Moving house", "Flat tire",
+        "Power cut", "Lost keys", "Late for work", "Missed flight", "Proposal", "Surprise",
+        "Concert", "Halloween", "New Year", "Eid", "Ramadan", "Iftar", "Suhoor",
+    ])
+)
+
+
 DECKS = [
     ("01-gulf-series-recent", "مسلسلات خليجية – الموسم الجديد", GULF_SERIES),
     ("02-egyptian-series-recent", "مسلسلات مصرية – الموسم الجديد", EGYPT_SERIES),
     ("03-arabic-films-recent", "أفلام عربية – السينما والمنصات", ARABIC_FILMS),
     ("04-global-streaming-hits", "Streaming Hits (English)", GLOBAL_HITS),
+    ("05-arabic-everyday-words", "كلمات من حياتنا", ARABIC_WORDS),
+    ("06-english-everyday-words", "Everyday Words (English)", ENGLISH_WORDS),
+    ("07-kuwaiti-words", "كلمات كويتية", KUWAITI_WORDS),
 ]
 
 MAX_WORDS = 6
@@ -680,7 +908,7 @@ def main():
         wb = Workbook()
         ws = wb.active
         ws.title = "titles"
-        ws.sheet_view.rightToLeft = not slug.startswith("04")
+        ws.sheet_view.rightToLeft = not slug.startswith(("04", "06"))
         for r in rows:
             ws.append([r[0]])
         ws.column_dimensions["A"].width = 40
@@ -688,7 +916,7 @@ def main():
 
         # Review sheet: the same titles with context, header row, frozen.
         rs = review.create_sheet(title=slug[:31])
-        rs.sheet_view.rightToLeft = not slug.startswith("04")
+        rs.sheet_view.rightToLeft = not slug.startswith(("04", "06"))
         rs.append(["العنوان", "النوع", "المصدر", "وين شفناه"])
         for c in rs[1]:
             c.font = Font(bold=True)
