@@ -2,7 +2,9 @@
 
 Charades on real titles. Two teams, one phone (or a TV and everyone's own
 phone), twenty rounds of silent acting on real Kuwaiti, Khaleeji and
-Egyptian movies, series and plays.
+Egyptian movies, series and plays — and everyday words. Each round the
+acting team picks easy, medium or hard: harder titles score more, so a
+team that is behind can gamble and a team in front can coast.
 
 > You do not need to know the answer. You need your friends to understand you.
 
@@ -64,16 +66,35 @@ hub: account/wallet status, the deck list, and "Start a new game" or
 ### The session lifecycle
 
 ```
-draftCharades()    picks a deck and names two teams
+draftCharades()    picks the decks and names two teams
    ↓
 checkout           sign in if needed, top up the wallet, spend one credit
    ↓
-unlockCharades()   server deals 20 titles from the deck
+unlockCharades()   server deals three stacks — easy, medium, hard — from those decks
    ↓
-award/skip         (repeats, alternating teams, scores accumulate)
+pickDifficulty()   the acting team picks a level; the top title of that stack is theirs
    ↓
-complete           winner declared (or a tie)
+award/steal/skip   (repeats, alternating teams, scores accumulate)
+   ↓
+complete           after 20 rounds, or once every stack is empty — winner declared (or a tie)
 ```
+
+### Scoring
+
+All of it lives in `src/engine/charades.ts`, never in a screen:
+
+- easy 1, medium 3, hard 5 points for a guessed title, plus 1 for a guess
+  inside the first minute;
+- each team's final round counts double, announced before they pick;
+- when the timer runs out, the other team gets one guess to steal for 1
+  point;
+- each team has one of each assist per game, free: first letters, last
+  letters, and 30 extra seconds. Letters show on the shared screen for the
+  guessers; the actor already knows the title.
+
+Which level a title belongs to is decided server-side (its deck's default,
+bumped for a long title, or a per-title override) — see
+`server/README.md`'s "Difficulty and the three stacks".
 
 ## Privacy
 

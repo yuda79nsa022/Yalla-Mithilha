@@ -30,6 +30,15 @@ column with no header row, so every row becomes a title. Titles are
 deliberately kept to six words or fewer and franchise titles carry no part
 number (الكبير أوي, المداح, شباب البومب) so they stay actable.
 
+## Difficulty
+
+Set the deck's default level when creating it: 05–07 (everyday words) are
+**easy**, 01–04 (recent streaming titles) are **medium**, and the four
+original 500-title decks are **hard**. Any title over four words is bumped
+one level up automatically. To override a single title, add a column with
+`easy`, `medium` or `hard` (or `سهل`/`متوسط`/`صعب`) next to it in the import
+file, or as a third column in a picture manifest.
+
 ## Naming
 
 Do not name a deck after a platform (Netflix, Shahid, Yango Play) or use a

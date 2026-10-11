@@ -1,5 +1,5 @@
 import { CATALOGUE_API_URL } from '../config';
-import type { CharadesTitle } from '../engine/charades';
+import type { CharadesDeal, Difficulty } from '../engine/charades';
 import type { Lang } from '../engine/types';
 
 export class WalletError extends Error {
@@ -77,6 +77,8 @@ export interface PlayableDeck {
   nameAr: string;
   nameEn: string;
   language: Lang;
+  /** The deck's default level — what most of its titles are worth when picked. */
+  difficulty: Difficulty;
   /** A path relative to CATALOGUE_API_URL — absent when this deck has no icon/cover picture. */
   imageUrl?: string;
   titleCount: number;
@@ -112,27 +114,27 @@ export function failCheckout(token: string, paymentId: string, timeoutMs = 8000)
 }
 
 /**
- * Spends one wallet credit and deals `sessionId`'s 20 titles in one call —
- * at random across `deckIds` combined, never a title the player chose
+ * Spends one wallet credit and deals `sessionId`'s three stacks of titles
+ * (one per difficulty level, up to a round's worth each) in one call — at
+ * random across `deckIds` combined, never a title the player chose
  * directly. `deckIds` is the player's own explicit choice made alongside
  * the team names when drafting. Idempotent server-side — calling this again
  * with the same sessionId (e.g. after an app restart) never spends a second
- * credit, and returns the same dealt titles instead, regardless of
- * `deckIds`. Throws `WalletError` with `status: 402` when the balance is
- * empty.
+ * credit, and returns the same deal instead, regardless of `deckIds`.
+ * Throws `WalletError` with `status: 402` when the balance is empty.
  */
 export function startGameSession(
   token: string,
   sessionId: string,
   deckIds: string[],
   timeoutMs = 8000
-): Promise<{ titles: CharadesTitle[]; balance: number }> {
-  return authedPost<{ session: { titles: CharadesTitle[] }; balance: number }>(
+): Promise<{ deal: CharadesDeal; balance: number }> {
+  return authedPost<{ session: CharadesDeal; balance: number }>(
     '/charades/sessions',
     token,
     { sessionId, deckIds },
     timeoutMs
-  ).then((r) => ({ titles: r.session.titles, balance: r.balance }));
+  ).then((r) => ({ deal: { rounds: r.session.rounds, stacks: r.session.stacks }, balance: r.balance }));
 }
 
 /**

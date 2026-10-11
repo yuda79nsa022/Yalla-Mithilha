@@ -10,11 +10,14 @@ import './loadEnv';
 import fs from 'fs';
 import path from 'path';
 import { createDeck, getDeck, addTitlesToDeck } from './db';
+import type { Difficulty } from './types';
 
 interface DeckSeed {
   id: string;
   nameAr: string;
   nameEn: string;
+  /** The deck's default level — the bundled classic decks are 'hard' (famous, but older and long-titled); omitted means 'medium'. */
+  difficulty?: Difficulty;
   titles: string[];
 }
 
@@ -27,7 +30,7 @@ function main() {
 
     if (!getDeck(seed.id)) {
       // Every bundled starter deck is real Kuwaiti/Khaleeji/Egyptian content.
-      createDeck({ id: seed.id, nameAr: seed.nameAr, nameEn: seed.nameEn, language: 'ar' });
+      createDeck({ id: seed.id, nameAr: seed.nameAr, nameEn: seed.nameEn, language: 'ar', difficulty: seed.difficulty });
       console.log(`Created deck "${seed.id}" (${seed.nameEn}).`);
     }
 

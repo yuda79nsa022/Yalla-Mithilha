@@ -5,7 +5,9 @@ import fs from 'fs';
 import type {
   AdminUserRow,
   AuditLogRow,
+  DealtStacks,
   DealtTitle,
+  Difficulty,
   DeckRow,
   DeckWithTitles,
   GameSessionRow,
@@ -17,6 +19,7 @@ import type {
   RevealPayload,
   TitleRow,
 } from './types';
+import { DIFFICULTIES, effectiveDifficulty, isDifficulty } from './types';
 
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -40,9 +43,9 @@ const DEFAULT_HOME_CONTENT: HomeContent = {
   taglineAr: 'ما تحتاج تعرف الجواب، تحتاج ربعك يفهمونك',
   taglineEn: 'You do not need to know the answer. You need your friends to understand you.',
   writeupAr:
-    'بس بدون كلام لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
+    'بس بدون كلام لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. اختاروا المجموعات اللي تبون تلعبونها، وكل جولة الفريق اللي يمثّل يختار سهل أو متوسط أو صعب: الأصعب نقاطه أكثر، والتخمين السريع له بونص، وآخر جولة لكل فريق نقاطها مضاعفة، والفريق الثاني يقدر يخطفها إذا خلص الوقت. عشرين جولة، والعناوين يطلعها السيرفر عشوائي كل مرة.',
   writeupEn:
-    'Bas Bedoon Kalam is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
+    'Bas Bedoon Kalam is Charades — two teams act out real titles while the other guesses, no words allowed. Pick the decks you want to play, then each round the acting team picks easy, medium or hard: harder titles score more, a fast guess earns a bonus, each team’s last round counts double, and the other team can steal when time runs out. Twenty rounds, titles dealt at random by the server every time.',
 };
 
 db.exec(`
@@ -263,6 +266,11 @@ ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REF
 ensureColumn('decks', 'language', "language TEXT NOT NULL DEFAULT 'ar'");
 ensureColumn('decks', 'image_path', 'image_path TEXT');
 ensureColumn('titles', 'image_path', 'image_path TEXT');
+// The level a team picks each round: a per-deck default, optionally
+// overridden per title — see `effectiveDifficulty` in types.ts. Every deck
+// that predates this is 'medium' until an admin says otherwise.
+ensureColumn('decks', 'difficulty', "difficulty TEXT NOT NULL DEFAULT 'medium'");
+ensureColumn('titles', 'difficulty', 'difficulty TEXT');
 ensureColumn('settings', 'home_tagline_ar', 'home_tagline_ar TEXT');
 ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
 ensureColumn('settings', 'home_writeup_ar', 'home_writeup_ar TEXT');
@@ -334,6 +342,7 @@ function rowToDeck(r: any): DeckRow {
     nameAr: r.name_ar,
     nameEn: r.name_en,
     language: r.language as Lang,
+    difficulty: isDifficulty(r.difficulty) ? r.difficulty : 'medium',
     imagePath: r.image_path ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -346,6 +355,7 @@ function rowToTitle(r: any): TitleRow {
     deckId: r.deck_id,
     text: r.text,
     imagePath: r.image_path ?? null,
+    difficulty: isDifficulty(r.difficulty) ? r.difficulty : null,
     createdAt: r.created_at,
   };
 }
@@ -375,16 +385,19 @@ export interface CreateDeckInput {
   nameEn: string;
   /** Which player-language pool this deck's titles belong to. Defaults to 'ar' — every deck that predates this field really is Arabic content. */
   language?: Lang;
+  /** The default level of every title in the deck. Defaults to 'medium'. */
+  difficulty?: Difficulty;
 }
 
 export function createDeck(input: CreateDeckInput): DeckWithTitles {
   if (getDeck(input.id)) throw new DuplicateDeckError(`deck "${input.id}" already exists`);
   const now = Date.now();
   const language: Lang = input.language ?? 'ar';
+  const difficulty: Difficulty = input.difficulty ?? 'medium';
   db.prepare(
-    `INSERT INTO decks (id, name_ar, name_en, language, created_at, updated_at)
-     VALUES (@id, @nameAr, @nameEn, @language, @now, @now)`
-  ).run({ ...input, language, now });
+    `INSERT INTO decks (id, name_ar, name_en, language, difficulty, created_at, updated_at)
+     VALUES (@id, @nameAr, @nameEn, @language, @difficulty, @now, @now)`
+  ).run({ id: input.id, nameAr: input.nameAr, nameEn: input.nameEn, language, difficulty, now });
   return getDeck(input.id)!;
 }
 
@@ -392,6 +405,7 @@ export interface UpdateDeckInput {
   nameAr?: string;
   nameEn?: string;
   language?: Lang;
+  difficulty?: Difficulty;
   /** `null` clears the deck's picture; `undefined` (omitted) leaves it untouched — same convention as `updateTitle`. */
   imagePath?: string | null;
 }
@@ -401,7 +415,7 @@ export function updateDeck(id: string, input: UpdateDeckInput): DeckWithTitles {
   if (!existing) throw new DeckNotFoundError(`deck "${id}" not found`);
   const next = { ...existing, ...input, updatedAt: Date.now() };
   db.prepare(
-    'UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, language=@language, image_path=@imagePath, updated_at=@updatedAt WHERE id=@id'
+    'UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, language=@language, difficulty=@difficulty, image_path=@imagePath, updated_at=@updatedAt WHERE id=@id'
   ).run(next);
   return getDeck(id)!;
 }
@@ -411,24 +425,33 @@ export function deleteDeck(id: string): void {
   if (result.changes === 0) throw new DeckNotFoundError(`deck "${id}" not found`);
 }
 
+/** A title to add, optionally with its own level override — a plain string means "no override, use the deck's default". */
+export type NewTitle = string | { text: string; difficulty?: Difficulty | null };
+
+function newTitleParts(raw: NewTitle): { text: string; difficulty: Difficulty | null } {
+  return typeof raw === 'string' ? { text: raw.trim(), difficulty: null } : { text: raw.text.trim(), difficulty: raw.difficulty ?? null };
+}
+
 /**
  * Appends titles to a deck, skipping exact (trimmed) duplicates already in
  * it — no fixed slot count to fill, unlike the old board-game import, so
  * every non-duplicate, non-empty line just gets added.
  */
-export function addTitlesToDeck(deckId: string, titles: string[]): { added: number; skipped: number } {
+export function addTitlesToDeck(deckId: string, titles: NewTitle[]): { added: number; skipped: number } {
   const deck = getDeck(deckId);
   if (!deck) throw new DeckNotFoundError(`deck "${deckId}" not found`);
 
   const existing = new Set(deck.titles.map((t) => t.text.trim()));
-  const stmt = db.prepare('INSERT INTO titles (id, deck_id, text, created_at) VALUES (@id, @deckId, @text, @now)');
+  const stmt = db.prepare(
+    'INSERT INTO titles (id, deck_id, text, difficulty, created_at) VALUES (@id, @deckId, @text, @difficulty, @now)'
+  );
   let added = 0;
   const tx = db.transaction(() => {
     for (const raw of titles) {
-      const text = raw.trim();
+      const { text, difficulty } = newTitleParts(raw);
       if (!text || existing.has(text)) continue;
       existing.add(text);
-      stmt.run({ id: crypto.randomUUID(), deckId, text, now: Date.now() });
+      stmt.run({ id: crypto.randomUUID(), deckId, text, difficulty, now: Date.now() });
       added++;
     }
     db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
@@ -442,6 +465,8 @@ export interface TitleWithImage {
   text: string;
   /** A servable path already written to disk (see routes/adminDecks.ts) — null when this row's image was missing or invalid. */
   imagePath: string | null;
+  /** An optional per-title level override from the manifest's third column. */
+  difficulty?: Difficulty | null;
 }
 
 /**
@@ -460,7 +485,7 @@ export function addTitlesToDeckWithImages(
 
   const existing = new Set(deck.titles.map((t) => t.text.trim()));
   const stmt = db.prepare(
-    'INSERT INTO titles (id, deck_id, text, image_path, created_at) VALUES (@id, @deckId, @text, @imagePath, @now)'
+    'INSERT INTO titles (id, deck_id, text, image_path, difficulty, created_at) VALUES (@id, @deckId, @text, @imagePath, @difficulty, @now)'
   );
   let added = 0;
   const tx = db.transaction(() => {
@@ -468,7 +493,14 @@ export function addTitlesToDeckWithImages(
       const text = row.text.trim();
       if (!text || existing.has(text)) continue;
       existing.add(text);
-      stmt.run({ id: crypto.randomUUID(), deckId, text, imagePath: row.imagePath, now: Date.now() });
+      stmt.run({
+        id: crypto.randomUUID(),
+        deckId,
+        text,
+        imagePath: row.imagePath,
+        difficulty: row.difficulty ?? null,
+        now: Date.now(),
+      });
       added++;
     }
     db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
@@ -487,6 +519,8 @@ export interface UpdateTitleInput {
   text?: string;
   /** `null` explicitly clears the picture; `undefined` (the default, when omitted) leaves it as-is. */
   imagePath?: string | null;
+  /** `null` clears the override (back to the deck's default); `undefined` leaves it as-is. */
+  difficulty?: Difficulty | null;
 }
 
 export function updateTitle(deckId: string, titleId: string, input: UpdateTitleInput): TitleRow {
@@ -497,8 +531,9 @@ export function updateTitle(deckId: string, titleId: string, input: UpdateTitleI
     deckId,
     text: input.text !== undefined ? input.text.trim() : existing.text,
     imagePath: input.imagePath !== undefined ? input.imagePath : existing.imagePath,
+    difficulty: input.difficulty !== undefined ? input.difficulty : existing.difficulty,
   };
-  db.prepare('UPDATE titles SET text=@text, image_path=@imagePath WHERE id=@id AND deck_id=@deckId').run(next);
+  db.prepare('UPDATE titles SET text=@text, image_path=@imagePath, difficulty=@difficulty WHERE id=@id AND deck_id=@deckId').run(next);
   db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
   return getTitle(deckId, titleId)!;
 }
@@ -547,6 +582,7 @@ export function listPublicDecks(): PublicDeck[] {
       nameAr: d.nameAr,
       nameEn: d.nameEn,
       language: d.language,
+      difficulty: d.difficulty,
       imageUrl: d.imagePath ?? undefined,
       titleCount: counts.get(d.id) ?? 0,
     }))
@@ -835,11 +871,23 @@ function rowToPayment(r: any): PaymentRow {
   };
 }
 
+/**
+ * `titles_json` holds `{ rounds, stacks }` for every session dealt since
+ * levels existed, and a flat array for one dealt before that — those are
+ * read back as a single medium stack, one round per title, so a game that
+ * was mid-way through the upgrade still resumes.
+ */
 function rowToGameSession(r: any): GameSessionRow {
+  const parsed = JSON.parse(r.titles_json) as DealtTitle[] | { rounds: number; stacks: DealtStacks };
+  const { rounds, stacks } = Array.isArray(parsed)
+    ? { rounds: parsed.length, stacks: { easy: [], medium: parsed.map((t) => ({ ...t, difficulty: 'medium' as const })), hard: [] } }
+    : parsed;
   return {
     id: r.id,
     playerId: r.player_id,
-    titles: JSON.parse(r.titles_json),
+    rounds,
+    stacks,
+    titles: [...stacks.easy, ...stacks.medium, ...stacks.hard],
     createdAt: r.created_at,
   };
 }
@@ -983,48 +1031,59 @@ function shuffled<T>(items: T[]): T[] {
   return arr;
 }
 
-const TITLES_PER_SESSION = 20;
+/** Rounds per game — and so the most titles any one level's stack ever needs, since a team may pick the same level every round. */
+export const ROUNDS_PER_SESSION = 20;
 
 /**
- * Deals up to `count` titles round-robin across every deck the player chose
- * (`deckIds`), so two consecutive rounds never share a category unless only
- * one deck still has titles left (unavoidable once every other category is
- * exhausted). Deduplicated by trimmed text so the same title text appearing
- * in two different decks still only ever occupies one slot in a session (see
- * "never repeated in the same game" on `startGameSession`). Which deck goes
- * first, and which title comes out of each deck, are both random.
+ * Deals up to `count` titles into each level's stack, round-robin across
+ * every deck the player chose (`deckIds`), so two consecutive picks of the
+ * same level never share a category unless only one deck still has titles
+ * left at that level. Deduplicated by trimmed text across all three stacks,
+ * so the same title text appearing in two different decks (or at two
+ * levels) still only ever occupies one slot in a session (see "never
+ * repeated in the same game" on `startGameSession`). Which deck goes first,
+ * and which title comes out of each deck, are both random. A level no
+ * chosen deck has any titles at simply gets an empty stack — the app greys
+ * that choice out.
  */
-function dealTitles(count: number, deckIds?: string[]): DealtTitle[] {
+function dealStacks(count: number, deckIds?: string[]): DealtStacks {
   const seenText = new Set<string>();
-  let queues = shuffled(listPlayableDecks(deckIds))
-    .map((deck) => {
-      const titles: DealtTitle[] = [];
-      for (const title of deck.titles) {
-        const text = title.text.trim();
-        if (seenText.has(text)) continue;
-        seenText.add(text);
-        titles.push({
-          id: title.id,
-          text: title.text,
-          deckId: deck.id,
-          deckNameAr: deck.nameAr,
-          deckNameEn: deck.nameEn,
-          imageUrl: title.imagePath ?? undefined,
-        });
-      }
-      return shuffled(titles);
-    })
-    .filter((titles) => titles.length > 0);
+  const decks = shuffled(listPlayableDecks(deckIds));
+  const stacks: DealtStacks = { easy: [], medium: [], hard: [] };
 
-  const dealt: DealtTitle[] = [];
-  while (dealt.length < count && queues.length > 0) {
-    for (const queue of queues) {
-      if (dealt.length >= count) break;
-      dealt.push(queue.shift()!);
+  for (const level of DIFFICULTIES) {
+    let queues = decks
+      .map((deck) => {
+        const titles: DealtTitle[] = [];
+        for (const title of deck.titles) {
+          if (effectiveDifficulty(deck.difficulty, title) !== level) continue;
+          const text = title.text.trim();
+          if (seenText.has(text)) continue;
+          seenText.add(text);
+          titles.push({
+            id: title.id,
+            text: title.text,
+            deckId: deck.id,
+            deckNameAr: deck.nameAr,
+            deckNameEn: deck.nameEn,
+            imageUrl: title.imagePath ?? undefined,
+            difficulty: level,
+          });
+        }
+        return shuffled(titles);
+      })
+      .filter((titles) => titles.length > 0);
+
+    const dealt = stacks[level];
+    while (dealt.length < count && queues.length > 0) {
+      for (const queue of queues) {
+        if (dealt.length >= count) break;
+        dealt.push(queue.shift()!);
+      }
+      queues = queues.filter((queue) => queue.length > 0);
     }
-    queues = queues.filter((queue) => queue.length > 0);
   }
-  return dealt;
+  return stacks;
 }
 
 /**
@@ -1057,8 +1116,14 @@ export function startGameSession(
     return { session: existing, balance: creditBalance(playerId) };
   }
 
-  const dealt = dealTitles(TITLES_PER_SESSION, deckIds);
-  if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
+  const stacks = dealStacks(ROUNDS_PER_SESSION, deckIds);
+  const dealtCount = stacks.easy.length + stacks.medium.length + stacks.hard.length;
+  if (dealtCount === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
+  // Fewer titles than rounds across every level combined? The game is only
+  // as long as what was dealt — a stack running dry just greys that level
+  // out, and the app ends the game once every stack is empty.
+  const rounds = Math.min(ROUNDS_PER_SESSION, dealtCount);
+  const firstDealt = stacks.easy[0] ?? stacks.medium[0] ?? stacks.hard[0];
 
   const tx = db.transaction(() => {
     if (creditBalance(playerId) < 1) {
@@ -1072,7 +1137,7 @@ export function startGameSession(
       // deck — kept NOT NULL, so it's set to whichever deck happened to
       // deal the first title. Never read back; `GameSessionRow` exposes no
       // such field now that a session spans every deck.
-    ).run({ id: sessionId, playerId, deckId: dealt[0].deckId, titlesJson: JSON.stringify(dealt), now });
+    ).run({ id: sessionId, playerId, deckId: firstDealt.deckId, titlesJson: JSON.stringify({ rounds, stacks }), now });
     db.prepare(
       `INSERT INTO credit_transactions (id, player_id, kind, amount, game_session_id, created_at)
        VALUES (@id, @playerId, 'consume', 1, @sessionId, @now)`

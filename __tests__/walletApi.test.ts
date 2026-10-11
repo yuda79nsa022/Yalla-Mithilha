@@ -13,7 +13,7 @@ describe('startGameSession', () => {
     let sentBody: unknown;
     mockFetch(async (_url, init) => {
       sentBody = JSON.parse((init as RequestInit).body as string);
-      return new Response(JSON.stringify({ session: { titles: [] }, balance: 0 }), { status: 201 });
+      return new Response(JSON.stringify({ session: { rounds: 0, stacks: { easy: [], medium: [], hard: [] } }, balance: 0 }), { status: 201 });
     });
 
     await startGameSession('tok', 'sess-1', ['us-movies']);
@@ -25,7 +25,7 @@ describe('startGameSession', () => {
     let sentBody: unknown;
     mockFetch(async (_url, init) => {
       sentBody = JSON.parse((init as RequestInit).body as string);
-      return new Response(JSON.stringify({ session: { titles: [] }, balance: 0 }), { status: 201 });
+      return new Response(JSON.stringify({ session: { rounds: 0, stacks: { easy: [], medium: [], hard: [] } }, balance: 0 }), { status: 201 });
     });
 
     await startGameSession('tok', 'sess-1', ['kuwaiti-plays', 'us-movies']);

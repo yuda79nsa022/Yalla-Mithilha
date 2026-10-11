@@ -1,4 +1,4 @@
-import { isCharadesComplete } from './charades';
+import { isCharadesComplete, migrateCharades } from './charades';
 import type { CharadesState } from './charades';
 import type { Lang } from './types';
 
@@ -74,8 +74,8 @@ export async function loadCharades(store: KeyValueStore): Promise<CharadesState 
   try {
     const raw = await store.getItem(KEYS.charades);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as CharadesState;
-    if (typeof parsed.id !== 'string' || !parsed.id) return null;
+    const parsed = migrateCharades(JSON.parse(raw));
+    if (!parsed) return null;
     if (isCharadesComplete(parsed)) return null;
     return parsed;
   } catch {

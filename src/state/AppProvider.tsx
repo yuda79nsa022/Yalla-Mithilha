@@ -63,8 +63,9 @@ interface AppValue {
   startCharadesDraft: (teamAName: string, teamBName: string, deckIds: string[]) => CharadesState;
   updateCharades: (next: CharadesState) => void;
   /**
-   * Spends one wallet credit and deals the drafted session's 20 titles, from
-   * whichever decks were chosen when the game was drafted. Requires a
+   * Spends one wallet credit and deals the drafted session's three stacks
+   * of titles, one per difficulty level, from whichever decks were chosen
+   * when the game was drafted. Requires a
    * signed-in player — wallet credits are owned by an account, never a
    * device. False when there is no player session, no credit to spend, or
    * no titles are available yet.
@@ -262,9 +263,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async () => {
       if (!charades || !playerSession) return false;
       try {
-        const { titles, balance } = await startGameSession(playerSession.token, charades.id, charades.deckIds);
+        const { deal, balance } = await startGameSession(playerSession.token, charades.id, charades.deckIds);
         setWalletBalance(balance);
-        updateCharades(unlockCharadesState(charades, titles, playerSession.id));
+        updateCharades(unlockCharadesState(charades, deal, playerSession.id));
         track({ name: 'charades_unlocked' });
         return true;
       } catch (err) {

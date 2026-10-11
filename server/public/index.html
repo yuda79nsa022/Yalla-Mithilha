@@ -107,7 +107,7 @@
         <div class="card">
           <table>
             <thead>
-              <tr><th>ID</th><th>Name</th><th>Language</th><th>Titles</th><th></th></tr>
+              <tr><th>ID</th><th>Name</th><th>Language</th><th>Difficulty</th><th>Titles</th><th></th></tr>
             </thead>
             <tbody id="deckRows"></tbody>
           </table>
@@ -132,6 +132,15 @@
                 <option value="ar">Arabic — Kuwaiti, Khaleeji, Egyptian content</option>
                 <option value="en">English — Hollywood, American content</option>
               </select>
+            </div>
+            <div class="field">
+              <label>Difficulty (default for every title in this deck)</label>
+              <select id="dDifficulty">
+                <option value="easy">Easy — 1 point (everyday words, things everyone knows)</option>
+                <option value="medium">Medium — 3 points (recent series and films)</option>
+                <option value="hard">Hard — 5 points (classics, long or obscure titles)</option>
+              </select>
+              <p class="muted" style="margin:6px 0 0">A title over four words is bumped one level up automatically. A single title can override this with an "easy / medium / hard" column in its import file.</p>
             </div>
           </div>
           <div class="row">
@@ -372,10 +381,11 @@ async function showDeckList() {
       <td>${escapeHtml(d.id)}</td>
       <td>${escapeHtml(d.nameEn)} <span class="muted">/ ${escapeHtml(d.nameAr)}</span></td>
       <td>${d.language === 'en' ? 'English' : 'Arabic'}</td>
+      <td>${escapeHtml(d.difficulty || 'medium')}</td>
       <td>${d.titles.length}</td>
       <td><button class="secondary" data-open="${escapeHtml(d.id)}">Open</button></td>
     </tr>`).join('');
-  $('deckRows').innerHTML = rows || '<tr><td colspan="5" class="muted">No decks yet.</td></tr>';
+  $('deckRows').innerHTML = rows || '<tr><td colspan="6" class="muted">No decks yet.</td></tr>';
   $('deckRows').querySelectorAll('[data-open]').forEach((btn) => {
     btn.addEventListener('click', () => openDeck(btn.dataset.open));
   });
@@ -418,7 +428,7 @@ async function saveHomeContent() {
 }
 
 function newDeckDraft() {
-  return { id: '', nameAr: '', nameEn: '', language: 'ar', titles: [] };
+  return { id: '', nameAr: '', nameEn: '', language: 'ar', difficulty: 'medium', titles: [] };
 }
 
 async function openDeck(id) {
@@ -437,6 +447,7 @@ function renderDeckEdit() {
   $('dNameAr').value = d.nameAr;
   $('dNameEn').value = d.nameEn;
   $('dLanguage').value = d.language;
+  $('dDifficulty').value = d.difficulty || 'medium';
   $('deleteDeckBtn').classList.toggle('hidden', !currentDeckId);
 
   $('deckImagePreview').src = d.imagePath || '';
@@ -491,6 +502,7 @@ async function saveDeck() {
     nameAr: $('dNameAr').value.trim(),
     nameEn: $('dNameEn').value.trim(),
     language: $('dLanguage').value,
+    difficulty: $('dDifficulty').value,
   };
   try {
     if (currentDeckId) {

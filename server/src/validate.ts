@@ -1,4 +1,5 @@
-import type { Lang } from './types';
+import type { Difficulty, Lang } from './types';
+import { isDifficulty } from './types';
 
 export class ValidationError extends Error {}
 
@@ -15,6 +16,13 @@ function optionalLang(value: unknown, field: string): Lang {
   if (value !== 'ar' && value !== 'en') {
     throw new ValidationError(`"${field}" must be "ar" or "en"`);
   }
+  return value;
+}
+
+/** Defaults to 'medium' when omitted. */
+function optionalDifficulty(value: unknown, field: string): Difficulty {
+  if (value === undefined) return 'medium';
+  if (!isDifficulty(value)) throw new ValidationError(`"${field}" must be "easy", "medium" or "hard"`);
   return value;
 }
 
@@ -41,6 +49,7 @@ export interface CreateDeckBody {
   nameAr: string;
   nameEn: string;
   language: Lang;
+  difficulty: Difficulty;
 }
 
 export function parseCreateDeckBody(body: unknown): CreateDeckBody {
@@ -50,6 +59,7 @@ export function parseCreateDeckBody(body: unknown): CreateDeckBody {
     nameAr: requireString(b.nameAr, 'nameAr'),
     nameEn: requireString(b.nameEn, 'nameEn'),
     language: optionalLang(b.language, 'language'),
+    difficulty: optionalDifficulty(b.difficulty, 'difficulty'),
   };
 }
 
@@ -57,6 +67,7 @@ export interface UpdateDeckBody {
   nameAr?: string;
   nameEn?: string;
   language?: Lang;
+  difficulty?: Difficulty;
 }
 
 export function parseUpdateDeckBody(body: unknown): UpdateDeckBody {
@@ -65,6 +76,7 @@ export function parseUpdateDeckBody(body: unknown): UpdateDeckBody {
   if (b.nameAr !== undefined) out.nameAr = requireString(b.nameAr, 'nameAr');
   if (b.nameEn !== undefined) out.nameEn = requireString(b.nameEn, 'nameEn');
   if (b.language !== undefined) out.language = optionalLang(b.language, 'language');
+  if (b.difficulty !== undefined) out.difficulty = optionalDifficulty(b.difficulty, 'difficulty');
   return out;
 }
 

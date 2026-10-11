@@ -63,7 +63,7 @@ describe('GET /charades/decks', () => {
     seedDeck(3);
     const res = await request(app).get('/charades/decks');
     expect(res.body).toEqual([
-      { id: deckId, nameAr: 'مجموعة', nameEn: 'Test Deck', language: 'ar', titleCount: 3 },
+      { id: deckId, nameAr: 'مجموعة', nameEn: 'Test Deck', language: 'ar', difficulty: 'medium', titleCount: 3 },
     ]);
   });
 

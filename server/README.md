@@ -185,29 +185,57 @@ itself is both what the actor privately reads and what confirms the guess
 once revealed. `POST /admin/decks/:id/import` (multipart, field `file`)
 parses a `.docx`/`.xlsx`/`.pdf` and appends every non-duplicate,
 non-empty title directly — no staged preview step, since there's no fixed
-slot count an import could accidentally overrun or need to protect.
+slot count an import could accidentally overrun or need to protect. A cell
+that is exactly `easy`/`medium`/`hard` (or the Arabic words) is read as that
+row's level override, never as its title — see "Difficulty" below.
 `src/import/parseTitles.ts` has the exact table-parsing heuristic (the
 title is the one cell per row that's neither numeric nor a highly-repeated
 label like a year or category column).
 
-The player never picks a deck directly — only a *deck-language pool*, chosen
-at checkout (`'ar'`, `'en'`, or `'mixed'` — `DeckLang` in `src/types.ts`),
-entirely separate from the app's own UI language toggle (which only affects
-displayed text/direction, nothing about which decks get dealt).
-`startGameSession(playerId, sessionId, deckLang)` deals 20 titles
-(`TITLES_PER_SESSION` in `src/db.ts`) at random from every playable deck *in
-that pool, combined* (`dealTitles()`), without replacement within that
-session — so the category and the title are both a surprise, and the same
-title text can never appear twice in one session even if it exists in two
-different decks (deduplicated by trimmed text before dealing). Dealing is
-also round-robin across decks, so two consecutive rounds never share a
-category unless only one deck has titles left. Fewer than 20 titles across
-every deck combined? Deals all of it. `POST /charades/sessions` accepts an
-optional `lang` in the body (`'ar'`/`'en'`/`'mixed'`, defaulting to
-`'mixed'` when omitted) — the client sends the player's own explicit
-checkout choice, never inferred from anything else. Each dealt title carries
-its own deck's id and bilingual name (`DealtTitle` in `src/types.ts`) so the
-app can show which category it came from once revealed.
+The player never picks a title directly — only which decks to play, chosen
+alongside the team names when drafting (`deckIds`), entirely separate from
+the app's own UI language toggle (which only affects displayed
+text/direction, nothing about which decks get dealt).
+
+### Difficulty and the three stacks
+
+Every title has a level — `easy`, `medium` or `hard` (`Difficulty` in
+`src/types.ts`) — and the acting team picks a level each round, so the game
+has a strategy layer: harder titles are worth more points (the scale lives
+in the app's engine, `src/engine/charades.ts`), so a team that is behind can
+gamble and a team in front can coast. Nobody rates titles by hand:
+
+1. a deck carries a default (`decks.difficulty`, set by the admin when
+   creating it; everything that predates the field is `medium`);
+2. a title over four words (`LONG_TITLE_WORDS`) is bumped one level up from
+   its deck's default, since length makes it hard to act regardless of
+   fame;
+3. a single title may override both (`titles.difficulty`), set by a column
+   in its import file holding `easy`/`medium`/`hard` (or
+   `سهل`/`متوسط`/`صعب`), or by the title edit route.
+
+`effectiveDifficulty()` in `src/types.ts` is the one place that rule lives.
+
+`startGameSession(playerId, sessionId, deckIds)` deals three stacks
+(`dealStacks()` in `src/db.ts`), one per level, each holding up to
+`ROUNDS_PER_SESSION` (20) titles — the most any one stack can need, since a
+team may pick the same level every round — at random from the chosen decks
+combined, without replacement within that session, so the same title text
+can never appear twice in one session even if it exists in two different
+decks or at two levels (deduplicated by trimmed text before dealing).
+Within each stack, dealing is round-robin across decks, so two consecutive
+picks of the same level never share a category unless only one deck has
+titles left at that level. A level none of the chosen decks has titles at
+simply gets an empty stack, and the app greys that choice out. Fewer than 20
+titles across every level combined? The game is only as long as what was
+dealt (`rounds`), and ends early once every stack has run dry. Each dealt
+title carries its own deck's id and bilingual name and its level
+(`DealtTitle` in `src/types.ts`) so the app can show which category it came
+from once revealed, and what it was worth.
+
+A session dealt before levels existed is stored as a flat title list; it
+reads back as a single medium stack, one round per title, so a game that
+was mid-way through the upgrade still resumes.
 
 ### Title pictures (optional)
 
@@ -315,14 +343,19 @@ own errors rather than throwing.
   session required, and the payment must belong to the caller (404
   otherwise). Stand in for a real payment provider's success/failure
   callback; confirm is idempotent (see above).
-- `POST /charades/sessions` — player session required. `{ sessionId, lang }`
-  spends one credit and deals 20 titles at random across every playable
-  deck combined *in the given deck-language pool* — no `deckId`, the player
-  never chooses one directly; idempotent on `sessionId` (see above). `lang`
-  is `'ar'`, `'en'` or `'mixed'`, defaulting to `'mixed'` when omitted. 402
-  when the balance is empty, 409 when no deck in that pool has any titles.
+- `POST /charades/sessions` — player session required. `{ sessionId,
+  deckIds }` spends one credit and deals `{ rounds, stacks: { easy, medium,
+  hard } }` at random across the chosen decks (see "Difficulty and the three
+  stacks" above) — the player never chooses a title directly; idempotent on
+  `sessionId` (see above). `deckIds` omitted means every playable deck. 402
+  when the balance is empty, 409 when none of those decks has any titles.
 - `GET /charades/sessions/:id` — player session required, and the session
-  must belong to the caller. Re-fetches a previously dealt session.
+  must belong to the caller. Re-fetches a previously dealt session, same
+  shape.
+- `GET/POST/PUT/DELETE /admin/decks[/:id]` also take `difficulty`
+  (`easy`/`medium`/`hard`, default `medium`); `PUT
+  /admin/decks/:deckId/titles/:titleId` takes a `difficulty` field as a
+  per-title override, or an empty one to clear it.
 - `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit
   log" above.
 

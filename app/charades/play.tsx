@@ -9,20 +9,43 @@ import { cardShadow, colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
 import { playSound, preloadSounds, setTimerMusicVolume, startTimerMusic, stopTimerMusic } from '../../src/platform/sound';
-import { adjustScore, awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
+import {
+  ASSIST_EXTRA_SECONDS,
+  ASSIST_KINDS,
+  DIFFICULTIES,
+  DIFFICULTY_POINTS,
+  SPEED_BONUS_POINTS,
+  SPEED_BONUS_WINDOW_SECONDS,
+  STEAL_POINTS,
+  adjustScore,
+  assistAvailable,
+  awardRound,
+  canPickDifficulty,
+  currentTeamIndex,
+  isCharadesComplete,
+  isDoubleRound,
+  pickDifficulty,
+  pointsForGuess,
+  revealLetters,
+  roundMultiplier,
+  skipRound,
+  stackSizes,
+  stealRound,
+  consumeAssist,
+  type AssistKind,
+  type Difficulty,
+} from '../../src/engine/charades';
 import { resolveRevealBaseUrl } from '../../src/engine/reveal';
 import { CATALOGUE_API_URL, REVEAL_BASE_URL } from '../../src/config';
 
-/** Each round gets 2 minutes to act before the score buttons appear — unless the actor's team ends it early. */
+/** Each round gets 2 minutes to act before the score buttons appear — unless the actor's team ends it early, or buys time with an assist. */
 const ROUND_SECONDS = 120;
 
 /** The countdown ticks audibly for its last half-minute, same as a real game-show clock. */
 const TICK_SECONDS = 30;
 
-/** A correct guess in the round's first minute is worth 2 points, its second minute 1 point. */
-function pointsForTimeLeft(timeLeft: number): number {
-  return timeLeft > ROUND_SECONDS / 2 ? 2 : 1;
-}
+/** Each level's card colour on the pick screen — the same three accents the rest of the app uses. */
+const LEVEL_COLORS: Record<Difficulty, string> = { easy: colors.green, medium: colors.purple, hard: colors.red };
 
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -146,34 +169,44 @@ function VolumeControl({
   );
 }
 
+/** How a round ended, held until "next round" is tapped so the recap can show it before the score moves. */
+type Outcome =
+  | { kind: 'guessed'; team: 0 | 1; points: number; elapsed: number }
+  | { kind: 'stolen'; team: 0 | 1; points: number; elapsed: number }
+  | { kind: 'missed'; team: 0 | 1; points: 0; elapsed: number };
+
 export default function CharadesPlay() {
   useKeepAwake();
   const { t, lang, charades, updateCharades, quitCharades, prefs, setPrefs, mintRevealToken } = useApp();
   const musicVolume = prefs.musicMuted ? 0 : prefs.musicVolume;
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
+  /** Seconds the "extra time" assist added this round — so the bar and the speed bonus both know the true round length. */
+  const [extraSeconds, setExtraSeconds] = useState(0);
   const [endedEarly, setEndedEarly] = useState(false);
   const [started, setStarted] = useState(false);
+  /** Which letter assists were used *this round* — `assistsUsed` on the game state is per game, this is what to show now. */
+  const [lettersShown, setLettersShown] = useState<{ first: boolean; last: boolean }>({ first: false, last: false });
   /**
-   * Set the instant "award" or "skip" is tapped — the answer itself is
+   * Set the instant an outcome button is tapped — the answer itself is
    * already on screen by then (see the `revealed` branch below); this just
    * holds the outcome so `charades.index` doesn't advance until "next round"
    * is tapped.
    */
-  const [pendingOutcome, setPendingOutcome] = useState<{ team: 0 | 1; awarded: boolean; points: number } | null>(
-    null
-  );
+  const [pendingOutcome, setPendingOutcome] = useState<Outcome | null>(null);
 
   // Hooks run unconditionally, before the early-return redirects below — so
   // every dependency here has to tolerate `charades` being null.
   const roundKey = charades?.index ?? -1;
   const roundActive = charades !== null && charades.lock === 'unlocked' && !isCharadesComplete(charades);
-  const currentTitleForMint = charades ? charades.titles[charades.index] : null;
+  const currentTitleForMint = charades?.current ?? null;
 
   useEffect(() => {
     setTimeLeft(ROUND_SECONDS);
+    setExtraSeconds(0);
     setEndedEarly(false);
     setStarted(false);
+    setLettersShown({ first: false, last: false });
     setPendingOutcome(null);
   }, [roundKey]);
 
@@ -182,7 +215,9 @@ export default function CharadesPlay() {
   // — so the server can refuse every scan after the first one (see
   // server/src/routes/reveal.ts). Without that, the same code stayed
   // scannable by anyone pointed at the shared screen for as long as it was
-  // up, including an opposing player sneaking a peek at the answer.
+  // up, including an opposing player sneaking a peek at the answer. Minted
+  // only once the acting team has picked a level, since there's no title
+  // to reveal before that.
   const [revealTokenId, setRevealTokenId] = useState<string | null>(null);
   useEffect(() => {
     setRevealTokenId(null);
@@ -230,7 +265,7 @@ export default function CharadesPlay() {
     if (timeLeft === 0) {
       void playSound('buzzer');
       void stopTimerMusic();
-    } else if (timeLeft <= TICK_SECONDS) {
+    } else if (timeLeft <= TICK_SECONDS && timeLeft < prev) {
       void playSound('tick');
     }
   }, [timeLeft, started]);
@@ -317,30 +352,15 @@ export default function CharadesPlay() {
   }
 
   const teamIndex = currentTeamIndex(charades);
+  const otherTeamIndex: 0 | 1 = teamIndex === 0 ? 1 : 0;
   const teamName = teamIndex === 0 ? charades.teamAName : charades.teamBName;
+  const otherTeamName = otherTeamIndex === 0 ? charades.teamAName : charades.teamBName;
   const teamColor = teamIndex === 0 ? colors.purple : colors.green;
-  const currentTitle = charades.titles[charades.index];
-
-  const revealed = endedEarly || timeLeft <= 0;
-  const category = lang === 'ar' ? currentTitle.deckNameAr : currentTitle.deckNameEn;
-
-  const baseUrl = resolveRevealBaseUrl(REVEAL_BASE_URL, webOrigin());
-  const absoluteImageUrl = currentTitle.imageUrl ? `${CATALOGUE_API_URL}${currentTitle.imageUrl}` : undefined;
-  // `revealTokenId` is minted server-side, above, the moment this round's
-  // handoff screen becomes active — null until that round-trip resolves (a
-  // brief "scan unavailable" instead of a QR code) or if it fails outright.
-  const revealUrl = baseUrl && revealTokenId ? `${baseUrl}/reveal?id=${encodeURIComponent(revealTokenId)}` : null;
-
-  const nextRound = () => {
-    if (!pendingOutcome) return;
-    updateCharades(
-      pendingOutcome.awarded ? awardRound(charades, pendingOutcome.team, pendingOutcome.points) : skipRound(charades)
-    );
-  };
-
-  const adjustTeamScore = (team: 0 | 1, delta: number) => {
-    updateCharades(adjustScore(charades, team, delta));
-  };
+  const roundNumber = charades.index + 1;
+  const doubleRound = isDoubleRound(charades);
+  const multiplier = roundMultiplier(charades);
+  const totalSeconds = ROUND_SECONDS + extraSeconds;
+  const elapsed = totalSeconds - timeLeft;
 
   const quitButton = (
     <Pressable
@@ -371,23 +391,157 @@ export default function CharadesPlay() {
     />
   );
 
-  // --- Round result: the "+N للفريق" recap shown after tapping award/skip -------
+  const doubleBanner = doubleRound ? (
+    <View style={styles.doubleBanner}>
+      <T variant="label" color={colors.ink} style={{ fontSize: 14 }}>
+        {t('charades.play.doubleRound', { team: teamName })}
+      </T>
+    </View>
+  ) : null;
+
+  // --- Pick a level: the acting team's call, before anything is revealed ------
+  if (!charades.current) {
+    const sizes = stackSizes(charades);
+    return (
+      <Screen
+        scroll
+        background={colors.purple}
+        header={{ light: true, title: t('charades.play.round', { round: roundNumber, total: charades.rounds }) }}
+        footer={quitButton}
+      >
+        <RoundProgress round={roundNumber} total={charades.rounds} />
+        <Spacer size={spacing.md} />
+        <ScoreBlock
+          teamAName={charades.teamAName}
+          teamAScore={charades.scores[0]}
+          teamBName={charades.teamBName}
+          teamBScore={charades.scores[1]}
+        />
+        <Spacer size={spacing.lg} />
+        {doubleBanner}
+        {doubleBanner ? <Spacer size={spacing.sm} /> : null}
+        <T variant="title" color={colors.white} style={{ fontSize: 30 }}>
+          {t('charades.play.pickTitle')}
+        </T>
+        <T variant="body" color={colors.white} style={{ fontSize: 15 }}>
+          {t('charades.play.pickSubtitle', { team: teamName })}
+        </T>
+        <Spacer size={spacing.md} />
+        <View style={styles.levelRow}>
+          {DIFFICULTIES.map((level) => {
+            const enabled = canPickDifficulty(charades, level);
+            const points = DIFFICULTY_POINTS[level] * multiplier;
+            return (
+              <Pressable
+                key={level}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !enabled }}
+                accessibilityLabel={`${t(`charades.play.level.${level}`)} — ${t('charades.play.levelPoints', { points })}`}
+                disabled={!enabled}
+                onPress={() => {
+                  void playSound('bell');
+                  updateCharades(pickDifficulty(charades, level));
+                }}
+                style={({ pressed }) => [
+                  styles.levelCard,
+                  cardShadow(lang, colors.ink),
+                  { backgroundColor: enabled ? LEVEL_COLORS[level] : colors.mutedBg },
+                  pressed && styles.pressed,
+                  !enabled && styles.disabled,
+                ]}
+              >
+                <T variant="label" color={level === 'medium' ? colors.white : colors.ink} style={{ fontSize: 14 }}>
+                  {t(`charades.play.level.${level}`)}
+                </T>
+                <T style={{ fontFamily: fonts.displayBlack, fontSize: 44, lineHeight: 50, color: level === 'medium' ? colors.white : colors.ink }}>
+                  {points}
+                </T>
+                <T variant="label" color={level === 'medium' ? colors.white : colors.ink} style={{ fontSize: 11 }} numberOfLines={1}>
+                  {sizes[level] > 0 ? t('charades.play.levelLeft', { count: sizes[level] }) : t('charades.play.levelEmpty')}
+                </T>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Spacer size={spacing.sm} />
+        <T variant="body" color={colors.white} style={{ fontSize: 13 }}>
+          {t('charades.play.speedBonus', { points: SPEED_BONUS_POINTS * multiplier })}
+        </T>
+        {confirmModal}
+      </Screen>
+    );
+  }
+
+  const currentTitle = charades.current;
+  const level = currentTitle.difficulty;
+  const revealed = endedEarly || timeLeft <= 0;
+  const timedOut = !endedEarly && timeLeft <= 0;
+  const category = lang === 'ar' ? currentTitle.deckNameAr : currentTitle.deckNameEn;
+
+  const baseUrl = resolveRevealBaseUrl(REVEAL_BASE_URL, webOrigin());
+  const absoluteImageUrl = currentTitle.imageUrl ? `${CATALOGUE_API_URL}${currentTitle.imageUrl}` : undefined;
+  // `revealTokenId` is minted server-side, above, the moment this round's
+  // handoff screen becomes active — null until that round-trip resolves (a
+  // brief "scan unavailable" instead of a QR code) or if it fails outright.
+  const revealUrl = baseUrl && revealTokenId ? `${baseUrl}/reveal?id=${encodeURIComponent(revealTokenId)}` : null;
+
+  const levelChip = (
+    <View style={[styles.categoryChip, { backgroundColor: LEVEL_COLORS[level] }]}>
+      <T variant="label" color={level === 'medium' ? colors.white : colors.ink} numberOfLines={1} style={{ fontSize: 12 }}>
+        {t(`charades.play.level.${level}`)} · {t('charades.play.levelPoints', { points: DIFFICULTY_POINTS[level] * multiplier })}
+      </T>
+    </View>
+  );
+
+  const nextRound = () => {
+    if (!pendingOutcome) return;
+    if (pendingOutcome.kind === 'guessed') updateCharades(awardRound(charades, pendingOutcome.team, pendingOutcome.points));
+    else if (pendingOutcome.kind === 'stolen') updateCharades(stealRound(charades));
+    else updateCharades(skipRound(charades));
+  };
+
+  const adjustTeamScore = (team: 0 | 1, delta: number) => {
+    updateCharades(adjustScore(charades, team, delta));
+  };
+
+  const spendAssist = (kind: AssistKind) => {
+    if (!assistAvailable(charades, teamIndex, kind)) return;
+    if (kind === 'extraTime') {
+      setTimeLeft((prev) => prev + ASSIST_EXTRA_SECONDS);
+      setExtraSeconds((prev) => prev + ASSIST_EXTRA_SECONDS);
+    } else if (kind === 'firstLetters') {
+      setLettersShown((prev) => ({ ...prev, first: true }));
+    } else {
+      setLettersShown((prev) => ({ ...prev, last: true }));
+    }
+    updateCharades(consumeAssist(charades, teamIndex, kind));
+  };
+
+  // --- Round result: the "+N للفريق" recap shown after tapping an outcome -----
   if (pendingOutcome) {
-    const finishedTeamName = pendingOutcome.team === 0 ? charades.teamAName : charades.teamBName;
-    const nextTeamIndex = pendingOutcome.team === 0 ? 1 : 0;
-    const nextTeamName = nextTeamIndex === 0 ? charades.teamAName : charades.teamBName;
-    const elapsed = ROUND_SECONDS - timeLeft;
-    const bannerBg = pendingOutcome.awarded ? colors.green : colors.mutedBg;
+    const scoringTeam = pendingOutcome.team;
+    const scoringTeamName = scoringTeam === 0 ? charades.teamAName : charades.teamBName;
+    const nextTeamName = otherTeamName;
+    const bannerBg = pendingOutcome.kind === 'missed' ? colors.mutedBg : colors.green;
+    const headline =
+      pendingOutcome.kind === 'guessed'
+        ? t('charades.play.guessedIt')
+        : pendingOutcome.kind === 'stolen'
+          ? t('charades.play.stolenOutcome')
+          : t('charades.play.notGuessed');
     // The actual score update only lands in `charades.scores` once "next
     // round" is tapped (see `nextRound` above), but showing that stale,
     // not-yet-updated total right next to a "+N for {team}!" banner reads as
     // the wrong team having scored — so this recap previews the outcome
     // already applied, purely for display.
-    const previewScores: [number, number] = pendingOutcome.awarded
-      ? pendingOutcome.team === 0
-        ? [charades.scores[0] + pendingOutcome.points, charades.scores[1]]
-        : [charades.scores[0], charades.scores[1] + pendingOutcome.points]
-      : charades.scores;
+    const previewScores: [number, number] = [...charades.scores];
+    if (pendingOutcome.kind !== 'missed') previewScores[scoringTeam] += pendingOutcome.points;
+    const breakdown: string[] = [];
+    if (pendingOutcome.kind === 'guessed') {
+      breakdown.push(`${t(`charades.play.level.${level}`)} ${DIFFICULTY_POINTS[level]}`);
+      if (pendingOutcome.elapsed <= SPEED_BONUS_WINDOW_SECONDS) breakdown.push(`${t('charades.play.breakdownFast')} +${SPEED_BONUS_POINTS}`);
+      if (doubleRound) breakdown.push(`${t('charades.play.breakdownDouble')} ×2`);
+    }
     return (
       <Screen
         scroll
@@ -412,14 +566,19 @@ export default function CharadesPlay() {
               transform: [{ rotate: '-4deg' }],
             }}
           >
-            {pendingOutcome.awarded ? t('charades.play.guessedIt') : t('charades.play.notGuessed')}
+            {headline}
           </T>
-          {pendingOutcome.awarded ? (
+          {pendingOutcome.kind !== 'missed' ? (
             <View style={styles.resultTag}>
               <T variant="label" color={colors.white} style={{ fontWeight: '900', fontSize: 16 }} numberOfLines={1}>
-                {t('charades.play.pointAwardedTo', { team: finishedTeamName, points: pendingOutcome.points })}
+                {t('charades.play.pointAwardedTo', { team: scoringTeamName, points: pendingOutcome.points })}
               </T>
             </View>
+          ) : null}
+          {breakdown.length ? (
+            <T variant="body" style={{ fontSize: 13 }}>
+              {breakdown.join(' · ')}
+            </T>
           ) : null}
         </View>
         <Spacer size={spacing.md} />
@@ -430,7 +589,7 @@ export default function CharadesPlay() {
           {currentTitle.text}
         </T>
         <T variant="body" style={{ fontSize: 13 }}>
-          {category} · {formatTime(elapsed)}
+          {category} · {formatTime(pendingOutcome.elapsed)}
         </T>
         <Spacer size={spacing.md} />
         <ScoreBlock
@@ -443,14 +602,13 @@ export default function CharadesPlay() {
     );
   }
 
-  // --- Reveal + score buttons: privacy is over, the group scores it together ----
+  // --- Reveal + outcome buttons: privacy is over, the group scores it together -
   if (revealed) {
+    const guessPoints = pointsForGuess(charades, level, elapsed);
     return (
       <Screen
         scroll
-        header={{
-          title: t('charades.play.round', { round: charades.index + 1, total: charades.titles.length }),
-        }}
+        header={{ title: t('charades.play.round', { round: roundNumber, total: charades.rounds }) }}
         footer={
           <>
             <View style={styles.scoreHeaderRow}>
@@ -458,22 +616,30 @@ export default function CharadesPlay() {
               <ScoreChip name={charades.teamBName} score={charades.scores[1]} color={colors.green} onAdjust={(d) => adjustTeamScore(1, d)} />
             </View>
             <Spacer size={spacing.md} />
-            <View style={styles.actingFooterGrid}>
-              <Button
-                label={t('charades.play.award', { team: teamName })}
-                accent={colors.green}
-                showArrow={false}
-                style={{ flex: 2 }}
-                onPress={() => setPendingOutcome({ team: teamIndex, awarded: true, points: pointsForTimeLeft(timeLeft) })}
-              />
-              <Button
-                label={t('charades.play.skip')}
-                tone="secondary"
-                showArrow={false}
-                style={{ flex: 1 }}
-                onPress={() => setPendingOutcome({ team: teamIndex, awarded: false, points: 0 })}
-              />
-            </View>
+            <Button
+              label={t('charades.play.awardWithPoints', { team: teamName, points: guessPoints })}
+              accent={colors.green}
+              showArrow={false}
+              onPress={() => setPendingOutcome({ kind: 'guessed', team: teamIndex, points: guessPoints, elapsed })}
+            />
+            {timedOut ? (
+              <>
+                <Spacer size={spacing.sm} />
+                <Button
+                  label={t('charades.play.steal', { team: otherTeamName, points: STEAL_POINTS })}
+                  tone="secondary"
+                  showArrow={false}
+                  onPress={() => setPendingOutcome({ kind: 'stolen', team: otherTeamIndex, points: STEAL_POINTS, elapsed })}
+                />
+              </>
+            ) : null}
+            <Spacer size={spacing.sm} />
+            <Button
+              label={t('charades.play.skip')}
+              tone="ghost"
+              showArrow={false}
+              onPress={() => setPendingOutcome({ kind: 'missed', team: teamIndex, points: 0, elapsed })}
+            />
           </>
         }
       >
@@ -481,15 +647,22 @@ export default function CharadesPlay() {
           <T variant="heading" color={teamColor}>
             {t('charades.play.turn', { team: teamName })}
           </T>
-          <View style={[styles.categoryChip, { backgroundColor: colors.purple }]}>
-            <T variant="label" color={colors.white} numberOfLines={1}>
-              {category}
-            </T>
-          </View>
+          {levelChip}
         </View>
+        {timedOut ? (
+          <>
+            <Spacer size={spacing.sm} />
+            <T variant="label" color={colors.red} style={{ fontSize: 13 }}>
+              {t('charades.play.timeUp', { team: otherTeamName })}
+            </T>
+          </>
+        ) : null}
         <Spacer size={spacing.lg} />
         <View style={[styles.titleCard, cardShadow(lang, teamColor)]}>
           <T style={{ fontFamily: fonts.displayBlack, fontSize: 40, lineHeight: 46 }}>{currentTitle.text}</T>
+          <T variant="body" style={{ fontSize: 13 }}>
+            {category}
+          </T>
           {absoluteImageUrl ? (
             <Image
               source={{ uri: absoluteImageUrl }}
@@ -512,10 +685,7 @@ export default function CharadesPlay() {
       <Screen
         scroll
         background={colors.purple}
-        header={{
-          light: true,
-          title: t('charades.play.round', { round: charades.index + 1, total: charades.titles.length }),
-        }}
+        header={{ light: true, title: t('charades.play.round', { round: roundNumber, total: charades.rounds }) }}
         footer={
           <Button
             label={t('charades.play.startTimer')}
@@ -529,7 +699,7 @@ export default function CharadesPlay() {
           />
         }
       >
-        <RoundProgress round={charades.index + 1} total={charades.titles.length} />
+        <RoundProgress round={roundNumber} total={charades.rounds} />
         <Spacer size={spacing.md} />
         <ScoreBlock
           teamAName={charades.teamAName}
@@ -538,9 +708,13 @@ export default function CharadesPlay() {
           teamBScore={charades.scores[1]}
         />
         <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
-          <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 18 }}>
-            {t('charades.play.turnLabel')}
-          </T>
+          {doubleBanner}
+          <View style={styles.categoryChipRow}>
+            <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 18 }}>
+              {t('charades.play.turnLabel')}
+            </T>
+            {levelChip}
+          </View>
           <T
             variant="timer"
             style={{ fontFamily: fonts.displayBlack, color: colors.white, transform: [{ rotate: '-3deg' }] }}
@@ -561,24 +735,28 @@ export default function CharadesPlay() {
             )}
           </View>
         </View>
+        {confirmModal}
       </Screen>
     );
   }
 
   // --- Acting: timer running, actor sees the word only via the QR scan ---------
+  const assistLabel = (kind: AssistKind) =>
+    kind === 'extraTime' ? t('charades.play.assist.extraTime', { seconds: ASSIST_EXTRA_SECONDS }) : t(`charades.play.assist.${kind}`);
   return (
     <Screen
       scroll
-      header={{
-        title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }),
-      }}
+      header={{ title: t('charades.play.roundTeam', { round: roundNumber, team: teamName }) }}
       footer={<Button label={t('charades.play.endEarly')} tone="secondary" showArrow={false} onPress={() => setEndedEarly(true)} />}
     >
       <View style={styles.timerBlock}>
         <View style={styles.timerRow}>
-          <T variant="label" style={{ fontSize: 13 }}>
-            {t('charades.play.timeLabel')}
-          </T>
+          <View style={{ gap: 4 }}>
+            <T variant="label" style={{ fontSize: 13 }}>
+              {t('charades.play.timeLabel')}
+            </T>
+            {levelChip}
+          </View>
           <T
             variant="timer"
             style={{ fontFamily: fonts.displayBlack, color: timeLeft <= 10 ? colors.red : colors.purple }}
@@ -593,12 +771,63 @@ export default function CharadesPlay() {
               styles.timerFill,
               lang === 'ar' ? { right: 0 } : { left: 0 },
               {
-                width: `${(timeLeft / ROUND_SECONDS) * 100}%`,
+                width: `${(timeLeft / totalSeconds) * 100}%`,
                 backgroundColor: timeLeft <= 10 ? colors.red : colors.purple,
               },
             ]}
           />
         </View>
+      </View>
+
+      <View style={styles.assistBlock}>
+        <View style={styles.assistHeader}>
+          <T variant="label" style={{ fontSize: 13 }}>
+            {t('charades.play.assists')}
+          </T>
+          <T variant="body" color={colors.neutral700} style={{ fontSize: 11 }}>
+            {t('charades.play.assistHint')}
+          </T>
+        </View>
+        <View style={styles.assistRow}>
+          {ASSIST_KINDS.map((kind) => {
+            const available = assistAvailable(charades, teamIndex, kind);
+            return (
+              <Pressable
+                key={kind}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !available }}
+                accessibilityLabel={assistLabel(kind)}
+                disabled={!available}
+                onPress={() => spendAssist(kind)}
+                style={({ pressed }) => [
+                  styles.assistButton,
+                  { backgroundColor: available ? colors.white : colors.mutedBg },
+                  pressed && styles.pressed,
+                  !available && styles.disabled,
+                ]}
+              >
+                <T variant="label" style={{ fontSize: 12 }} numberOfLines={1}>
+                  {assistLabel(kind)}
+                </T>
+                {!available ? (
+                  <T variant="body" color={colors.neutral700} style={{ fontSize: 10 }}>
+                    {t('charades.play.assistUsed')}
+                  </T>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+        {lettersShown.first ? (
+          <T variant="heading" style={{ fontSize: 20 }}>
+            {t('charades.play.lettersFirst', { letters: revealLetters(currentTitle.text, 'first') })}
+          </T>
+        ) : null}
+        {lettersShown.last ? (
+          <T variant="heading" style={{ fontSize: 20 }}>
+            {t('charades.play.lettersLast', { letters: revealLetters(currentTitle.text, 'last') })}
+          </T>
+        ) : null}
       </View>
 
       <VolumeControl
@@ -637,8 +866,26 @@ const styles = StyleSheet.create({
   scoreHeaderRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.md },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.4 },
-  categoryChipRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  categoryChip: { paddingHorizontal: 10, paddingVertical: 4 },
+  categoryChipRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
+  categoryChip: { paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
+  levelRow: { flexDirection: 'row', gap: spacing.sm },
+  levelCard: {
+    flex: 1,
+    borderWidth: 3,
+    borderColor: colors.ink,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    alignItems: 'center',
+    gap: 2,
+  },
+  doubleBanner: {
+    backgroundColor: colors.green,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    transform: [{ rotate: '-1deg' }],
+  },
   titleCard: {
     backgroundColor: colors.white,
     borderWidth: 3,
@@ -647,12 +894,23 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     transform: [{ rotate: '-1.5deg' }],
   },
-  actingFooterGrid: { flexDirection: 'row', gap: spacing.sm },
   quitLink: { alignSelf: 'center', paddingVertical: spacing.sm },
   timerBlock: { gap: 6, paddingBottom: spacing.md, borderBottomWidth: 2, borderBottomColor: colors.ink },
-  timerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  timerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   timerTrack: { height: 12, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, position: 'relative' },
   timerFill: { position: 'absolute', top: 0, bottom: 0 },
+  assistBlock: { gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 2, borderBottomColor: colors.ink },
+  assistHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm },
+  assistRow: { flexDirection: 'row', gap: spacing.xs },
+  assistButton: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    gap: 2,
+  },
   volumeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -681,6 +939,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   finalTop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  resultBanner: { padding: spacing.lg, gap: spacing.xl, borderBottomWidth: 2, borderBottomColor: colors.ink },
+  resultBanner: { padding: spacing.lg, gap: spacing.md, borderBottomWidth: 2, borderBottomColor: colors.ink },
   resultTag: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingHorizontal: 12, paddingVertical: 4, transform: [{ rotate: '2deg' }] },
 });
