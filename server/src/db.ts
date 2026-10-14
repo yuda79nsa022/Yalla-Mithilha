@@ -287,6 +287,13 @@ ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
 ensureColumn('settings', 'home_writeup_ar', 'home_writeup_ar TEXT');
 ensureColumn('settings', 'home_writeup_en', 'home_writeup_en TEXT');
 ensureColumn('players', 'email', 'email TEXT');
+// Bumped on every password change; every session token carries the value it
+// was issued with, and requirePlayerSession/requireAdminSession reject a
+// token whose value no longer matches (see auth.ts). So a password change or
+// reset signs that account out everywhere, at once, instead of leaving any
+// already-issued token valid for the rest of its 12 hours.
+ensureColumn('players', 'session_version', 'session_version INTEGER NOT NULL DEFAULT 0');
+ensureColumn('admin_users', 'session_version', 'session_version INTEGER NOT NULL DEFAULT 0');
 // Free games left from the one-time signup grant, spendable on either mode —
 // see grantSignupBonus. A column, not a ledger entry: this isn't real money,
 // just an entitlement counter, and it only ever needs to go down. It was
@@ -765,10 +772,12 @@ export function updateAdminUser(id: string, input: UpdateAdminUserInput): AdminU
     id,
     username: input.username ?? current.username,
     passwordHash: input.passwordHash ?? current.password_hash,
+    sessionBump: input.passwordHash !== undefined ? 1 : 0,
     updatedAt: Date.now(),
   };
   db.prepare(
-    'UPDATE admin_users SET username=@username, password_hash=@passwordHash, updated_at=@updatedAt WHERE id=@id'
+    `UPDATE admin_users SET username=@username, password_hash=@passwordHash,
+       session_version = session_version + @sessionBump, updated_at=@updatedAt WHERE id=@id`
   ).run(next);
   return getAdminUserById(id)!;
 }
@@ -860,12 +869,30 @@ export function updatePlayer(id: string, input: UpdatePlayerInput): PlayerRow {
     username: input.username ?? current.username,
     passwordHash: input.passwordHash ?? current.password_hash,
     email: input.email !== undefined ? input.email : current.email,
+    sessionBump: input.passwordHash !== undefined ? 1 : 0,
     updatedAt: Date.now(),
   };
   db.prepare(
-    'UPDATE players SET username=@username, password_hash=@passwordHash, email=@email, updated_at=@updatedAt WHERE id=@id'
+    `UPDATE players SET username=@username, password_hash=@passwordHash, email=@email,
+       session_version = session_version + @sessionBump, updated_at=@updatedAt WHERE id=@id`
   ).run(next);
   return getPlayerById(id)!;
+}
+
+/** The account's current session version (see `session_version`), or `null` if the account no longer exists. */
+export function getPlayerSessionVersion(id: string): number | null {
+  const row = db.prepare('SELECT session_version FROM players WHERE id = ?').get(id) as
+    | { session_version: number }
+    | undefined;
+  return row ? row.session_version : null;
+}
+
+/** Same as `getPlayerSessionVersion`, for admin accounts. */
+export function getAdminSessionVersion(id: string): number | null {
+  const row = db.prepare('SELECT session_version FROM admin_users WHERE id = ?').get(id) as
+    | { session_version: number }
+    | undefined;
+  return row ? row.session_version : null;
 }
 
 export function deletePlayer(id: string): void {
