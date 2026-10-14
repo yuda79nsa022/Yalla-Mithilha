@@ -255,13 +255,15 @@
 <script>
 // The player app's own sign-in form (app/account.tsx) tries an admin login
 // as a fallback after a player login fails, and on success opens this page
-// with the freshly issued token/username in the URL — so an admin never
-// needs a separate "Admin sign-in" link to find this form. Adopt it into
-// the same sessionStorage the normal sign-in form below already uses, then
-// scrub it out of the visible URL/history immediately: it's only ever meant
-// to travel here once.
+// with the freshly issued token/username in the URL fragment — so an admin
+// never needs a separate "Admin sign-in" link to find this form. The
+// fragment, not the query string: browsers never send it to the server, so
+// the token never reaches nginx's access logs. Adopt it into the same
+// sessionStorage the normal sign-in form below already uses, then scrub it
+// out of the visible URL/history immediately: it's only ever meant to
+// travel here once.
 (function adoptIncomingSession() {
-  const params = new URLSearchParams(location.search);
+  const params = new URLSearchParams(location.hash.slice(1));
   const incomingToken = params.get('token');
   if (!incomingToken) return;
   sessionStorage.setItem('adminSessionToken', incomingToken);
@@ -281,6 +283,12 @@ function api(path, opts = {}) {
     ...opts,
     headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + token },
   }).then(async (res) => {
+    // The session ended server-side (expired, password changed, account
+    // deleted): back to the sign-in form rather than an "unauthorized" error.
+    if (res.status === 401) {
+      signOut();
+      throw new Error('signed out');
+    }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || ('HTTP ' + res.status));

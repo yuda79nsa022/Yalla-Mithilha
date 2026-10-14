@@ -67,12 +67,15 @@ export default function Account() {
     // link to find their own form. A real admin tool (deck management,
     // players, audit log) lives on its own separate page (`/admin-ui`),
     // not inside this app, so success here means opening that page with
-    // the freshly issued token rather than navigating anywhere in-app.
+    // the freshly issued token rather than navigating anywhere in-app. The
+    // token goes in the URL fragment (`#`), never the query string: a
+    // browser never sends the fragment to the server, so the token can't
+    // land in nginx's access logs the way `?token=` did.
     setTryingAdmin(true);
     try {
       const result = await loginAdmin(username.trim(), password);
       setAdminRedirecting(true);
-      const adminUrl = `${CATALOGUE_API_URL}/admin-ui?token=${encodeURIComponent(
+      const adminUrl = `${CATALOGUE_API_URL}/admin-ui#token=${encodeURIComponent(
         result.token
       )}&username=${encodeURIComponent(result.user.username)}`;
       // On web, navigate this same tab to the admin tool — Linking.openURL
