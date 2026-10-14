@@ -1,6 +1,6 @@
-import { Redirect, router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Linking, Platform, View } from 'react-native';
 import { Button, Divider, Screen, Spacer, T } from '../../src/ui/components';
 import { Hero } from '../../src/ui/Hero';
 import { colors, spacing } from '../../src/ui/theme';
@@ -24,11 +24,48 @@ export default function CharadesCheckout() {
     walletError,
     refreshWallet,
     startTopUp,
+    checkTopUp,
     confirmTopUp,
     failTopUp,
     unlockCurrentCharades,
   } = useApp();
   const [busy, setBusy] = useState<'topup' | 'start' | null>(null);
+  const [paymentNotice, setPaymentNotice] = useState<'paid' | 'pending' | 'failed' | 'error' | null>(null);
+
+  // Back from the payment gateway's page: the server's return route sends
+  // the browser here with `?payment=…&result=…`. The result in the URL is
+  // only a hint — the payment is always re-checked with the server (which
+  // asks the gateway itself) before saying anything to the player.
+  const { payment: returnedPaymentId, result: returnedResult } = useLocalSearchParams<{
+    payment?: string;
+    result?: string;
+  }>();
+  useEffect(() => {
+    if (!player) return;
+    if (returnedPaymentId) {
+      void checkTopUp(returnedPaymentId).then((status) =>
+        setPaymentNotice(status === 'paid' ? 'paid' : status === 'initiated' ? 'pending' : status ? 'failed' : 'error')
+      );
+    } else if (returnedResult === 'error') {
+      setPaymentNotice('error');
+    }
+  }, [player, returnedPaymentId, returnedResult, checkTopUp]);
+
+  // Native apps open the gateway's page in the device browser, which never
+  // comes back through the return route into the app — so check the payment
+  // when the player switches back to the app instead.
+  const pendingNativePayment = useRef<string | null>(null);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      const paymentId = pendingNativePayment.current;
+      if (state !== 'active' || !paymentId) return;
+      void checkTopUp(paymentId).then((status) => {
+        if (status === 'paid' || status === 'failed' || status === 'cancelled') pendingNativePayment.current = null;
+        setPaymentNotice(status === 'paid' ? 'paid' : status === 'initiated' ? 'pending' : status ? 'failed' : 'error');
+      });
+    });
+    return () => sub.remove();
+  }, [checkTopUp]);
 
   useEffect(() => {
     if (player) void refreshWallet();
@@ -60,8 +97,22 @@ export default function CharadesCheckout() {
 
   const topUp = async () => {
     setBusy('topup');
+    setPaymentNotice(null);
     const payment = await startTopUp(mode);
-    if (payment) await confirmTopUp(payment.id);
+    if (payment?.redirectUrl) {
+      // A real gateway: the player pays on its page. On web this tab goes
+      // there and comes back through the return route; native opens the
+      // device browser and checks the payment on returning to the app.
+      if (Platform.OS === 'web') {
+        const g = globalThis as { location?: { href?: string } };
+        if (g.location) g.location.href = payment.redirectUrl;
+        return; // leaving the page — keep the button busy
+      }
+      pendingNativePayment.current = payment.id;
+      void Linking.openURL(payment.redirectUrl);
+    } else if (payment) {
+      await confirmTopUp(payment.id); // development mock
+    }
     setBusy(null);
   };
 
@@ -121,6 +172,23 @@ export default function CharadesCheckout() {
         onPress={topUp}
       />
 
+      {paymentNotice ? (
+        <>
+          <Spacer size={spacing.sm} />
+          <T variant="label" color={paymentNotice === 'paid' ? colors.purple : colors.red}>
+            {t(
+              paymentNotice === 'paid'
+                ? 'charades.checkout.paymentReceived'
+                : paymentNotice === 'pending'
+                  ? 'charades.checkout.paymentNotCompleted'
+                  : paymentNotice === 'failed'
+                    ? 'charades.checkout.paymentFailed'
+                    : 'charades.checkout.paymentError'
+            )}
+          </T>
+        </>
+      ) : null}
+
       {walletError ? (
         <>
           <Spacer size={spacing.sm} />
@@ -130,12 +198,16 @@ export default function CharadesCheckout() {
         </>
       ) : null}
 
-      <Spacer size={spacing.sm} />
-      <T variant="label" color={colors.neutral700}>
-        {t('charades.checkout.devNotice')}
-      </T>
-      <Spacer size={spacing.xs} />
-      <Button label={t('charades.checkout.simulateFailure')} tone="ghost" showArrow={false} onPress={simulateFailure} />
+      {__DEV__ ? (
+        <>
+          <Spacer size={spacing.sm} />
+          <T variant="label" color={colors.neutral700}>
+            {t('charades.checkout.devNotice')}
+          </T>
+          <Spacer size={spacing.xs} />
+          <Button label={t('charades.checkout.simulateFailure')} tone="ghost" showArrow={false} onPress={simulateFailure} />
+        </>
+      ) : null}
 
       <Spacer size={spacing.xl} />
       <Divider />

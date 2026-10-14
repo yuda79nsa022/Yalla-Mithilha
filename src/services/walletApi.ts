@@ -20,6 +20,7 @@ export interface CheckoutPayment {
   amountFils: number;
   currency: string;
   status: PaymentStatus;
+  /** Set when a real payment gateway is configured: the player pays on this page. Absent for the development mock. */
   redirectUrl?: string;
 }
 
@@ -105,17 +106,30 @@ export function getWalletBalance(token: string, timeoutMs = 8000): Promise<Walle
   );
 }
 
-/** Starts a top-up for exactly one game's worth of credit, at `mode`'s current price. No credit exists until confirmed. */
-export function startCheckout(token: string, mode: GameMode, timeoutMs = 8000): Promise<CheckoutPayment> {
-  return authedPost<CheckoutPayment>('/charades/checkout', token, { mode }, timeoutMs);
+/**
+ * Starts a top-up for exactly one game's worth of credit, at `mode`'s current
+ * price. No credit exists until the payment gateway confirms it. `language`
+ * picks the gateway's payment page language.
+ */
+export function startCheckout(token: string, mode: GameMode, language: 'ar' | 'en', timeoutMs = 15000): Promise<CheckoutPayment> {
+  return authedPost<CheckoutPayment>('/charades/checkout', token, { mode, language }, timeoutMs);
 }
 
-/** Stands in for a real payment provider's success callback until KNET is wired up. */
+/** Asks the server to check a payment with the gateway again — after the player comes back from the gateway's page. */
+export function refreshCheckout(
+  token: string,
+  paymentId: string,
+  timeoutMs = 20000
+): Promise<{ payment: CheckoutPayment; balance: number }> {
+  return authedPost(`/charades/checkout/${encodeURIComponent(paymentId)}/refresh`, token, {}, timeoutMs);
+}
+
+/** Development mock only: stands in for the gateway's success callback. The server refuses it when a real gateway is configured. */
 export function confirmCheckout(token: string, paymentId: string, timeoutMs = 8000): Promise<{ balance: number }> {
   return authedPost(`/charades/checkout/${encodeURIComponent(paymentId)}/confirm`, token, {}, timeoutMs);
 }
 
-/** Stands in for a real payment provider's failure/cancellation callback. */
+/** Development mock only: stands in for the gateway's failure callback. */
 export function failCheckout(token: string, paymentId: string, timeoutMs = 8000): Promise<void> {
   return authedPost(`/charades/checkout/${encodeURIComponent(paymentId)}/fail`, token, {}, timeoutMs);
 }

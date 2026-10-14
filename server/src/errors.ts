@@ -15,6 +15,7 @@ import {
   RevealTokenNotFoundError,
   TitleNotFoundError,
 } from './db';
+import { PaymentProviderError } from './payments/errors';
 import { ValidationError } from './validate';
 
 export function handleError(err: unknown, res: Response): void {
@@ -50,6 +51,14 @@ export function handleError(err: unknown, res: Response): void {
   }
   if (err instanceof RevealTokenAlreadyUsedError) {
     res.status(410).json({ error: err.message });
+    return;
+  }
+  if (err instanceof PaymentProviderError) {
+    // The detail (gateway message, validation errors) is for the server log,
+    // not the player.
+    // eslint-disable-next-line no-console
+    console.error(err);
+    res.status(502).json({ error: 'the payment service is unavailable, try again shortly' });
     return;
   }
   // eslint-disable-next-line no-console

@@ -35,10 +35,12 @@ import {
   getGamePrice,
   getHomeContent,
   getWalletBalance,
+  refreshCheckout as refreshCheckoutApi,
   startCheckout as startCheckoutApi,
   startGameSession,
   type CheckoutPayment,
   type HomeContent,
+  type PaymentStatus,
 } from '../services/walletApi';
 
 /** Price-fetch failures just leave that mode's price at 0 — callers fall back to showing nothing rather than a stale number. */
@@ -107,9 +109,15 @@ interface AppValue {
   refreshWallet: () => Promise<void>;
   /** Starts a top-up for exactly one game's worth of credit, at `mode`'s price. Returns `null` when there is no player session. */
   startTopUp: (mode: GameMode) => Promise<CheckoutPayment | null>;
-  /** Stands in for a real KNET/payment-provider success callback until that integration exists. */
+  /**
+   * After the player comes back from the payment gateway's page: has the
+   * server check that payment with the gateway again and refreshes the
+   * wallet. Returns the payment's status, or `null` if the check failed.
+   */
+  checkTopUp: (paymentId: string) => Promise<PaymentStatus | null>;
+  /** Development mock only: stands in for the gateway's success callback. */
   confirmTopUp: (paymentId: string) => Promise<boolean>;
-  /** Stands in for a real payment-provider failure/cancellation callback. */
+  /** Development mock only: stands in for the gateway's failure callback. */
   failTopUp: (paymentId: string) => Promise<void>;
 
   /** A real player account. Signing up or signing in sends a username and password to the backend. */
@@ -335,14 +343,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWalletBusy(true);
     setWalletError(null);
     try {
-      return await startCheckoutApi(playerSession.token, mode);
+      return await startCheckoutApi(playerSession.token, mode, lang);
     } catch (err) {
       setWalletError(handleWalletError(err));
       return null;
     } finally {
       setWalletBusy(false);
     }
-  }, [playerSession, handleWalletError]);
+  }, [playerSession, handleWalletError, lang]);
+
+  const checkTopUp = useCallback(
+    async (paymentId: string) => {
+      if (!playerSession) return null;
+      setWalletBusy(true);
+      setWalletError(null);
+      try {
+        const { payment, balance } = await refreshCheckoutApi(playerSession.token, paymentId);
+        setWalletBalance(balance);
+        if (payment.status === 'paid') track({ name: 'wallet_topped_up', balance });
+        return payment.status;
+      } catch (err) {
+        setWalletError(handleWalletError(err));
+        return null;
+      } finally {
+        setWalletBusy(false);
+      }
+    },
+    [playerSession, handleWalletError]
+  );
 
   const confirmTopUp = useCallback(
     async (paymentId: string) => {
@@ -499,6 +527,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     walletError,
     refreshWallet,
     startTopUp,
+    checkTopUp,
     confirmTopUp,
     failTopUp,
     player: playerSession ? { id: playerSession.id, username: playerSession.username } : null,
