@@ -300,6 +300,50 @@ ensureColumn('players', 'email', 'email TEXT');
 }
 ensureColumn('players', 'free_game_credits', 'free_game_credits INTEGER NOT NULL DEFAULT 0');
 
+// Lookup indexes for the hot paths: a wallet's balance is summed from the
+// ledger on every wallet fetch and game start, and SQLite doesn't index
+// foreign keys on its own, so without these every one of those (and every
+// cascading delete of a player, deck or session) is a full table scan.
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_credit_transactions_player ON credit_transactions(player_id);
+  CREATE INDEX IF NOT EXISTS idx_credit_transactions_payment ON credit_transactions(payment_id);
+  CREATE INDEX IF NOT EXISTS idx_credit_transactions_session ON credit_transactions(game_session_id);
+  CREATE INDEX IF NOT EXISTS idx_payments_player ON payments(player_id);
+  CREATE INDEX IF NOT EXISTS idx_game_sessions_player ON game_sessions(player_id);
+  CREATE INDEX IF NOT EXISTS idx_game_sessions_deck ON game_sessions(deck_id);
+  CREATE INDEX IF NOT EXISTS idx_reveal_tokens_session ON reveal_tokens(game_session_id);
+  CREATE INDEX IF NOT EXISTS idx_password_resets_player ON password_resets(player_id);
+  CREATE INDEX IF NOT EXISTS idx_titles_deck ON titles(deck_id);
+`);
+
+// The ledger's two money invariants, enforced by the database itself rather
+// than only by the code paths that write it: a payment grants credit at most
+// once, and a game session is charged at most once. The application already
+// guarantees both (see confirmPayment and startGameSession), but only while
+// the server runs as one process — these keep them true under any future
+// multi-process deployment too. Created separately so a pre-existing
+// duplicate (which `npm run check-db` would report) can't stop the server
+// from starting; the error is logged loudly instead.
+for (const [name, sql] of [
+  [
+    'uniq_credit_grant_per_payment',
+    `CREATE UNIQUE INDEX IF NOT EXISTS uniq_credit_grant_per_payment
+       ON credit_transactions(payment_id) WHERE kind = 'grant' AND payment_id IS NOT NULL`,
+  ],
+  [
+    'uniq_credit_consume_per_session',
+    `CREATE UNIQUE INDEX IF NOT EXISTS uniq_credit_consume_per_session
+       ON credit_transactions(game_session_id) WHERE kind = 'consume' AND game_session_id IS NOT NULL`,
+  ],
+] as const) {
+  try {
+    db.exec(sql);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(`could not create ${name} — the ledger has duplicates; run \`npm run check-db\``, err);
+  }
+}
+
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
 db.prepare('UPDATE settings SET modified_game_price_fils = COALESCE(modified_game_price_fils, ?) WHERE id = 1').run(
   DEFAULT_MODIFIED_GAME_PRICE_FILS
@@ -895,9 +939,20 @@ export function incrementPasswordResetAttempts(id: string): void {
   db.prepare('UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?').run(id);
 }
 
-/** Marks a code redeemed so it can never be replayed, even if it hasn't expired yet. */
-export function usePasswordReset(id: string): void {
-  db.prepare('UPDATE password_resets SET used_at = ? WHERE id = ?').run(Date.now(), id);
+/**
+ * Marks a code redeemed so it can never be replayed, even if it hasn't
+ * expired yet — and reports whether this caller was the one that redeemed
+ * it. The `used_at IS NULL` guard makes the claim atomic: two requests
+ * racing with the same valid code both reach this, but only one flips the
+ * row, so the route must claim *before* its own `await` (password hashing),
+ * not after, or both would get through.
+ */
+export function claimPasswordReset(id: string): boolean {
+  const now = Date.now();
+  const result = db
+    .prepare('UPDATE password_resets SET used_at = ? WHERE id = ? AND used_at IS NULL AND expires_at > ?')
+    .run(now, id, now);
+  return result.changes === 1;
 }
 
 /* ------------------------------------------------------- wallet + sessions */
@@ -1056,7 +1111,7 @@ export function confirmPayment(paymentId: string): { payment: PaymentRow; balanc
       ).run({ id: crypto.randomUUID(), playerId: payment.playerId, amount: payment.credits, paymentId, now });
     }
   });
-  tx();
+  tx.immediate();
 
   return { payment: getPayment(paymentId)!, balance: creditBalance(payment.playerId) };
 }
@@ -1235,7 +1290,9 @@ export function startGameSession(
     const player = getPlayerById(playerId)!;
     const spendFreeGame = player.freeGameCredits > 0;
     if (spendFreeGame) {
-      db.prepare('UPDATE players SET free_game_credits = free_game_credits - 1 WHERE id = ?').run(playerId);
+      db.prepare('UPDATE players SET free_game_credits = free_game_credits - 1 WHERE id = ? AND free_game_credits > 0').run(
+        playerId
+      );
     } else if (creditBalance(playerId) < 1) {
       throw new InsufficientCreditsError('not enough credits to start a game — top up your wallet first');
     }
@@ -1255,7 +1312,7 @@ export function startGameSession(
       ).run({ id: crypto.randomUUID(), playerId, sessionId, now });
     }
   });
-  tx();
+  tx.immediate();
 
   return { session: getGameSession(sessionId)!, balance: creditBalance(playerId) };
 }

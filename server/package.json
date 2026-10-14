@@ -12,6 +12,7 @@
     "create-admin": "tsx src/createAdmin.ts",
     "create-test-player": "tsx src/createTestPlayer.ts",
     "seed-decks": "tsx src/seedDecks.ts",
+    "check-db": "tsx src/checkDb.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

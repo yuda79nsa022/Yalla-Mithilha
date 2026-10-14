@@ -10,7 +10,7 @@ import {
   incrementPasswordResetAttempts,
   recordAudit,
   updatePlayer,
-  usePasswordReset,
+  claimPasswordReset,
 } from '../db';
 import { hashPassword, signPlayerSessionToken, verifyPassword } from '../auth';
 import { handleError } from '../errors';
@@ -133,9 +133,15 @@ playerAuthRouter.post('/password-reset/confirm', passwordResetConfirmLimiter, as
       return;
     }
 
+    // Claim the code before the await below, not after: otherwise two
+    // requests racing with the same valid code would both pass the checks
+    // above while the first one was still hashing, and both reset.
+    if (!claimPasswordReset(reset.id)) {
+      res.status(400).json({ error: 'invalid or expired reset code' });
+      return;
+    }
     const passwordHash = await hashPassword(newPassword);
     updatePlayer(player.id, { passwordHash });
-    usePasswordReset(reset.id);
     recordAudit({
       actorId: player.id,
       actorUsername: player.username,
