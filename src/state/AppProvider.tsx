@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { charadesForPlayer, draftCharades, unlockCharades as unlockCharadesState } from '../engine/charades';
-import type { CharadesState } from '../engine/charades';
+import { draftCharades, unlockCharades as unlockClassicCharades } from '../engine/charades';
+import { charadesForPlayer, type CharadesState, type GameMode } from '../engine/game';
+import { draftModifiedCharades, unlockModifiedCharades, type CharadesDeal } from '../engine/modifiedCharades';
 import {
   DEFAULT_PREFERENCES,
   clearCharades,
@@ -40,6 +41,16 @@ import {
   type HomeContent,
 } from '../services/walletApi';
 
+/** Price-fetch failures just leave that mode's price at 0 — callers fall back to showing nothing rather than a stale number. */
+function fetchModePrices(setClassic: (fils: number) => void, setModified: (fils: number) => void) {
+  getGamePrice('classic')
+    .then((r) => setClassic(r.fils))
+    .catch(() => undefined);
+  getGamePrice('modified')
+    .then((r) => setModified(r.fils))
+    .catch(() => undefined);
+}
+
 interface AppValue {
   ready: boolean;
   lang: Lang;
@@ -50,24 +61,27 @@ interface AppValue {
   wipeEverything: () => Promise<void>;
 
   /**
-   * The paid game: silent charades. The server deals every round's title at
-   * random from whichever decks the player chose — there is no per-round
-   * category to pick. `gamePriceFils` is the current admin-set price of one
-   * game.
+   * The paid game, either mode: silent charades. The server deals every
+   * round's title(s) at random from whichever decks the player chose —
+   * there is no per-round category to pick. `gamePriceFils` is the current
+   * admin-set price of one classic game; `modifiedGamePriceFils` the
+   * modified game's own, independently-set price.
    */
   gamePriceFils: number;
+  modifiedGamePriceFils: number;
   /** The admin-editable home-screen tagline and write-up. `null` until the first successful fetch — callers fall back to the i18n default text until then. */
   homeContent: HomeContent | null;
   charades: CharadesState | null;
-  /** `deckIds` is the player's choice of which decks to play, made alongside the team names. */
-  startCharadesDraft: (teamAName: string, teamBName: string, deckIds: string[]) => CharadesState;
+  /** `deckIds` is the player's choice of which decks to play, made alongside the team names and the mode. */
+  startCharadesDraft: (teamAName: string, teamBName: string, deckIds: string[], mode: GameMode) => CharadesState;
   updateCharades: (next: CharadesState) => void;
   /**
-   * Spends one wallet credit and deals the drafted session's 20 titles, from
-   * whichever decks were chosen when the game was drafted. Requires a
-   * signed-in player — wallet credits are owned by an account, never a
-   * device. False when there is no player session, no credit to spend, or
-   * no titles are available yet.
+   * Spends a credit and deals the drafted session's titles, from whichever
+   * decks were chosen when the game was drafted. Requires a signed-in
+   * player — credits are owned by an account, never a device. A classic
+   * draft spends a free signup game first if any remain, otherwise (either
+   * mode) a paid credit. False when there is no player session, no credit
+   * to spend, or the deal fails.
    */
   unlockCurrentCharades: () => Promise<boolean>;
   quitCharades: () => void;
@@ -80,16 +94,19 @@ interface AppValue {
   mintRevealToken: (title: string, categoryAr: string, categoryEn: string, imageUrl?: string) => Promise<string | null>;
 
   /**
-   * Real, server-authoritative wallet balance — owned by the signed-in
-   * player's account, never trusted to local device state. Topping up
-   * requires a player session; drafting a session does not.
+   * Real, server-authoritative wallet state — owned by the signed-in
+   * player's account, never trusted to local device state. `walletBalance`
+   * is the paid, pooled balance that covers either mode; `freeClassicCredits`
+   * is the signup bonus's remainder, spendable only on classic-mode games.
+   * Topping up requires a player session; drafting a session does not.
    */
   walletBalance: number;
+  freeClassicCredits: number;
   walletBusy: boolean;
   walletError: string | null;
   refreshWallet: () => Promise<void>;
-  /** Starts a top-up for exactly one game's worth of credit. Returns `null` when there is no player session. */
-  startTopUp: () => Promise<CheckoutPayment | null>;
+  /** Starts a top-up for exactly one game's worth of credit, at `mode`'s price. Returns `null` when there is no player session. */
+  startTopUp: (mode: GameMode) => Promise<CheckoutPayment | null>;
   /** Stands in for a real KNET/payment-provider success callback until that integration exists. */
   confirmTopUp: (paymentId: string) => Promise<boolean>;
   /** Stands in for a real payment-provider failure/cancellation callback. */
@@ -132,11 +149,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefsState] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [charades, setCharadesState] = useState<CharadesState | null>(null);
   const [gamePriceFils, setGamePriceFils] = useState(0);
+  const [modifiedGamePriceFils, setModifiedGamePriceFils] = useState(0);
   const [homeContent, setHomeContent] = useState<HomeContent | null>(null);
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
   const [playerAuthBusy, setPlayerAuthBusy] = useState(false);
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [freeClassicCredits, setFreeClassicCredits] = useState(0);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
 
@@ -158,20 +177,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPlayerSession(storedPlayerSession);
       setReady(true);
 
-      getGamePrice()
-        .then((r) => setGamePriceFils(r.fils))
-        .catch(() => undefined);
+      fetchModePrices(setGamePriceFils, setModifiedGamePriceFils);
 
       getHomeContent()
         .then(setHomeContent)
         .catch(() => undefined);
 
-      // Wallet balance lives entirely on the server — nothing to show until a
+      // Wallet state lives entirely on the server — nothing to show until a
       // saved player session proves there is an account to check. A failure
-      // here just leaves the balance at 0; the checkout screen can retry.
+      // here just leaves it at 0; the checkout screen can retry.
       if (storedPlayerSession) {
         getWalletBalance(storedPlayerSession.token)
-          .then(setWalletBalance)
+          .then((w) => {
+            setWalletBalance(w.balance);
+            setFreeClassicCredits(w.freeClassicCredits);
+          })
           .catch(() => undefined);
       }
     })();
@@ -192,6 +212,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await resetAllLocalData(deviceStore);
     setCharadesState(null);
     setWalletBalance(0);
+    setFreeClassicCredits(0);
     setWalletError(null);
     setPlayerSession(null);
     setPlayerAuthError(null);
@@ -215,8 +236,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startCharadesDraft = useCallback(
-    (teamAName: string, teamBName: string, deckIds: string[]) => {
-      const next = draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckIds);
+    (teamAName: string, teamBName: string, deckIds: string[], mode: GameMode) => {
+      const next: CharadesState =
+        mode === 'classic'
+          ? draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckIds)
+          : draftModifiedCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckIds);
       updateCharades(next);
       track({ name: 'charades_drafted' });
       return next;
@@ -245,10 +269,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshWallet = useCallback(async () => {
     if (!playerSession) {
       setWalletBalance(0);
+      setFreeClassicCredits(0);
       return;
     }
     try {
-      setWalletBalance(await getWalletBalance(playerSession.token));
+      const w = await getWalletBalance(playerSession.token);
+      setWalletBalance(w.balance);
+      setFreeClassicCredits(w.freeClassicCredits);
     } catch (err) {
       if (err instanceof WalletError && err.status === 401) {
         setWalletError(handleWalletError(err));
@@ -262,9 +289,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async () => {
       if (!charades || !playerSession) return false;
       try {
-        const { titles, balance } = await startGameSession(playerSession.token, charades.id, charades.deckIds);
-        setWalletBalance(balance);
-        updateCharades(unlockCharadesState(charades, titles, playerSession.id));
+        const { titles, rounds, stacks } = await startGameSession(
+          playerSession.token,
+          charades.id,
+          charades.deckIds,
+          charades.mode
+        );
+        // A spent credit is either the paid wallet or the classic-only free
+        // bonus — re-fetch rather than guess client-side which one the
+        // server actually decremented.
+        void refreshWallet();
+        if (charades.mode === 'classic') {
+          updateCharades(unlockClassicCharades(charades, titles, playerSession.id));
+        } else {
+          const deal: CharadesDeal = { rounds: rounds ?? 0, stacks: stacks ?? { easy: [], medium: [], hard: [] } };
+          updateCharades(unlockModifiedCharades(charades, deal, playerSession.id));
+        }
         track({ name: 'charades_unlocked' });
         return true;
       } catch (err) {
@@ -272,7 +312,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
     },
-    [charades, playerSession, updateCharades, handleWalletError]
+    [charades, playerSession, updateCharades, handleWalletError, refreshWallet]
   );
 
   const mintRevealToken = useCallback(
@@ -290,12 +330,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [charades, playerSession]
   );
 
-  const startTopUp = useCallback(async () => {
+  const startTopUp = useCallback(async (mode: GameMode) => {
     if (!playerSession) return null;
     setWalletBusy(true);
     setWalletError(null);
     try {
-      return await startCheckoutApi(playerSession.token);
+      return await startCheckoutApi(playerSession.token, mode);
     } catch (err) {
       setWalletError(handleWalletError(err));
       return null;
@@ -352,7 +392,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await savePlayerSession(deviceStore, session);
       discardCharadesNotFor(session.id);
       track({ name: 'player_account_created' });
-      getWalletBalance(session.token).then(setWalletBalance).catch(() => undefined);
+      getWalletBalance(session.token)
+        .then((w) => {
+          setWalletBalance(w.balance);
+          setFreeClassicCredits(w.freeClassicCredits);
+        })
+        .catch(() => undefined);
       return true;
     } catch (err) {
       setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
@@ -372,7 +417,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await savePlayerSession(deviceStore, session);
       discardCharadesNotFor(session.id);
       track({ name: 'player_logged_in' });
-      getWalletBalance(session.token).then(setWalletBalance).catch(() => undefined);
+      getWalletBalance(session.token)
+        .then((w) => {
+          setWalletBalance(w.balance);
+          setFreeClassicCredits(w.freeClassicCredits);
+        })
+        .catch(() => undefined);
       return true;
     } catch (err) {
       setPlayerAuthError(err instanceof PlayerAuthError ? err.message : 'could not reach the server');
@@ -386,6 +436,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPlayerSession(null);
     setPlayerAuthError(null);
     setWalletBalance(0);
+    setFreeClassicCredits(0);
     setWalletError(null);
     void clearPlayerSession(deviceStore);
     // Logging out always ends whatever game was in progress — even an
@@ -434,6 +485,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPrefs,
     wipeEverything,
     gamePriceFils,
+    modifiedGamePriceFils,
     homeContent,
     charades,
     startCharadesDraft,
@@ -442,6 +494,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     quitCharades,
     mintRevealToken,
     walletBalance,
+    freeClassicCredits,
     walletBusy,
     walletError,
     refreshWallet,

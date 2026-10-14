@@ -14,10 +14,12 @@ import {
   getDeck,
   getGamePriceFils,
   getHomeContent,
+  getModifiedGamePriceFils,
   getTitle,
   listDecks,
   recordAudit,
   setGamePriceFils,
+  setModifiedGamePriceFils,
   updateDeck,
   updateHomeContent,
   updateTitle,
@@ -121,7 +123,7 @@ adminDecksRouter.post('/decks', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'deck.create',
       target: deck.id,
-      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language },
+      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language, difficulty: deck.difficulty },
     });
     res.status(201).json(deck);
   } catch (err) {
@@ -139,8 +141,10 @@ adminDecksRouter.put('/decks/:id', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'deck.update',
       target: req.params.id,
-      before: before ? { nameAr: before.nameAr, nameEn: before.nameEn, language: before.language } : undefined,
-      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language },
+      before: before
+        ? { nameAr: before.nameAr, nameEn: before.nameEn, language: before.language, difficulty: before.difficulty }
+        : undefined,
+      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language, difficulty: deck.difficulty },
     });
     res.json(deck);
   } catch (err) {
@@ -424,6 +428,29 @@ adminDecksRouter.put('/settings/game-price', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'settings.game-price.update',
       target: 'game-price',
+      before: { fils: before },
+      after: { fils: after },
+    });
+    res.json({ fils: after });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+adminDecksRouter.get('/settings/modified-game-price', (_req, res) => {
+  res.json({ fils: getModifiedGamePriceFils() });
+});
+
+adminDecksRouter.put('/settings/modified-game-price', (req, res) => {
+  try {
+    const { fils } = parseSetGamePriceBody(req.body);
+    const before = getModifiedGamePriceFils();
+    const after = setModifiedGamePriceFils(fils);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'settings.modified-game-price.update',
+      target: 'modified-game-price',
       before: { fils: before },
       after: { fils: after },
     });

@@ -9,7 +9,37 @@ import { cardShadow, colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
 import { playSound, preloadSounds, setTimerMusicVolume, startTimerMusic, stopTimerMusic } from '../../src/platform/sound';
-import { adjustScore, awardRound, currentTeamIndex, isCharadesComplete, skipRound } from '../../src/engine/charades';
+import {
+  adjustScore,
+  awardRound,
+  currentTeamIndex,
+  isCharadesComplete,
+  skipRound,
+  type CharadesState as ClassicCharadesState,
+} from '../../src/engine/charades';
+import {
+  ASSIST_EXTRA_SECONDS,
+  ASSIST_KINDS,
+  DIFFICULTIES,
+  DIFFICULTY_POINTS,
+  STEAL_POINTS,
+  adjustScore as adjustModifiedScore,
+  assistAvailable,
+  awardRound as awardModifiedRound,
+  canPickDifficulty,
+  consumeAssist,
+  currentTeamIndex as currentModifiedTeamIndex,
+  isDoubleRound,
+  isModifiedCharadesComplete,
+  pickDifficulty,
+  pointsForGuess,
+  revealLetters,
+  skipRound as skipModifiedRound,
+  stackSizes,
+  type AssistKind,
+  type Difficulty,
+  type ModifiedCharadesState,
+} from '../../src/engine/modifiedCharades';
 import { resolveRevealBaseUrl } from '../../src/engine/reveal';
 import { CATALOGUE_API_URL, REVEAL_BASE_URL } from '../../src/config';
 
@@ -146,9 +176,14 @@ function VolumeControl({
   );
 }
 
-export default function CharadesPlay() {
+function ClassicPlayScreen() {
   useKeepAwake();
-  const { t, lang, charades, updateCharades, quitCharades, prefs, setPrefs, mintRevealToken } = useApp();
+  const { t, lang, charades: charadesUnion, updateCharades: updateCharadesUnion, quitCharades, prefs, setPrefs, mintRevealToken } =
+    useApp();
+  // This screen only ever renders for a classic-mode game or none at all — the
+  // dispatcher at the bottom of this file never mounts it for a modified one.
+  const charades = charadesUnion as ClassicCharadesState | null;
+  const updateCharades = updateCharadesUnion as (next: ClassicCharadesState) => void;
   const musicVolume = prefs.musicMuted ? 0 : prefs.musicVolume;
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
@@ -617,6 +652,604 @@ export default function CharadesPlay() {
   );
 }
 
+const DIFFICULTY_COLOR: Record<Difficulty, string> = { easy: colors.green, medium: colors.purple, hard: colors.red };
+const DIFFICULTY_LABEL_KEY: Record<Difficulty, 'charades.play.difficultyEasy' | 'charades.play.difficultyMedium' | 'charades.play.difficultyHard'> = {
+  easy: 'charades.play.difficultyEasy',
+  medium: 'charades.play.difficultyMedium',
+  hard: 'charades.play.difficultyHard',
+};
+
+function ModifiedPlayScreen() {
+  useKeepAwake();
+  const { t, lang, charades: charadesUnion, updateCharades: updateCharadesUnion, quitCharades, prefs, setPrefs, mintRevealToken } =
+    useApp();
+  // This screen only ever renders for a modified-mode game — see the
+  // dispatcher at the bottom of this file.
+  const charades = charadesUnion as ModifiedCharadesState | null;
+  const updateCharades = updateCharadesUnion as (next: ModifiedCharadesState) => void;
+  const musicVolume = prefs.musicMuted ? 0 : prefs.musicVolume;
+  const [confirmQuit, setConfirmQuit] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
+  const [endedEarly, setEndedEarly] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [hintKind, setHintKind] = useState<AssistKind | null>(null);
+  const [pendingOutcome, setPendingOutcome] = useState<{ team: 0 | 1; awarded: boolean; points: number } | null>(
+    null
+  );
+
+  const roundKey = charades?.index ?? -1;
+  const roundActive =
+    charades !== null && charades.lock === 'unlocked' && charades.current !== null && !isModifiedCharadesComplete(charades);
+  const currentTitleForMint = charades?.current ?? null;
+
+  useEffect(() => {
+    setTimeLeft(ROUND_SECONDS);
+    setEndedEarly(false);
+    setStarted(false);
+    setPendingOutcome(null);
+    setHintKind(null);
+  }, [roundKey]);
+
+  const [revealTokenId, setRevealTokenId] = useState<string | null>(null);
+  useEffect(() => {
+    setRevealTokenId(null);
+  }, [roundKey]);
+  useEffect(() => {
+    if (!roundActive || started || !currentTitleForMint) return;
+    let cancelled = false;
+    const { text, deckNameAr, deckNameEn, imageUrl } = currentTitleForMint;
+    const absoluteImageUrl = imageUrl ? `${CATALOGUE_API_URL}${imageUrl}` : undefined;
+    void mintRevealToken(text, deckNameAr, deckNameEn, absoluteImageUrl).then((id) => {
+      if (!cancelled) setRevealTokenId(id);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundActive, started, currentTitleForMint?.id, mintRevealToken]);
+
+  useEffect(() => {
+    preloadSounds();
+  }, []);
+
+  useEffect(() => {
+    if (!roundActive || !started || endedEarly) return;
+    const id = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(id);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [roundActive, started, endedEarly, roundKey]);
+
+  const prevTimeLeftRef = useRef(timeLeft);
+  useEffect(() => {
+    const prev = prevTimeLeftRef.current;
+    prevTimeLeftRef.current = timeLeft;
+    if (!started || prev === timeLeft) return;
+    if (timeLeft === 0) {
+      void playSound('buzzer');
+      void stopTimerMusic();
+    } else if (timeLeft <= TICK_SECONDS) {
+      void playSound('tick');
+    }
+  }, [timeLeft, started]);
+
+  useEffect(() => {
+    if (!roundActive || !started || endedEarly) return;
+    void startTimerMusic(musicVolume);
+    return () => {
+      void stopTimerMusic();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundActive, started, endedEarly, roundKey]);
+
+  useEffect(() => {
+    void setTimerMusicVolume(musicVolume);
+  }, [musicVolume]);
+
+  if (!charades) return <Redirect href="/charades/draft" />;
+  if (charades.lock !== 'unlocked') return <Redirect href="/charades/checkout" />;
+
+  const complete = isModifiedCharadesComplete(charades);
+
+  if (complete) {
+    const [scoreA, scoreB] = charades.scores;
+    const winner = scoreA === scoreB ? null : scoreA > scoreB ? charades.teamAName : charades.teamBName;
+    const newGame = () => {
+      quitCharades();
+      router.replace('/charades/draft');
+    };
+    return (
+      <Screen
+        scroll
+        background={colors.ink}
+        header={{ title: t('app.name'), light: true }}
+        footer={
+          <>
+            <Button
+              label={t('charades.play.newGame')}
+              accent={colors.green}
+              shadowColor={colors.purple}
+              borderColor={colors.white}
+              onPress={newGame}
+            />
+            <Spacer size={spacing.sm} />
+            <Button
+              label={t('charades.play.home')}
+              tone="secondary"
+              showArrow={false}
+              borderColor={colors.white}
+              textColor={colors.white}
+              onPress={() => {
+                quitCharades();
+                router.replace('/home');
+              }}
+            />
+          </>
+        }
+      >
+        <Spacer size={spacing.lg} />
+        <View style={styles.finalTop}>
+          <View style={{ gap: 6, flex: 1 }}>
+            <T variant="label" color={colors.green} style={{ fontSize: 15 }}>
+              {t('charades.play.winningTeam')}
+            </T>
+            <T style={{ fontFamily: fonts.displayBlack, fontSize: 56, lineHeight: 62, color: colors.white, transform: [{ rotate: '-3deg' }] }}>
+              {winner ? winner : t('charades.play.tie')}
+            </T>
+          </View>
+        </View>
+        <Spacer size={spacing.lg} />
+        <ScoreBlock teamAName={charades.teamAName} teamAScore={scoreA} teamBName={charades.teamBName} teamBScore={scoreB} big light />
+      </Screen>
+    );
+  }
+
+  const teamIndex = currentModifiedTeamIndex(charades);
+  const teamName = teamIndex === 0 ? charades.teamAName : charades.teamBName;
+  const teamColor = teamIndex === 0 ? colors.purple : colors.green;
+  const doubleRound = isDoubleRound(charades);
+
+  const quitButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('charades.play.quit')}
+      onPress={() => setConfirmQuit(true)}
+      style={styles.quitLink}
+    >
+      <T variant="label" color={colors.red} style={{ fontSize: 13 }}>
+        {t('charades.play.quit')}
+      </T>
+    </Pressable>
+  );
+
+  const confirmModal = (
+    <ConfirmModal
+      visible={confirmQuit}
+      title={t('charades.play.quitConfirm')}
+      confirmLabel={t('charades.play.quit')}
+      cancelLabel={t('common.back')}
+      destructive
+      onConfirm={() => {
+        setConfirmQuit(false);
+        quitCharades();
+        router.replace('/home');
+      }}
+      onCancel={() => setConfirmQuit(false)}
+    />
+  );
+
+  // --- Not yet picked: the acting team chooses a difficulty level ------------
+  if (charades.current === null) {
+    const sizes = stackSizes(charades);
+    return (
+      <Screen
+        scroll
+        header={{ title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}
+      >
+        {doubleRound ? (
+          <View style={styles.doubleRoundBanner}>
+            <T variant="label" color={colors.white}>
+              {t('charades.play.doubleRound')}
+            </T>
+          </View>
+        ) : null}
+        <Spacer size={spacing.md} />
+        <T variant="heading" color={teamColor}>
+          {t('charades.play.turn', { team: teamName })}
+        </T>
+        <Spacer size={spacing.sm} />
+        <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
+          {t('charades.play.chooseDifficulty')}
+        </T>
+        <Spacer size={spacing.md} />
+        {DIFFICULTIES.map((difficulty) => {
+          const pickable = canPickDifficulty(charades, difficulty);
+          return (
+            <React.Fragment key={difficulty}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(DIFFICULTY_LABEL_KEY[difficulty])}
+                disabled={!pickable}
+                onPress={() => updateCharades(pickDifficulty(charades, difficulty))}
+                style={({ pressed }) => [
+                  styles.difficultyRow,
+                  { borderColor: colors.ink, backgroundColor: DIFFICULTY_COLOR[difficulty] },
+                  pressed && styles.pressed,
+                  !pickable && styles.disabled,
+                ]}
+              >
+                <T style={{ fontFamily: fonts.displayBlack, fontSize: 20, color: colors.white }}>{t(DIFFICULTY_LABEL_KEY[difficulty])}</T>
+                <T variant="label" color={colors.white}>
+                  {sizes[difficulty] > 0
+                    ? t('charades.play.difficultyPoints', { points: DIFFICULTY_POINTS[difficulty] * (doubleRound ? 2 : 1) })
+                    : t('charades.play.difficultyEmpty')}
+                </T>
+              </Pressable>
+              <Spacer size={spacing.sm} />
+            </React.Fragment>
+          );
+        })}
+        {quitButton}
+        {confirmModal}
+      </Screen>
+    );
+  }
+
+  const currentTitle = charades.current;
+  const revealed = endedEarly || timeLeft <= 0;
+  const category = lang === 'ar' ? currentTitle.deckNameAr : currentTitle.deckNameEn;
+
+  const baseUrl = resolveRevealBaseUrl(REVEAL_BASE_URL, webOrigin());
+  const absoluteImageUrl = currentTitle.imageUrl ? `${CATALOGUE_API_URL}${currentTitle.imageUrl}` : undefined;
+  const revealUrl = baseUrl && revealTokenId ? `${baseUrl}/reveal?id=${encodeURIComponent(revealTokenId)}` : null;
+
+  const nextRound = () => {
+    if (!pendingOutcome) return;
+    updateCharades(
+      pendingOutcome.awarded
+        ? awardModifiedRound(charades, pendingOutcome.team, pendingOutcome.points)
+        : skipModifiedRound(charades)
+    );
+  };
+
+  const adjustTeamScore = (team: 0 | 1, delta: number) => {
+    updateCharades(adjustModifiedScore(charades, team, delta));
+  };
+
+  const useAssist = (kind: AssistKind) => {
+    if (!assistAvailable(charades, teamIndex, kind)) return;
+    updateCharades(consumeAssist(charades, teamIndex, kind));
+    if (kind === 'extraTime') setTimeLeft((t) => t + ASSIST_EXTRA_SECONDS);
+    else setHintKind(kind);
+  };
+
+  const assistRow = (
+    <View style={styles.assistRow}>
+      {ASSIST_KINDS.map((kind) => {
+        const available = assistAvailable(charades, teamIndex, kind);
+        const label =
+          kind === 'firstLetters'
+            ? t('charades.play.assistFirstLetters')
+            : kind === 'lastLetters'
+              ? t('charades.play.assistLastLetters')
+              : t('charades.play.assistExtraTime', { seconds: ASSIST_EXTRA_SECONDS });
+        return (
+          <Pressable
+            key={kind}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            disabled={!available}
+            onPress={() => useAssist(kind)}
+            style={({ pressed }) => [styles.assistButton, pressed && styles.pressed, !available && styles.disabled]}
+          >
+            <T variant="label" style={{ fontSize: 11 }} numberOfLines={1}>
+              {available ? label : `${label} · ${t('charades.play.assistUsed')}`}
+            </T>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  // --- Round result recap -------------------------------------------------
+  if (pendingOutcome) {
+    const finishedTeamName = pendingOutcome.team === 0 ? charades.teamAName : charades.teamBName;
+    const nextTeamIndex = pendingOutcome.team === 0 ? 1 : 0;
+    const nextTeamName = nextTeamIndex === 0 ? charades.teamAName : charades.teamBName;
+    const elapsed = ROUND_SECONDS - timeLeft;
+    const bannerBg = pendingOutcome.awarded ? colors.green : colors.mutedBg;
+    const previewScores: [number, number] = pendingOutcome.awarded
+      ? pendingOutcome.team === 0
+        ? [charades.scores[0] + pendingOutcome.points, charades.scores[1]]
+        : [charades.scores[0], charades.scores[1] + pendingOutcome.points]
+      : charades.scores;
+    return (
+      <Screen
+        scroll
+        header={{ title: t('app.name') }}
+        footer={
+          <>
+            <T variant="label" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
+              {t('charades.play.nextTurn', { team: nextTeamName })}
+            </T>
+            <Spacer size={spacing.sm} />
+            <Button label={t('charades.play.nextRound')} onPress={nextRound} />
+          </>
+        }
+      >
+        <View style={[styles.resultBanner, { backgroundColor: bannerBg }]}>
+          <T
+            style={{
+              fontFamily: fonts.displayBlack,
+              fontSize: 56,
+              lineHeight: 62,
+              color: colors.ink,
+              transform: [{ rotate: '-4deg' }],
+            }}
+          >
+            {pendingOutcome.awarded ? t('charades.play.guessedIt') : t('charades.play.notGuessed')}
+          </T>
+          {pendingOutcome.awarded ? (
+            <View style={styles.resultTag}>
+              <T variant="label" color={colors.white} style={{ fontWeight: '900', fontSize: 16 }} numberOfLines={1}>
+                {t('charades.play.pointAwardedTo', { team: finishedTeamName, points: pendingOutcome.points })}
+              </T>
+            </View>
+          ) : null}
+        </View>
+        <Spacer size={spacing.md} />
+        <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
+          {t('charades.play.answerReveal')}
+        </T>
+        <T variant="heading" style={{ fontSize: 24 }}>
+          {currentTitle.text}
+        </T>
+        <T variant="body" style={{ fontSize: 13 }}>
+          {category} · {formatTime(elapsed)}
+        </T>
+        <Spacer size={spacing.md} />
+        <ScoreBlock
+          teamAName={charades.teamAName}
+          teamAScore={previewScores[0]}
+          teamBName={charades.teamBName}
+          teamBScore={previewScores[1]}
+        />
+      </Screen>
+    );
+  }
+
+  // --- Reveal + score buttons ----------------------------------------------
+  if (revealed) {
+    const buzzerRang = !endedEarly && timeLeft <= 0;
+    const elapsed = ROUND_SECONDS - timeLeft;
+    const stealerIndex: 0 | 1 = teamIndex === 0 ? 1 : 0;
+    const stealerName = stealerIndex === 0 ? charades.teamAName : charades.teamBName;
+    return (
+      <Screen
+        scroll
+        header={{ title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}
+        footer={
+          <>
+            <View style={styles.scoreHeaderRow}>
+              <ScoreChip name={charades.teamAName} score={charades.scores[0]} color={colors.purple} onAdjust={(d) => adjustTeamScore(0, d)} />
+              <ScoreChip name={charades.teamBName} score={charades.scores[1]} color={colors.green} onAdjust={(d) => adjustTeamScore(1, d)} />
+            </View>
+            <Spacer size={spacing.md} />
+            {buzzerRang ? (
+              <>
+                <T variant="label" color={colors.red} align="center" style={{ fontSize: 13 }}>
+                  {t('charades.play.timesUp')}
+                </T>
+                <Spacer size={spacing.xs} />
+                <View style={styles.actingFooterGrid}>
+                  <Button
+                    label={t('charades.play.stealAward', { team: stealerName })}
+                    accent={colors.green}
+                    showArrow={false}
+                    style={{ flex: 2 }}
+                    onPress={() => setPendingOutcome({ team: stealerIndex, awarded: true, points: STEAL_POINTS })}
+                  />
+                  <Button
+                    label={t('charades.play.noSteal')}
+                    tone="secondary"
+                    showArrow={false}
+                    style={{ flex: 1 }}
+                    onPress={() => setPendingOutcome({ team: teamIndex, awarded: false, points: 0 })}
+                  />
+                </View>
+              </>
+            ) : (
+              <View style={styles.actingFooterGrid}>
+                <Button
+                  label={t('charades.play.award', { team: teamName })}
+                  accent={colors.green}
+                  showArrow={false}
+                  style={{ flex: 2 }}
+                  onPress={() =>
+                    setPendingOutcome({
+                      team: teamIndex,
+                      awarded: true,
+                      points: pointsForGuess(charades, currentTitle.difficulty, elapsed),
+                    })
+                  }
+                />
+                <Button
+                  label={t('charades.play.skip')}
+                  tone="secondary"
+                  showArrow={false}
+                  style={{ flex: 1 }}
+                  onPress={() => setPendingOutcome({ team: teamIndex, awarded: false, points: 0 })}
+                />
+              </View>
+            )}
+          </>
+        }
+      >
+        <View style={styles.categoryChipRow}>
+          <T variant="heading" color={teamColor}>
+            {t('charades.play.turn', { team: teamName })}
+          </T>
+          <View style={[styles.categoryChip, { backgroundColor: DIFFICULTY_COLOR[currentTitle.difficulty] }]}>
+            <T variant="label" color={colors.white} numberOfLines={1}>
+              {category} · {t(DIFFICULTY_LABEL_KEY[currentTitle.difficulty])}
+            </T>
+          </View>
+        </View>
+        <Spacer size={spacing.lg} />
+        <View style={[styles.titleCard, cardShadow(lang, teamColor)]}>
+          <T style={{ fontFamily: fonts.displayBlack, fontSize: 40, lineHeight: 46 }}>{currentTitle.text}</T>
+          {absoluteImageUrl ? (
+            <Image
+              source={{ uri: absoluteImageUrl }}
+              style={{ width: '100%', height: 180 }}
+              resizeMode="contain"
+              accessibilityLabel={currentTitle.text}
+            />
+          ) : null}
+        </View>
+        <Spacer size={spacing.lg} />
+        {quitButton}
+        {confirmModal}
+      </Screen>
+    );
+  }
+
+  // --- Not yet started: full handoff with QR ------------------------------
+  if (!started) {
+    return (
+      <Screen
+        scroll
+        background={colors.purple}
+        header={{
+          light: true,
+          title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }),
+        }}
+        footer={
+          <Button
+            label={t('charades.play.startTimer')}
+            tone="secondary"
+            background={colors.white}
+            forceShadow
+            onPress={() => {
+              void playSound('bell');
+              setStarted(true);
+            }}
+          />
+        }
+      >
+        <RoundProgress round={charades.index + 1} total={charades.rounds} />
+        <Spacer size={spacing.md} />
+        <ScoreBlock
+          teamAName={charades.teamAName}
+          teamAScore={charades.scores[0]}
+          teamBName={charades.teamBName}
+          teamBScore={charades.scores[1]}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
+          <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 18 }}>
+            {t('charades.play.turnLabel')}
+          </T>
+          <T
+            variant="timer"
+            style={{ fontFamily: fonts.displayBlack, color: colors.white, transform: [{ rotate: '-3deg' }] }}
+            numberOfLines={1}
+          >
+            {teamName}
+          </T>
+          <T variant="body" color={colors.white} style={{ fontSize: 15, maxWidth: 300 }}>
+            {t('charades.play.handoffInstruction')}
+          </T>
+          <View style={[styles.qrCard, cardShadow(lang, colors.ink)]}>
+            {revealUrl ? (
+              <QRCode value={revealUrl} size={160} />
+            ) : (
+              <T variant="label" align="center" color={colors.neutral700}>
+                {t('charades.play.scanUnavailable')}
+              </T>
+            )}
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  // --- Acting: timer running, optional assist hints -------------------------
+  const hintText = hintKind === 'firstLetters' || hintKind === 'lastLetters'
+    ? revealLetters(currentTitle.text, hintKind === 'firstLetters' ? 'first' : 'last')
+    : null;
+  return (
+    <Screen
+      scroll
+      header={{
+        title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }),
+      }}
+      footer={<Button label={t('charades.play.endEarly')} tone="secondary" showArrow={false} onPress={() => setEndedEarly(true)} />}
+    >
+      <View style={styles.timerBlock}>
+        <View style={styles.timerRow}>
+          <T variant="label" style={{ fontSize: 13 }}>
+            {t('charades.play.timeLabel')}
+          </T>
+          <T
+            variant="timer"
+            style={{ fontFamily: fonts.displayBlack, color: timeLeft <= 10 ? colors.red : colors.purple }}
+            accessibilityLabel={t('charades.play.timeRemaining', { time: formatTime(timeLeft) })}
+          >
+            {formatTime(timeLeft)}
+          </T>
+        </View>
+        <View style={styles.timerTrack}>
+          <View
+            style={[
+              styles.timerFill,
+              lang === 'ar' ? { right: 0 } : { left: 0 },
+              {
+                width: `${Math.min(100, (timeLeft / ROUND_SECONDS) * 100)}%`,
+                backgroundColor: timeLeft <= 10 ? colors.red : colors.purple,
+              },
+            ]}
+          />
+        </View>
+      </View>
+
+      {hintText ? (
+        <>
+          <Spacer size={spacing.sm} />
+          <T variant="heading" align="center" style={{ fontSize: 22, letterSpacing: 2 }}>
+            {hintText}
+          </T>
+        </>
+      ) : null}
+
+      {assistRow}
+
+      <VolumeControl
+        volume={prefs.musicVolume}
+        muted={prefs.musicMuted}
+        onChangeVolume={(v) => setPrefs({ musicVolume: v, musicMuted: false })}
+        onToggleMute={() => setPrefs({ musicMuted: !prefs.musicMuted })}
+      />
+
+      {quitButton}
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        <Hero animateLogo />
+      </View>
+      {confirmModal}
+    </Screen>
+  );
+}
+
+export default function CharadesPlay() {
+  const { charades } = useApp();
+  return charades?.mode === 'modified' ? <ModifiedPlayScreen /> : <ClassicPlayScreen />;
+}
+
 const styles = StyleSheet.create({
   scoreChip: {
     borderWidth: 2,
@@ -683,4 +1316,28 @@ const styles = StyleSheet.create({
   finalTop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   resultBanner: { padding: spacing.lg, gap: spacing.xl, borderBottomWidth: 2, borderBottomColor: colors.ink },
   resultTag: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingHorizontal: 12, paddingVertical: 4, transform: [{ rotate: '2deg' }] },
+  doubleRoundBanner: { backgroundColor: colors.red, padding: spacing.sm, alignItems: 'center' },
+  difficultyRow: {
+    borderWidth: 2,
+    padding: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  assistRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.ink,
+  },
+  assistButton: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

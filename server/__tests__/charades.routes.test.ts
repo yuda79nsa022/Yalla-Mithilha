@@ -7,7 +7,16 @@ process.env.PLAYER_SESSION_SECRET = 'test-player-secret';
 
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { addTitlesToDeck, createDeck, resetDbForTests, setGamePriceFils, updateDeck } from '../src/db';
+import {
+  addTitlesToDeck,
+  createDeck,
+  getPlayerById,
+  grantSignupBonus,
+  resetDbForTests,
+  setGamePriceFils,
+  setModifiedGamePriceFils,
+  updateDeck,
+} from '../src/db';
 import { makePlayerSession } from './helpers/testAuth';
 
 const app = createApp();
@@ -63,7 +72,7 @@ describe('GET /charades/decks', () => {
     seedDeck(3);
     const res = await request(app).get('/charades/decks');
     expect(res.body).toEqual([
-      { id: deckId, nameAr: 'مجموعة', nameEn: 'Test Deck', language: 'ar', titleCount: 3 },
+      { id: deckId, nameAr: 'مجموعة', nameEn: 'Test Deck', language: 'ar', difficulty: 'medium', titleCount: 3 },
     ]);
   });
 
@@ -355,5 +364,84 @@ describe('GET /charades/sessions/:id', () => {
 
     const asB = await request(app).get('/charades/sessions/s1').set(b.auth);
     expect(asB.status).toBe(404);
+  });
+});
+
+describe('the modified game mode', () => {
+  it('GET /charades/price defaults to classic and switches on ?mode=modified', async () => {
+    setModifiedGamePriceFils(2500);
+    const classic = await request(app).get('/charades/price');
+    expect(classic.body).toEqual({ fils: 1500, currency: 'KWD' });
+
+    const modified = await request(app).get('/charades/price?mode=modified');
+    expect(modified.body).toEqual({ fils: 2500, currency: 'KWD' });
+
+    // An unrecognised mode value falls back to classic rather than erroring.
+    const bogus = await request(app).get('/charades/price?mode=bogus');
+    expect(bogus.body).toEqual({ fils: 1500, currency: 'KWD' });
+  });
+
+  it('POST /charades/checkout charges the price of the requested mode', async () => {
+    setModifiedGamePriceFils(2500);
+    const { auth } = await makePlayerSession();
+    const checkout = await request(app).post('/charades/checkout').set(auth).send({ mode: 'modified' });
+    expect(checkout.body.amountFils).toBe(2500);
+  });
+
+  it('POST /charades/sessions deals three difficulty stacks instead of a flat title list', async () => {
+    seedDeck(12);
+    const { auth } = await makePlayerSession();
+    await buyOneCredit(auth);
+
+    const res = await request(app)
+      .post('/charades/sessions')
+      .set(auth)
+      .send({ sessionId: 'mod-1', mode: 'modified' });
+    expect(res.status).toBe(201);
+    expect(res.body.session.mode).toBe('modified');
+    expect(typeof res.body.session.rounds).toBe('number');
+    expect(res.body.session.stacks).toEqual(
+      expect.objectContaining({ easy: expect.any(Array), medium: expect.any(Array), hard: expect.any(Array) })
+    );
+    // Every dealt title carries the difficulty level its own stack represents.
+    for (const level of ['easy', 'medium', 'hard'] as const) {
+      for (const title of res.body.session.stacks[level]) {
+        expect(title.difficulty).toBe(level);
+      }
+    }
+  });
+
+  it('a classic session spends a free signup game before touching the paid wallet', async () => {
+    seedDeck(4);
+    const { auth, player } = await makePlayerSession();
+    grantSignupBonus(player.id);
+    expect(getPlayerById(player.id)?.freeClassicCredits).toBe(2);
+
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', mode: 'classic' });
+    expect(res.status).toBe(201);
+    expect(res.body.balance).toBe(0); // the paid wallet was never touched
+    expect(getPlayerById(player.id)?.freeClassicCredits).toBe(1);
+  });
+
+  it('a modified session never spends the classic-only free signup games — it requires a paid credit', async () => {
+    seedDeck(4);
+    const { auth, player } = await makePlayerSession();
+    grantSignupBonus(player.id);
+
+    const res = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', mode: 'modified' });
+    expect(res.status).toBe(402);
+    expect(getPlayerById(player.id)?.freeClassicCredits).toBe(2); // untouched
+
+    await buyOneCredit(auth);
+    const retried = await request(app).post('/charades/sessions').set(auth).send({ sessionId: 's1', mode: 'modified' });
+    expect(retried.status).toBe(201);
+    expect(getPlayerById(player.id)?.freeClassicCredits).toBe(2); // still untouched — the paid credit paid for it
+  });
+
+  it('GET /charades/wallet reports the free classic credits separately from the paid balance', async () => {
+    const { auth, player } = await makePlayerSession();
+    grantSignupBonus(player.id);
+    const wallet = await request(app).get('/charades/wallet').set(auth);
+    expect(wallet.body).toEqual({ balance: 0, freeClassicCredits: 2 });
   });
 });

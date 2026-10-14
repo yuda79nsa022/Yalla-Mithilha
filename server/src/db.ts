@@ -5,9 +5,12 @@ import fs from 'fs';
 import type {
   AdminUserRow,
   AuditLogRow,
+  DealtStacks,
   DealtTitle,
+  Difficulty,
   DeckRow,
   DeckWithTitles,
+  GameMode,
   GameSessionRow,
   HomeContent,
   Lang,
@@ -17,6 +20,7 @@ import type {
   RevealPayload,
   TitleRow,
 } from './types';
+import { DIFFICULTIES, effectiveDifficulty, isDifficulty } from './types';
 
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -32,6 +36,7 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 const DEFAULT_GAME_PRICE_FILS = 1500; // 1.500 KD, the admin's own starting price
+const DEFAULT_MODIFIED_GAME_PRICE_FILS = 1500; // 1.500 KD — same starting price as classic; the admin can set them apart independently
 
 // The home screen's own starting copy — what a fresh install shows before
 // any admin has edited it. Also what `resetDbForTests` restores between
@@ -263,13 +268,34 @@ ensureColumn('credit_transactions', 'game_session_id', 'game_session_id TEXT REF
 ensureColumn('decks', 'language', "language TEXT NOT NULL DEFAULT 'ar'");
 ensureColumn('decks', 'image_path', 'image_path TEXT');
 ensureColumn('titles', 'image_path', 'image_path TEXT');
+// The level a team picks each round in modified mode: a per-deck default,
+// optionally overridden per title — see `effectiveDifficulty` in types.ts.
+// Every deck that predates this is 'medium' until an admin says otherwise;
+// classic mode never reads either column.
+ensureColumn('decks', 'difficulty', "difficulty TEXT NOT NULL DEFAULT 'medium'");
+ensureColumn('titles', 'difficulty', 'difficulty TEXT');
+// Which rule set a session was played under — defaults every pre-existing
+// row to 'classic', which is correct: they were all dealt before modified
+// mode existed, as a flat title list (see rowToGameSession).
+ensureColumn('game_sessions', 'mode', "mode TEXT NOT NULL DEFAULT 'classic'");
+// The admin-set price of one modified-mode game, separate from
+// game_price_fils (classic). NULL until the one-time backfill below sets
+// it, so an upgrade never charges 0 fils for a modified game by accident.
+ensureColumn('settings', 'modified_game_price_fils', 'modified_game_price_fils INTEGER');
 ensureColumn('settings', 'home_tagline_ar', 'home_tagline_ar TEXT');
 ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
 ensureColumn('settings', 'home_writeup_ar', 'home_writeup_ar TEXT');
 ensureColumn('settings', 'home_writeup_en', 'home_writeup_en TEXT');
 ensureColumn('players', 'email', 'email TEXT');
+// Free classic-mode games left from the one-time signup grant — see
+// grantSignupBonus. A column, not a ledger entry: this isn't real money,
+// just an entitlement counter, and it only ever needs to go down.
+ensureColumn('players', 'free_classic_credits', 'free_classic_credits INTEGER NOT NULL DEFAULT 0');
 
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
+db.prepare('UPDATE settings SET modified_game_price_fils = COALESCE(modified_game_price_fils, ?) WHERE id = 1').run(
+  DEFAULT_MODIFIED_GAME_PRICE_FILS
+);
 // Bound params rather than a literal in the ALTER TABLE's own DEFAULT, so
 // the Arabic text and any apostrophes in the English text never need manual
 // SQL-escaping — only fills in a column that's still NULL, so this never
@@ -285,6 +311,7 @@ db.prepare(
 
 /* --------------------------------------------------------------- settings */
 
+/** The classic game's price, in fils. Kept under its original name/shape — only modified mode gets a new, separate price below. */
 export function getGamePriceFils(): number {
   const row = db.prepare('SELECT game_price_fils FROM settings WHERE id = 1').get() as { game_price_fils: number };
   return row.game_price_fils;
@@ -293,6 +320,24 @@ export function getGamePriceFils(): number {
 export function setGamePriceFils(fils: number): number {
   db.prepare('UPDATE settings SET game_price_fils = ? WHERE id = 1').run(fils);
   return getGamePriceFils();
+}
+
+/** The modified game's price, in fils — set independently of the classic price above. */
+export function getModifiedGamePriceFils(): number {
+  const row = db.prepare('SELECT modified_game_price_fils FROM settings WHERE id = 1').get() as {
+    modified_game_price_fils: number;
+  };
+  return row.modified_game_price_fils;
+}
+
+export function setModifiedGamePriceFils(fils: number): number {
+  db.prepare('UPDATE settings SET modified_game_price_fils = ? WHERE id = 1').run(fils);
+  return getModifiedGamePriceFils();
+}
+
+/** Either mode's price, by `mode` — what `createPayment`/`startGameSession` actually charge against. */
+export function getGamePriceFilsForMode(mode: GameMode): number {
+  return mode === 'modified' ? getModifiedGamePriceFils() : getGamePriceFils();
 }
 
 export function getHomeContent(): HomeContent {
@@ -334,6 +379,7 @@ function rowToDeck(r: any): DeckRow {
     nameAr: r.name_ar,
     nameEn: r.name_en,
     language: r.language as Lang,
+    difficulty: isDifficulty(r.difficulty) ? r.difficulty : 'medium',
     imagePath: r.image_path ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -346,6 +392,7 @@ function rowToTitle(r: any): TitleRow {
     deckId: r.deck_id,
     text: r.text,
     imagePath: r.image_path ?? null,
+    difficulty: isDifficulty(r.difficulty) ? r.difficulty : null,
     createdAt: r.created_at,
   };
 }
@@ -375,16 +422,19 @@ export interface CreateDeckInput {
   nameEn: string;
   /** Which player-language pool this deck's titles belong to. Defaults to 'ar' — every deck that predates this field really is Arabic content. */
   language?: Lang;
+  /** The default level of every title in the deck, for modified mode. Defaults to 'medium'. */
+  difficulty?: Difficulty;
 }
 
 export function createDeck(input: CreateDeckInput): DeckWithTitles {
   if (getDeck(input.id)) throw new DuplicateDeckError(`deck "${input.id}" already exists`);
   const now = Date.now();
   const language: Lang = input.language ?? 'ar';
+  const difficulty: Difficulty = input.difficulty ?? 'medium';
   db.prepare(
-    `INSERT INTO decks (id, name_ar, name_en, language, created_at, updated_at)
-     VALUES (@id, @nameAr, @nameEn, @language, @now, @now)`
-  ).run({ ...input, language, now });
+    `INSERT INTO decks (id, name_ar, name_en, language, difficulty, created_at, updated_at)
+     VALUES (@id, @nameAr, @nameEn, @language, @difficulty, @now, @now)`
+  ).run({ id: input.id, nameAr: input.nameAr, nameEn: input.nameEn, language, difficulty, now });
   return getDeck(input.id)!;
 }
 
@@ -392,6 +442,7 @@ export interface UpdateDeckInput {
   nameAr?: string;
   nameEn?: string;
   language?: Lang;
+  difficulty?: Difficulty;
   /** `null` clears the deck's picture; `undefined` (omitted) leaves it untouched — same convention as `updateTitle`. */
   imagePath?: string | null;
 }
@@ -401,7 +452,7 @@ export function updateDeck(id: string, input: UpdateDeckInput): DeckWithTitles {
   if (!existing) throw new DeckNotFoundError(`deck "${id}" not found`);
   const next = { ...existing, ...input, updatedAt: Date.now() };
   db.prepare(
-    'UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, language=@language, image_path=@imagePath, updated_at=@updatedAt WHERE id=@id'
+    'UPDATE decks SET name_ar=@nameAr, name_en=@nameEn, language=@language, difficulty=@difficulty, image_path=@imagePath, updated_at=@updatedAt WHERE id=@id'
   ).run(next);
   return getDeck(id)!;
 }
@@ -411,24 +462,35 @@ export function deleteDeck(id: string): void {
   if (result.changes === 0) throw new DeckNotFoundError(`deck "${id}" not found`);
 }
 
+/** A title to add, optionally with its own level override — a plain string means "no override, use the deck's default". */
+export type NewTitle = string | { text: string; difficulty?: Difficulty | null };
+
+function newTitleParts(raw: NewTitle): { text: string; difficulty: Difficulty | null } {
+  return typeof raw === 'string'
+    ? { text: raw.trim(), difficulty: null }
+    : { text: raw.text.trim(), difficulty: raw.difficulty ?? null };
+}
+
 /**
  * Appends titles to a deck, skipping exact (trimmed) duplicates already in
  * it — no fixed slot count to fill, unlike the old board-game import, so
  * every non-duplicate, non-empty line just gets added.
  */
-export function addTitlesToDeck(deckId: string, titles: string[]): { added: number; skipped: number } {
+export function addTitlesToDeck(deckId: string, titles: NewTitle[]): { added: number; skipped: number } {
   const deck = getDeck(deckId);
   if (!deck) throw new DeckNotFoundError(`deck "${deckId}" not found`);
 
   const existing = new Set(deck.titles.map((t) => t.text.trim()));
-  const stmt = db.prepare('INSERT INTO titles (id, deck_id, text, created_at) VALUES (@id, @deckId, @text, @now)');
+  const stmt = db.prepare(
+    'INSERT INTO titles (id, deck_id, text, difficulty, created_at) VALUES (@id, @deckId, @text, @difficulty, @now)'
+  );
   let added = 0;
   const tx = db.transaction(() => {
     for (const raw of titles) {
-      const text = raw.trim();
+      const { text, difficulty } = newTitleParts(raw);
       if (!text || existing.has(text)) continue;
       existing.add(text);
-      stmt.run({ id: crypto.randomUUID(), deckId, text, now: Date.now() });
+      stmt.run({ id: crypto.randomUUID(), deckId, text, difficulty, now: Date.now() });
       added++;
     }
     db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
@@ -442,6 +504,8 @@ export interface TitleWithImage {
   text: string;
   /** A servable path already written to disk (see routes/adminDecks.ts) — null when this row's image was missing or invalid. */
   imagePath: string | null;
+  /** An optional per-title level override from the manifest's third column. */
+  difficulty?: Difficulty | null;
 }
 
 /**
@@ -460,7 +524,7 @@ export function addTitlesToDeckWithImages(
 
   const existing = new Set(deck.titles.map((t) => t.text.trim()));
   const stmt = db.prepare(
-    'INSERT INTO titles (id, deck_id, text, image_path, created_at) VALUES (@id, @deckId, @text, @imagePath, @now)'
+    'INSERT INTO titles (id, deck_id, text, image_path, difficulty, created_at) VALUES (@id, @deckId, @text, @imagePath, @difficulty, @now)'
   );
   let added = 0;
   const tx = db.transaction(() => {
@@ -468,7 +532,14 @@ export function addTitlesToDeckWithImages(
       const text = row.text.trim();
       if (!text || existing.has(text)) continue;
       existing.add(text);
-      stmt.run({ id: crypto.randomUUID(), deckId, text, imagePath: row.imagePath, now: Date.now() });
+      stmt.run({
+        id: crypto.randomUUID(),
+        deckId,
+        text,
+        imagePath: row.imagePath,
+        difficulty: row.difficulty ?? null,
+        now: Date.now(),
+      });
       added++;
     }
     db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
@@ -487,6 +558,8 @@ export interface UpdateTitleInput {
   text?: string;
   /** `null` explicitly clears the picture; `undefined` (the default, when omitted) leaves it as-is. */
   imagePath?: string | null;
+  /** `null` clears the override (back to the deck's default); `undefined` leaves it as-is. */
+  difficulty?: Difficulty | null;
 }
 
 export function updateTitle(deckId: string, titleId: string, input: UpdateTitleInput): TitleRow {
@@ -497,8 +570,11 @@ export function updateTitle(deckId: string, titleId: string, input: UpdateTitleI
     deckId,
     text: input.text !== undefined ? input.text.trim() : existing.text,
     imagePath: input.imagePath !== undefined ? input.imagePath : existing.imagePath,
+    difficulty: input.difficulty !== undefined ? input.difficulty : existing.difficulty,
   };
-  db.prepare('UPDATE titles SET text=@text, image_path=@imagePath WHERE id=@id AND deck_id=@deckId').run(next);
+  db.prepare('UPDATE titles SET text=@text, image_path=@imagePath, difficulty=@difficulty WHERE id=@id AND deck_id=@deckId').run(
+    next
+  );
   db.prepare('UPDATE decks SET updated_at = ? WHERE id = ?').run(Date.now(), deckId);
   return getTitle(deckId, titleId)!;
 }
@@ -547,6 +623,7 @@ export function listPublicDecks(): PublicDeck[] {
       nameAr: d.nameAr,
       nameEn: d.nameEn,
       language: d.language,
+      difficulty: d.difficulty,
       imageUrl: d.imagePath ?? undefined,
       titleCount: counts.get(d.id) ?? 0,
     }))
@@ -666,6 +743,7 @@ function rowToPlayer(r: any): PlayerRowWithHash {
     username: r.username,
     passwordHash: r.password_hash,
     email: r.email ?? null,
+    freeClassicCredits: r.free_classic_credits ?? 0,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -836,9 +914,23 @@ function rowToPayment(r: any): PaymentRow {
 }
 
 function rowToGameSession(r: any): GameSessionRow {
+  const mode: GameMode = r.mode === 'modified' ? 'modified' : 'classic';
+  if (mode === 'modified') {
+    const { rounds, stacks } = JSON.parse(r.titles_json) as { rounds: number; stacks: DealtStacks };
+    return {
+      id: r.id,
+      playerId: r.player_id,
+      mode,
+      rounds,
+      stacks,
+      titles: [...stacks.easy, ...stacks.medium, ...stacks.hard],
+      createdAt: r.created_at,
+    };
+  }
   return {
     id: r.id,
     playerId: r.player_id,
+    mode,
     titles: JSON.parse(r.titles_json),
     createdAt: r.created_at,
   };
@@ -887,36 +979,33 @@ export function grantCredits(playerId: string, amount: number): void {
 }
 
 /**
- * One-time new-account bonus, in fils (1000 fils = 1 KD). Expressed as a
- * fixed KD value rather than a fixed number of credits: the number of games
- * it's worth is derived from whatever the admin currently charges per game
- * (see `signupBonusCredits`), so it keeps meaning "3.00 KD" even if that
- * price later changes, rather than silently over- or under-paying.
+ * One-time new-account bonus: this many classic-mode games, free, before
+ * any paid credit is touched (see `free_classic_credits` on the players
+ * table and `startGameSession`). Never applies to modified mode — a player
+ * who only ever wants modified games still has to pay for the first one.
  */
-const SIGNUP_BONUS_FILS = 3000; // 3.000 KD
-
-/** How many whole game credits the signup bonus is worth at today's price. Floors down, since the ledger only ever holds whole games. */
-export function signupBonusCredits(): number {
-  return Math.floor(SIGNUP_BONUS_FILS / getGamePriceFils());
-}
+const SIGNUP_FREE_CLASSIC_GAMES = 2;
 
 /**
  * Grants the one-time signup bonus. Only ever called once per account, right
  * after `createPlayer` in the `/players/register` route — nothing else
  * calls this, so there's no separate de-duplication to do here beyond that.
+ * A plain counter, not a `credit_transactions` grant: this is a classic-only
+ * entitlement, never fungible with the paid, either-mode wallet balance.
  */
 export function grantSignupBonus(playerId: string): number {
-  const amount = signupBonusCredits();
-  if (amount > 0) grantCredits(playerId, amount);
-  return amount;
+  db.prepare('UPDATE players SET free_classic_credits = ? WHERE id = ?').run(SIGNUP_FREE_CLASSIC_GAMES, playerId);
+  return SIGNUP_FREE_CLASSIC_GAMES;
 }
 
 export interface CreatePaymentInput {
   playerId: string;
   provider: string;
+  /** Which mode's price to charge — the resulting credit itself is still usable for either mode once granted (see `confirmPayment`). */
+  mode: GameMode;
 }
 
-/** Starts a checkout for exactly one game's worth of credit, at the current price. No credits exist yet — those are only ever created by `confirmPayment`. */
+/** Starts a checkout for exactly one game's worth of credit, at the given mode's current price. No credits exist yet — those are only ever created by `confirmPayment`. */
 export function createPayment(input: CreatePaymentInput): PaymentRow {
   const now = Date.now();
   const id = crypto.randomUUID();
@@ -926,7 +1015,7 @@ export function createPayment(input: CreatePaymentInput): PaymentRow {
   ).run({
     id,
     playerId: input.playerId,
-    amountFils: getGamePriceFils(),
+    amountFils: getGamePriceFilsForMode(input.mode),
     provider: input.provider,
     now,
   });
@@ -984,6 +1073,8 @@ function shuffled<T>(items: T[]): T[] {
 }
 
 const TITLES_PER_SESSION = 20;
+/** Rounds per modified-mode game — and so the most titles any one level's stack ever needs, since a team may pick the same level every round. */
+const ROUNDS_PER_SESSION = 20;
 
 /**
  * Deals up to `count` titles round-robin across every deck the player chose
@@ -992,7 +1083,8 @@ const TITLES_PER_SESSION = 20;
  * exhausted). Deduplicated by trimmed text so the same title text appearing
  * in two different decks still only ever occupies one slot in a session (see
  * "never repeated in the same game" on `startGameSession`). Which deck goes
- * first, and which title comes out of each deck, are both random.
+ * first, and which title comes out of each deck, are both random. Classic
+ * mode only — ignores every title's difficulty entirely.
  */
 function dealTitles(count: number, deckIds?: string[]): DealtTitle[] {
   const seenText = new Set<string>();
@@ -1028,28 +1120,85 @@ function dealTitles(count: number, deckIds?: string[]): DealtTitle[] {
 }
 
 /**
- * Spends one wallet credit to deal `sessionId` — the client's own locally
+ * Deals up to `count` titles into each level's stack, round-robin across
+ * every deck the player chose (`deckIds`), so two consecutive picks of the
+ * same level never share a category unless only one deck still has titles
+ * left at that level. Deduplicated by trimmed text across all three stacks,
+ * so the same title text appearing in two different decks (or at two
+ * levels) still only ever occupies one slot in a session. Which deck goes
+ * first, and which title comes out of each deck, are both random. A level
+ * no chosen deck has any titles at simply gets an empty stack — the app
+ * greys that choice out. Modified mode only.
+ */
+function dealStacks(count: number, deckIds?: string[]): DealtStacks {
+  const seenText = new Set<string>();
+  const decks = shuffled(listPlayableDecks(deckIds));
+  const stacks: DealtStacks = { easy: [], medium: [], hard: [] };
+
+  for (const level of DIFFICULTIES) {
+    let queues = decks
+      .map((deck) => {
+        const titles: DealtTitle[] = [];
+        for (const title of deck.titles) {
+          if (effectiveDifficulty(deck.difficulty, title) !== level) continue;
+          const text = title.text.trim();
+          if (seenText.has(text)) continue;
+          seenText.add(text);
+          titles.push({
+            id: title.id,
+            text: title.text,
+            deckId: deck.id,
+            deckNameAr: deck.nameAr,
+            deckNameEn: deck.nameEn,
+            imageUrl: title.imagePath ?? undefined,
+            difficulty: level,
+          });
+        }
+        return shuffled(titles);
+      })
+      .filter((titles) => titles.length > 0);
+
+    const dealt = stacks[level];
+    while (dealt.length < count && queues.length > 0) {
+      for (const queue of queues) {
+        if (dealt.length >= count) break;
+        dealt.push(queue.shift()!);
+      }
+      queues = queues.filter((queue) => queue.length > 0);
+    }
+  }
+  return stacks;
+}
+
+/**
+ * Spends one credit to deal `sessionId` — the client's own locally
  * generated id, created once at "start game" time. Idempotent by
  * construction: `game_sessions.id` is a primary key, so calling this again
  * with the same id (e.g. resuming after an app restart) returns the same
- * dealt titles and spends nothing further, rather than erroring or charging
- * twice.
+ * dealt session and spends nothing further, rather than erroring or
+ * charging twice.
  *
- * The player picks which decks to draw from, not individual titles: each of
- * the 20 titles is drawn at random from those decks combined, without
- * replacement, so no title repeats within the same session even across
- * decks — and dealt round-robin across decks, so consecutive rounds don't
- * share a category either (see `dealTitles`). Fewer than 20 titles exist
- * across the chosen decks combined? Deals all of it. `deckIds` is the
- * player's own explicit choice made alongside the team names when drafting;
- * omitted entirely (never an empty array — see `parseStartSessionBody`)
- * only for direct callers that predate per-deck selection (tests, scripts),
- * meaning every playable deck.
+ * `mode` picks the rule set: classic deals a flat 20 titles via
+ * `dealTitles`; modified deals three stacks via `dealStacks`, one per
+ * difficulty level, and the acting team picks a level each round. Either
+ * way, the player picks which decks to draw from, not individual titles,
+ * and nothing repeats within the same session even across decks.
+ *
+ * Spending itself differs by mode too: a classic session first draws down
+ * the account's free signup games (`free_classic_credits`, set once at
+ * registration — see `grantSignupBonus`) before ever touching the paid
+ * wallet balance; a modified session always spends a paid credit, since the
+ * free bonus is classic-only. Either way, `deckIds` is the player's own
+ * explicit choice made alongside the team names when drafting; omitted
+ * entirely (never an empty array — see `parseStartSessionBody`) only for
+ * direct callers that predate per-deck selection (tests, scripts), meaning
+ * every playable deck.
  */
 export function startGameSession(
   playerId: string,
   sessionId: string,
-  deckIds?: string[]
+  deckIds: string[] | undefined,
+  mode: GameMode
 ): { session: GameSessionRow; balance: number } {
   const existing = getGameSession(sessionId);
   if (existing) {
@@ -1057,26 +1206,46 @@ export function startGameSession(
     return { session: existing, balance: creditBalance(playerId) };
   }
 
-  const dealt = dealTitles(TITLES_PER_SESSION, deckIds);
-  if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
+  let titlesJson: string;
+  let firstDeckId: string;
+  if (mode === 'modified') {
+    const stacks = dealStacks(ROUNDS_PER_SESSION, deckIds);
+    const dealtCount = stacks.easy.length + stacks.medium.length + stacks.hard.length;
+    if (dealtCount === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
+    const rounds = Math.min(ROUNDS_PER_SESSION, dealtCount);
+    const firstDealt = stacks.easy[0] ?? stacks.medium[0] ?? stacks.hard[0];
+    titlesJson = JSON.stringify({ rounds, stacks });
+    firstDeckId = firstDealt.deckId;
+  } else {
+    const dealt = dealTitles(TITLES_PER_SESSION, deckIds);
+    if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
+    titlesJson = JSON.stringify(dealt);
+    firstDeckId = dealt[0].deckId;
+  }
 
   const tx = db.transaction(() => {
-    if (creditBalance(playerId) < 1) {
+    const player = getPlayerById(playerId)!;
+    const spendFreeClassicGame = mode === 'classic' && player.freeClassicCredits > 0;
+    if (spendFreeClassicGame) {
+      db.prepare('UPDATE players SET free_classic_credits = free_classic_credits - 1 WHERE id = ?').run(playerId);
+    } else if (creditBalance(playerId) < 1) {
       throw new InsufficientCreditsError('not enough credits to start a game — top up your wallet first');
     }
     const now = Date.now();
     db.prepare(
-      `INSERT INTO game_sessions (id, player_id, deck_id, titles_json, created_at)
-       VALUES (@id, @playerId, @deckId, @titlesJson, @now)`
+      `INSERT INTO game_sessions (id, player_id, deck_id, mode, titles_json, created_at)
+       VALUES (@id, @playerId, @deckId, @mode, @titlesJson, @now)`
       // `deck_id` is a schema leftover from when a session belonged to one
       // deck — kept NOT NULL, so it's set to whichever deck happened to
       // deal the first title. Never read back; `GameSessionRow` exposes no
       // such field now that a session spans every deck.
-    ).run({ id: sessionId, playerId, deckId: dealt[0].deckId, titlesJson: JSON.stringify(dealt), now });
-    db.prepare(
-      `INSERT INTO credit_transactions (id, player_id, kind, amount, game_session_id, created_at)
-       VALUES (@id, @playerId, 'consume', 1, @sessionId, @now)`
-    ).run({ id: crypto.randomUUID(), playerId, sessionId, now });
+    ).run({ id: sessionId, playerId, deckId: firstDeckId, mode, titlesJson, now });
+    if (!spendFreeClassicGame) {
+      db.prepare(
+        `INSERT INTO credit_transactions (id, player_id, kind, amount, game_session_id, created_at)
+         VALUES (@id, @playerId, 'consume', 1, @sessionId, @now)`
+      ).run({ id: crypto.randomUUID(), playerId, sessionId, now });
+    }
   });
   tx();
 

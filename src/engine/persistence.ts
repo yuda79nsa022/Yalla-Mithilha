@@ -1,5 +1,5 @@
-import { isCharadesComplete } from './charades';
-import type { CharadesState } from './charades';
+import { isCharadesComplete } from './game';
+import type { CharadesState } from './game';
 import type { Lang } from './types';
 
 /**
@@ -74,10 +74,13 @@ export async function loadCharades(store: KeyValueStore): Promise<CharadesState 
   try {
     const raw = await store.getItem(KEYS.charades);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as CharadesState;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (typeof parsed.id !== 'string' || !parsed.id) return null;
-    if (isCharadesComplete(parsed)) return null;
-    return parsed;
+    // Saved before `mode` existed — every such save was always the classic game.
+    if (!parsed.mode) parsed.mode = 'classic';
+    const state = parsed as unknown as CharadesState;
+    if (isCharadesComplete(state)) return null;
+    return state;
   } catch {
     return null;
   }

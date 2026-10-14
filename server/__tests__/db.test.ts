@@ -112,7 +112,7 @@ describe('deleteDeck', () => {
     addTitlesToDeck(sample.id, ['a', 'b', 'c']);
     const player = createPlayer({ username: 'played-here', passwordHash: 'hashed' });
     grantCredits(player.id, 1);
-    startGameSession(player.id, 'sess-for-delete-test');
+    startGameSession(player.id, 'sess-for-delete-test', undefined, 'classic');
 
     expect(() => deleteDeck(sample.id)).not.toThrow();
     expect(getDeck(sample.id)).toBeNull();

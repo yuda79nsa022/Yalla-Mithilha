@@ -82,13 +82,18 @@
           </div>
         </div>
         <div class="card">
-          <h3 style="margin-top:0">Game price</h3>
-          <p class="muted">What one game costs a player, deducted from their wallet once they start playing.</p>
+          <h3 style="margin-top:0">Game prices</h3>
+          <p class="muted">What one game costs a player, deducted from their wallet once they start playing — set separately for each game mode.</p>
           <div class="row">
-            <div class="field"><label>Price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
-            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveGamePriceBtn" class="secondary">Save price</button></div>
+            <div class="field"><label>Classic price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
+            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveGamePriceBtn" class="secondary">Save classic price</button></div>
           </div>
           <p id="gamePriceResult" class="muted"></p>
+          <div class="row">
+            <div class="field"><label>Modified price (KD)</label><input id="modifiedGamePriceInput" type="number" step="0.001" min="0.001" /></div>
+            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveModifiedGamePriceBtn" class="secondary">Save modified price</button></div>
+          </div>
+          <p id="modifiedGamePriceResult" class="muted"></p>
         </div>
         <div class="card">
           <h3 style="margin-top:0">Home page content</h3>
@@ -131,6 +136,14 @@
               <select id="dLanguage">
                 <option value="ar">Arabic — Kuwaiti, Khaleeji, Egyptian content</option>
                 <option value="en">English — Hollywood, American content</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Difficulty (modified mode only)</label>
+              <select id="dDifficulty">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
               </select>
             </div>
           </div>
@@ -355,13 +368,16 @@ function showAuditLogSection() {
 async function showDeckList() {
   $('deckEditView').classList.add('hidden');
   $('deckListView').classList.remove('hidden');
-  const [decks, price, homeContent] = await Promise.all([
+  const [decks, price, modifiedPrice, homeContent] = await Promise.all([
     api('/admin/decks'),
     api('/admin/settings/game-price'),
+    api('/admin/settings/modified-game-price'),
     api('/admin/settings/home-content'),
   ]);
   $('gamePriceInput').value = (price.fils / 1000).toFixed(3);
   $('gamePriceResult').textContent = '';
+  $('modifiedGamePriceInput').value = (modifiedPrice.fils / 1000).toFixed(3);
+  $('modifiedGamePriceResult').textContent = '';
   $('homeTaglineEn').value = homeContent.taglineEn;
   $('homeTaglineAr').value = homeContent.taglineAr;
   $('homeWriteupEn').value = homeContent.writeupEn;
@@ -395,6 +411,20 @@ async function saveGamePrice() {
   }
 }
 
+async function saveModifiedGamePrice() {
+  const kd = parseFloat($('modifiedGamePriceInput').value);
+  if (!Number.isFinite(kd) || kd <= 0) { alert('Enter a price greater than zero'); return; }
+  try {
+    const result = await api('/admin/settings/modified-game-price', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fils: Math.round(kd * 1000) }),
+    });
+    $('modifiedGamePriceInput').value = (result.fils / 1000).toFixed(3);
+    $('modifiedGamePriceResult').textContent = 'Saved.';
+  } catch (e) {
+    alert('Could not save price: ' + e.message);
+  }
+}
+
 async function saveHomeContent() {
   try {
     const result = await api('/admin/settings/home-content', {
@@ -418,7 +448,7 @@ async function saveHomeContent() {
 }
 
 function newDeckDraft() {
-  return { id: '', nameAr: '', nameEn: '', language: 'ar', titles: [] };
+  return { id: '', nameAr: '', nameEn: '', language: 'ar', difficulty: 'medium', titles: [] };
 }
 
 async function openDeck(id) {
@@ -437,6 +467,7 @@ function renderDeckEdit() {
   $('dNameAr').value = d.nameAr;
   $('dNameEn').value = d.nameEn;
   $('dLanguage').value = d.language;
+  $('dDifficulty').value = d.difficulty || 'medium';
   $('deleteDeckBtn').classList.toggle('hidden', !currentDeckId);
 
   $('deckImagePreview').src = d.imagePath || '';
@@ -491,6 +522,7 @@ async function saveDeck() {
     nameAr: $('dNameAr').value.trim(),
     nameEn: $('dNameEn').value.trim(),
     language: $('dLanguage').value,
+    difficulty: $('dDifficulty').value,
   };
   try {
     if (currentDeckId) {
@@ -794,7 +826,7 @@ function summarizeAuditEntry(entry) {
   if (entry.action === 'deck.import') {
     return `${entry.after.added} added, ${entry.after.skipped} skipped`;
   }
-  if (entry.action === 'settings.game-price.update') {
+  if (entry.action === 'settings.game-price.update' || entry.action === 'settings.modified-game-price.update') {
     return `${(entry.before.fils / 1000).toFixed(3)} KD -> ${(entry.after.fils / 1000).toFixed(3)} KD`;
   }
   if (entry.action.endsWith('.update') && entry.after && 'passwordChanged' in entry.after) {
@@ -841,6 +873,7 @@ $('navAdmins').addEventListener('click', showAdminsSection);
 $('navAuditLog').addEventListener('click', showAuditLogSection);
 $('newDeckBtn').addEventListener('click', () => openDeck(null));
 $('saveGamePriceBtn').addEventListener('click', saveGamePrice);
+$('saveModifiedGamePriceBtn').addEventListener('click', saveModifiedGamePrice);
 $('saveHomeContentBtn').addEventListener('click', saveHomeContent);
 $('deckBackLink').addEventListener('click', showDeckList);
 $('saveDeckBtn').addEventListener('click', saveDeck);

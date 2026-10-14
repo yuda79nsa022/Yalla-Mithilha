@@ -7,7 +7,7 @@ process.env.PLAYER_SESSION_SECRET = 'test-player-secret';
 
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { createPlayer, db, resetDbForTests, setGamePriceFils, signupBonusCredits } from '../src/db';
+import { createPlayer, db, getPlayerById, resetDbForTests } from '../src/db';
 import { hashPassword } from '../src/auth';
 import { resetCodeProvider } from '../src/notifications/resetCodeProvider';
 
@@ -63,18 +63,17 @@ describe('POST /players/register', () => {
     expect(res.status).toBe(400);
   });
 
-  it('credits the one-time signup bonus, worth 3.00 KD in games at the current price', async () => {
-    setGamePriceFils(1500); // 1.500 KD/game, so 3.00 KD is exactly 2 games
+  it('credits two free classic-mode games on signup, separate from the paid wallet', async () => {
     const register = await request(app)
       .post('/players/register')
       .send({ username: 'bonusplayer', password: 'password1234', email: 'bonusplayer@example.com' });
     expect(register.status).toBe(201);
+    expect(register.body.player.freeClassicCredits).toBe(2);
 
     const wallet = await request(app)
       .get('/charades/wallet')
       .set('Authorization', `Bearer ${register.body.token}`);
-    expect(wallet.body.balance).toBe(2);
-    expect(wallet.body.balance).toBe(signupBonusCredits());
+    expect(wallet.body.balance).toBe(0);
   });
 
   it('never re-grants the bonus on login, only on registration', async () => {
@@ -83,10 +82,7 @@ describe('POST /players/register', () => {
       .send({ username: 'onceonly', password: 'password1234', email: 'onceonly@example.com' });
 
     await request(app).post('/players/login').send({ username: 'onceonly', password: 'password1234' });
-    const wallet = await request(app)
-      .get('/charades/wallet')
-      .set('Authorization', `Bearer ${register.body.token}`);
-    expect(wallet.body.balance).toBe(signupBonusCredits());
+    expect(getPlayerById(register.body.player.id)?.freeClassicCredits).toBe(2);
   });
 
   it('a player token does not work as an admin session', async () => {

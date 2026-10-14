@@ -17,12 +17,50 @@ export interface PlayerRow {
   username: string;
   /** Optional — collected at signup so a forgotten password can be reset. `null` for accounts created before this existed, or that never gave one. */
   email: string | null;
+  /** Free classic-mode games left from the one-time signup grant (starts at 2) — spent before any paid credit, and only ever for a classic session. Modified-mode sessions always spend a paid credit. */
+  freeClassicCredits: number;
   createdAt: number;
   updatedAt: number;
 }
 
 /** The app's own UI language — text direction and which strings are shown. Independent of which decks a session deals from (the player's own choice — see `startGameSession`). */
 export type Lang = 'ar' | 'en';
+
+/** Which rule set a session is played under — see `startGameSession` and the client's two engines (`src/engine/charades.ts` and `src/engine/modifiedCharades.ts`). */
+export type GameMode = 'classic' | 'modified';
+export const GAME_MODES: readonly GameMode[] = ['classic', 'modified'];
+export function isGameMode(value: unknown): value is GameMode {
+  return value === 'classic' || value === 'modified';
+}
+
+/**
+ * How hard a title is to act — only meaningful in modified mode, where the
+ * acting team picks a level each round and it decides the points on offer
+ * (see the client's modified engine). A deck carries a default for every
+ * title in it; a single title may override that; and a long title (over
+ * `LONG_TITLE_WORDS` words) is automatically bumped one level up from its
+ * deck's default, since length makes a title hard to act regardless of how
+ * famous it is — see `effectiveDifficulty`. Classic mode ignores this
+ * entirely; decks are shared between both modes.
+ */
+export type Difficulty = 'easy' | 'medium' | 'hard';
+export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
+export const LONG_TITLE_WORDS = 4;
+
+export function isDifficulty(value: unknown): value is Difficulty {
+  return value === 'easy' || value === 'medium' || value === 'hard';
+}
+
+function bumpDifficulty(d: Difficulty): Difficulty {
+  return d === 'easy' ? 'medium' : 'hard';
+}
+
+/** A title's own override wins; otherwise its deck's default, bumped one level for a long title. */
+export function effectiveDifficulty(deckDefault: Difficulty, title: { text: string; difficulty: Difficulty | null }): Difficulty {
+  if (title.difficulty) return title.difficulty;
+  const words = title.text.trim().split(/\s+/).filter(Boolean).length;
+  return words > LONG_TITLE_WORDS ? bumpDifficulty(deckDefault) : deckDefault;
+}
 
 /**
  * A charades deck: a named, unlimited-size pool of titles (movies, series,
@@ -43,6 +81,8 @@ export interface DeckRow {
   nameAr: string;
   nameEn: string;
   language: Lang;
+  /** The default level of every title in this deck when played in modified mode — see `Difficulty`. Decks created before this existed default to 'medium'. Classic mode ignores it. */
+  difficulty: Difficulty;
   /** A servable path (e.g. `/title-images/<uuid>.png`), or null when this deck has no icon/cover picture. Shown next to the deck on the player's deck picker. */
   imagePath: string | null;
   createdAt: number;
@@ -55,6 +95,8 @@ export interface TitleRow {
   text: string;
   /** A servable path (e.g. `/title-images/<uuid>.png`), or null when this title has no picture. Optional — most titles never need one. */
   imagePath: string | null;
+  /** A per-title override of the deck's default level, or null (the usual case) to use the deck's — see `effectiveDifficulty`. Classic mode ignores it. */
+  difficulty: Difficulty | null;
   createdAt: number;
 }
 
@@ -68,6 +110,7 @@ export interface PublicDeck {
   nameAr: string;
   nameEn: string;
   language: Lang;
+  difficulty: Difficulty;
   /** A servable path relative to the API origin — absent when this deck has no icon/cover picture. */
   imageUrl?: string;
   titleCount: number;
@@ -106,18 +149,32 @@ export interface DealtTitle {
   deckNameEn: string;
   /** A servable path (e.g. `/title-images/<uuid>.png`), relative to the API origin — absent when this title has no picture. */
   imageUrl?: string;
+  /** The level this title was dealt into — only present for a modified-mode session; see `effectiveDifficulty`. */
+  difficulty?: Difficulty;
 }
 
+/** One stack per level, each dealt top-first — a modified-mode session's deal; the acting team picks a level each round and takes that stack's next title. */
+export type DealtStacks = Record<Difficulty, DealtTitle[]>;
+
 /**
- * One purchased charades session: 20 titles dealt at random across whichever
- * decks the player chose before checkout (see `startGameSession`) the moment
- * a wallet credit was spent. Its id is client-generated (the same pattern
- * the old board game used) so resuming after an app restart replays the
- * same id and never spends a second credit.
+ * One purchased charades session. A classic-mode session deals up to
+ * `CLASSIC_ROUNDS_PER_SESSION` titles at random across whichever decks the
+ * player chose (`titles`, `rounds` absent). A modified-mode session instead
+ * deals three stacks — one per difficulty level — and `rounds` is the most
+ * any one stack holds; `titles` is still populated as that same deal
+ * flattened, for callers that only need "what was dealt". Its id is
+ * client-generated (the same pattern the old board game used) so resuming
+ * after an app restart replays the same id and never spends a second
+ * credit.
  */
 export interface GameSessionRow {
   id: string;
   playerId: string;
+  mode: GameMode;
+  /** Only set for a modified-mode session — how many rounds the game lasts. */
+  rounds?: number;
+  /** Only set for a modified-mode session. */
+  stacks?: DealtStacks;
   titles: DealtTitle[];
   createdAt: number;
 }

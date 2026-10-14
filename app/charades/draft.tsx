@@ -1,18 +1,56 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, CategoryTile, Divider, Screen, Spacer, T } from '../../src/ui/components';
 import { Hero } from '../../src/ui/Hero';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { goBack } from '../../src/platform/navigation';
 import { CATALOGUE_API_URL } from '../../src/config';
+import type { GameMode } from '../../src/engine/game';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
+
+function ModePicker({ mode, onChange }: { mode: GameMode; onChange: (mode: GameMode) => void }) {
+  const { t } = useApp();
+  const options: { value: GameMode; title: string; desc: string }[] = [
+    { value: 'classic', title: t('charades.draft.modeClassic'), desc: t('charades.draft.modeClassicDesc') },
+    { value: 'modified', title: t('charades.draft.modeModified'), desc: t('charades.draft.modeModifiedDesc') },
+  ];
+  return (
+    <View style={styles.modeRow}>
+      {options.map((opt) => {
+        const selected = mode === opt.value;
+        return (
+          <Pressable
+            key={opt.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={opt.title}
+            onPress={() => onChange(opt.value)}
+            style={({ pressed }) => [
+              styles.modeCard,
+              { borderColor: colors.ink, backgroundColor: selected ? colors.purple : colors.white },
+              pressed && styles.pressed,
+            ]}
+          >
+            <T style={{ fontFamily: fonts.displayBlack, fontSize: 18, color: selected ? colors.white : colors.ink }}>
+              {opt.title}
+            </T>
+            <T variant="label" style={{ fontSize: 11 }} color={selected ? colors.white : colors.neutral700}>
+              {opt.desc}
+            </T>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function CharadesDraft() {
   const { t, lang, startCharadesDraft } = useApp();
   const [teamAName, setTeamAName] = useState('');
   const [teamBName, setTeamBName] = useState('');
+  const [mode, setMode] = useState<GameMode>('classic');
   const [decks, setDecks] = useState<PlayableDeck[] | null>(null);
   const [decksError, setDecksError] = useState(false);
   const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>([]);
@@ -41,7 +79,7 @@ export default function CharadesDraft() {
 
   const confirmDraft = () => {
     if (!canConfirm) return;
-    startCharadesDraft(teamAName.trim(), teamBName.trim(), selectedDeckIds);
+    startCharadesDraft(teamAName.trim(), teamBName.trim(), selectedDeckIds, mode);
     router.push('/charades/checkout');
   };
 
@@ -63,6 +101,13 @@ export default function CharadesDraft() {
         <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
           {t('charades.draft.subtitle')}
         </T>
+        <Spacer size={spacing.lg} />
+
+        <T variant="heading" style={{ fontSize: 18 }}>
+          {t('charades.draft.modeTitle')}
+        </T>
+        <Spacer size={spacing.sm} />
+        <ModePicker mode={mode} onChange={setMode} />
         <Spacer size={spacing.lg} />
 
         <View style={styles.teamRow}>
@@ -146,6 +191,9 @@ export default function CharadesDraft() {
 }
 
 const styles = StyleSheet.create({
+  modeRow: { flexDirection: 'row', gap: 10 },
+  modeCard: { flex: 1, borderWidth: 2, padding: 12, gap: 4 },
+  pressed: { opacity: 0.72 },
   teamRow: { flexDirection: 'row', alignItems: 'stretch', borderWidth: 2, borderColor: colors.ink },
   teamPanel: { flex: 1, padding: 14, gap: 6, justifyContent: 'center' },
   vsStrip: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: colors.ink },
