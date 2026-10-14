@@ -25,7 +25,6 @@ import {
   hardShadow,
   hardShadowPressed,
   onAccent,
-  radius,
   spacing,
   type,
 } from '../theme';
