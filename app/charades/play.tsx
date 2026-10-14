@@ -922,7 +922,7 @@ function ModifiedPlayScreen() {
     updateCharades(adjustModifiedScore(charades, team, delta));
   };
 
-  const useAssist = (kind: AssistKind) => {
+  const applyAssist = (kind: AssistKind) => {
     if (!assistAvailable(charades, teamIndex, kind)) return;
     updateCharades(consumeAssist(charades, teamIndex, kind));
     if (kind === 'extraTime') setTimeLeft((t) => t + ASSIST_EXTRA_SECONDS);
@@ -945,7 +945,7 @@ function ModifiedPlayScreen() {
             accessibilityRole="button"
             accessibilityLabel={label}
             disabled={!available}
-            onPress={() => useAssist(kind)}
+            onPress={() => applyAssist(kind)}
             style={({ pressed }) => [styles.assistButton, pressed && styles.pressed, !available && styles.disabled]}
           >
             <T variant="label" style={{ fontSize: 11 }} numberOfLines={1}>
