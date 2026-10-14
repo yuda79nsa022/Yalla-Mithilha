@@ -55,3 +55,18 @@ export const passwordResetConfirmLimiter = rateLimit({
   skip,
   message: { error: 'too many attempts, try again later' },
 });
+
+/**
+ * The payment gateway's public return redirect and webhook. Each request
+ * makes one authenticated call out to the gateway, so an unthrottled flood
+ * would burn through the gateway's own API rate limit; this is far above
+ * what real payments (or the gateway's webhook retries) ever need.
+ */
+export const paymentGatewayLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip,
+  message: { error: 'too many requests, try again later' },
+});

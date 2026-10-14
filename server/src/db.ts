@@ -294,6 +294,11 @@ ensureColumn('players', 'email', 'email TEXT');
 // already-issued token valid for the rest of its 12 hours.
 ensureColumn('players', 'session_version', 'session_version INTEGER NOT NULL DEFAULT 0');
 ensureColumn('admin_users', 'session_version', 'session_version INTEGER NOT NULL DEFAULT 0');
+// The payment gateway's own id for this payment (MyFatoorah's InvoiceId),
+// set once checkout creates it there. A gateway callback or webhook is only
+// ever applied to the payment whose provider_ref matches — see
+// payments/settle.ts. NULL for the mock provider, which has no such id.
+ensureColumn('payments', 'provider_ref', 'provider_ref TEXT');
 // Free games left from the one-time signup grant, spendable on either mode —
 // see grantSignupBonus. A column, not a ledger entry: this isn't real money,
 // just an entitlement counter, and it only ever needs to go down. It was
@@ -316,6 +321,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_credit_transactions_payment ON credit_transactions(payment_id);
   CREATE INDEX IF NOT EXISTS idx_credit_transactions_session ON credit_transactions(game_session_id);
   CREATE INDEX IF NOT EXISTS idx_payments_player ON payments(player_id);
+  CREATE INDEX IF NOT EXISTS idx_payments_provider_ref ON payments(provider_ref);
   CREATE INDEX IF NOT EXISTS idx_game_sessions_player ON game_sessions(player_id);
   CREATE INDEX IF NOT EXISTS idx_game_sessions_deck ON game_sessions(deck_id);
   CREATE INDEX IF NOT EXISTS idx_reveal_tokens_session ON reveal_tokens(game_session_id);
@@ -997,6 +1003,7 @@ function rowToPayment(r: any): PaymentRow {
     amountFils: r.amount_fils,
     currency: r.currency,
     provider: r.provider,
+    providerRef: r.provider_ref ?? null,
     status: r.status,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -1141,6 +1148,15 @@ export function confirmPayment(paymentId: string): { payment: PaymentRow; balanc
   tx.immediate();
 
   return { payment: getPayment(paymentId)!, balance: creditBalance(payment.playerId) };
+}
+
+/** Records the gateway's own id for a payment once checkout has created it there. Set once; never overwritten. */
+export function setPaymentProviderRef(paymentId: string, providerRef: string): void {
+  db.prepare('UPDATE payments SET provider_ref = ?, updated_at = ? WHERE id = ? AND provider_ref IS NULL').run(
+    providerRef,
+    Date.now(),
+    paymentId
+  );
 }
 
 /** Also idempotent, via the same conditional-UPDATE lock — no credits are ever issued for a failed payment. */

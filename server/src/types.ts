@@ -130,6 +130,8 @@ export interface PaymentRow {
   amountFils: number;
   currency: string;
   provider: string;
+  /** The gateway's own id for this payment (MyFatoorah's InvoiceId); `null` for the mock provider. */
+  providerRef: string | null;
   status: PaymentStatus;
   createdAt: number;
   updatedAt: number;

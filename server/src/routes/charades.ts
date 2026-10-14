@@ -1,9 +1,11 @@
-import { Router } from 'express';
-import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFilsForMode, getGameSession, getHomeContent, getPayment, getPlayerById, listPublicDecks, startGameSession } from '../db';
+import { Router, type Response } from 'express';
+import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFilsForMode, getGameSession, getHomeContent, getPayment, getPlayerById, listPublicDecks, setPaymentProviderRef, startGameSession } from '../db';
 import { isGameMode, type GameMode } from '../types';
 import { requirePlayerSession } from '../auth';
 import { handleError } from '../errors';
-import { paymentProvider } from '../payments/provider';
+import { getPaymentProvider } from '../payments/provider';
+import { settleFromProvider } from '../payments/settle';
+import { paymentGatewayLimiter } from '../rateLimit';
 import { parseCreateRevealTokenBody, parseStartSessionBody } from '../validate';
 
 export const charadesRouter = Router();
@@ -63,32 +65,57 @@ charadesRouter.get('/wallet', requirePlayerSession, (req, res) => {
 
 charadesRouter.post('/checkout', requirePlayerSession, async (req, res) => {
   try {
-    const mode = modeFromQuery((req.body as Record<string, unknown> | undefined)?.mode);
-    const payment = createPayment({ playerId: req.player!.sub, provider: paymentProvider.name, mode });
-    const { redirectUrl } = await paymentProvider.createCheckout({
-      paymentId: payment.id,
-      amountFils: payment.amountFils,
-      currency: payment.currency,
-    });
-    res.status(201).json({ ...payment, redirectUrl });
+    const body = (req.body as Record<string, unknown> | undefined) ?? {};
+    const mode = modeFromQuery(body.mode);
+    const provider = getPaymentProvider();
+    const payment = createPayment({ playerId: req.player!.sub, provider: provider.name, mode });
+    let checkout: { redirectUrl?: string; providerRef?: string };
+    try {
+      checkout = await provider.createCheckout({
+        paymentId: payment.id,
+        amountFils: payment.amountFils,
+        currency: payment.currency,
+        customerName: req.player!.username,
+        language: body.language === 'en' ? 'en' : 'ar',
+      });
+    } catch (err) {
+      // The gateway never created anything to pay, so this payment can't succeed.
+      failPayment(payment.id);
+      throw err;
+    }
+    if (checkout.providerRef) setPaymentProviderRef(payment.id, checkout.providerRef);
+    res.status(201).json({ ...getPayment(payment.id)!, redirectUrl: checkout.redirectUrl });
   } catch (err) {
     handleError(err, res);
   }
 });
 
+/** The player's own payment, or a 404 — never someone else's. */
+function ownPayment(paymentId: string, playerId: string) {
+  const payment = getPayment(paymentId);
+  if (!payment || payment.playerId !== playerId) throw new PaymentNotFoundError(`payment "${paymentId}" not found`);
+  return payment;
+}
+
 /**
- * Simulates a payment provider's success callback. A real integration
- * replaces this with a signature-verified webhook the provider calls
- * server-to-server — see the note on PaymentProvider — but the ownership
- * check and the idempotent grant inside `confirmPayment` are the same
- * either way.
+ * The mock provider's stand-ins for a gateway's success/failure callback,
+ * called by the checkout screen itself. Switched off with a real gateway:
+ * there, only the gateway's own answer (see payments/settle.ts) may ever
+ * mark a payment paid — or failed, which would stop a real, later-arriving
+ * success from crediting it.
  */
+function requireMockProvider(res: Response): boolean {
+  if (getPaymentProvider().redirects) {
+    res.status(403).json({ error: 'payments are confirmed by the payment gateway' });
+    return false;
+  }
+  return true;
+}
+
 charadesRouter.post('/checkout/:paymentId/confirm', requirePlayerSession, (req, res) => {
   try {
-    const existing = getPayment(req.params.paymentId);
-    if (!existing || existing.playerId !== req.player!.sub) {
-      throw new PaymentNotFoundError(`payment "${req.params.paymentId}" not found`);
-    }
+    if (!requireMockProvider(res)) return;
+    ownPayment(req.params.paymentId, req.player!.sub);
     const { payment, balance } = confirmPayment(req.params.paymentId);
     res.json({ payment, balance });
   } catch (err) {
@@ -98,13 +125,79 @@ charadesRouter.post('/checkout/:paymentId/confirm', requirePlayerSession, (req, 
 
 charadesRouter.post('/checkout/:paymentId/fail', requirePlayerSession, (req, res) => {
   try {
-    const existing = getPayment(req.params.paymentId);
-    if (!existing || existing.playerId !== req.player!.sub) {
-      throw new PaymentNotFoundError(`payment "${req.params.paymentId}" not found`);
-    }
+    if (!requireMockProvider(res)) return;
+    ownPayment(req.params.paymentId, req.player!.sub);
     res.json(failPayment(req.params.paymentId));
   } catch (err) {
     handleError(err, res);
+  }
+});
+
+/**
+ * "Check again": asks the gateway for one of the player's own payments and
+ * applies its answer. The app calls this when the player comes back from the
+ * gateway's page, so a credit lands even if the return redirect or the
+ * webhook got lost. Harmless to call any number of times.
+ */
+charadesRouter.post('/checkout/:paymentId/refresh', requirePlayerSession, async (req, res) => {
+  try {
+    const payment = ownPayment(req.params.paymentId, req.player!.sub);
+    let current = payment;
+    if (payment.status === 'initiated' && payment.providerRef) {
+      current = (await settleFromProvider({ invoiceId: payment.providerRef })).payment ?? payment;
+    }
+    res.json({ payment: current, balance: creditBalance(req.player!.sub) });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+/** MyFatoorah's ids are numeric; anything else in these public routes is rejected before any outbound call. */
+const GATEWAY_ID = /^[0-9]{1,30}$/;
+
+/**
+ * Where MyFatoorah sends the player's browser back to, success or failure,
+ * with `?paymentId=…`. Public — the browser carries no session here — and
+ * nothing in the URL is trusted: the id is only used to ask MyFatoorah.
+ * Ends with a redirect into the app's checkout screen, which shows the
+ * result.
+ */
+charadesRouter.get('/checkout/myfatoorah/return', paymentGatewayLimiter, async (req, res) => {
+  const gatewayPaymentId = typeof req.query.paymentId === 'string' ? req.query.paymentId : '';
+  let target = '/charades/checkout?result=error';
+  if (GATEWAY_ID.test(gatewayPaymentId)) {
+    try {
+      const { payment, outcome } = await settleFromProvider({ paymentId: gatewayPaymentId });
+      if (payment) target = `/charades/checkout?payment=${encodeURIComponent(payment.id)}&result=${outcome}`;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('payment return: gateway lookup failed', err);
+    }
+  }
+  res.redirect(303, target);
+});
+
+/**
+ * MyFatoorah's server-to-server notification — a backup for a player who
+ * closes the tab before the return redirect. Only the invoice id is read
+ * from it (from either webhook version's shape), and only to ask MyFatoorah;
+ * the payload itself is never trusted, so a forged one can't credit anything.
+ * A failed lookup answers 500 so MyFatoorah retries later.
+ */
+charadesRouter.post('/checkout/myfatoorah/webhook', paymentGatewayLimiter, async (req, res) => {
+  const data = (req.body as { Data?: { InvoiceId?: unknown; Invoice?: { Id?: unknown } } } | undefined)?.Data;
+  const invoiceId = String(data?.InvoiceId ?? data?.Invoice?.Id ?? '');
+  if (!GATEWAY_ID.test(invoiceId)) {
+    res.status(400).json({ error: 'no invoice id' });
+    return;
+  }
+  try {
+    await settleFromProvider({ invoiceId });
+    res.json({ ok: true });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('payment webhook: gateway lookup failed', err);
+    res.status(500).json({ error: 'could not verify the payment yet' });
   }
 });
 
