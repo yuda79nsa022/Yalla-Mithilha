@@ -6,7 +6,6 @@ import { Hero } from '../../src/ui/Hero';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { goBack } from '../../src/platform/navigation';
-import { CATALOGUE_API_URL } from '../../src/config';
 import type { GameMode } from '../../src/engine/game';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
 

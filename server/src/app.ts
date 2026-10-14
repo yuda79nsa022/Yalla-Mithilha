@@ -25,6 +25,13 @@ const PLAYER_APP_DIR = path.join(__dirname, '..', 'public-player');
 
 export function createApp(): express.Express {
   const app = express();
+  // nginx terminates TLS on the same host and proxies to this process, so
+  // without this every request's `req.ip` would be nginx's own 127.0.0.1 —
+  // and the rate limiters (keyed by IP) would share one budget across every
+  // player. 'loopback' trusts X-Forwarded-For only when the connection
+  // itself comes from 127.0.0.1/::1 (nginx), never from a client reaching
+  // the port directly, so a client can't spoof its way around the limiters.
+  app.set('trust proxy', 'loopback');
   // contentSecurityPolicy is off for now: the admin tool (public/index.html)
   // is a single inline <script>, which a default CSP would block outright.
   // crossOriginResourcePolicy is off because /charades and /players are

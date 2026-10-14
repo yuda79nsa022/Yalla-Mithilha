@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import React from 'react';
 import { Button, Divider, Screen, Spacer, T } from '../src/ui/components';
 import { Hero } from '../src/ui/Hero';
