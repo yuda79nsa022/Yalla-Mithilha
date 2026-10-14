@@ -45,7 +45,7 @@ export const en: Record<TranslationKey, string> = {
   'home.catSeries': 'Series',
 
   'charades.draft.title': 'Set up your game',
-  'charades.draft.subtitle': 'Two teams, twenty rounds between them — the server picks a random category and title each round',
+  'charades.draft.subtitle': 'Two teams — the server deals a random category and title each round',
   'charades.draft.teamAName': 'Team A name',
   'charades.draft.teamBName': 'Team B name',
   'charades.draft.teamALabel': 'Team 1',
@@ -53,7 +53,7 @@ export const en: Record<TranslationKey, string> = {
   'charades.draft.confirm': 'Continue to checkout',
 
   'charades.checkout.title': 'Start the game',
-  'charades.checkout.subtitle': 'One payment plays twenty rounds, random categories and titles from every deck',
+  'charades.checkout.subtitle': 'One payment plays a full game — random categories and titles from every deck you chose',
   'charades.checkout.walletBalance': '{{count}} games in your wallet',
   'charades.checkout.price': 'One game — {{price}}',
   'charades.checkout.devNotice':

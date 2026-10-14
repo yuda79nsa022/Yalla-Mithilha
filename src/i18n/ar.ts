@@ -49,7 +49,7 @@ export const ar = {
   'home.catSeries': 'مسلسلات',
 
   'charades.draft.title': 'جهّزوا لعبتكم',
-  'charades.draft.subtitle': 'فريقين، عشرين جولة بينهم — السيرفر يختار الفئة والعنوان عشوائي كل جولة',
+  'charades.draft.subtitle': 'فريقين — السيرفر يختار الفئة والعنوان عشوائي كل جولة',
   'charades.draft.teamAName': 'اسم الفريق الأول',
   'charades.draft.teamBName': 'اسم الفريق الثاني',
   'charades.draft.teamALabel': 'الفريق الأول',
@@ -57,7 +57,7 @@ export const ar = {
   'charades.draft.confirm': 'كمّل للدفع',
 
   'charades.checkout.title': 'ابدأوا اللعبة',
-  'charades.checkout.subtitle': 'دفعة وحدة تشغّل عشرين جولة، فئات وعناوين عشوائية من كل المجموعات',
+  'charades.checkout.subtitle': 'دفعة وحدة تشغّل لعبة كاملة — فئات وعناوين عشوائية من كل مجموعة اخترتوها',
   'charades.checkout.walletBalance': 'عندك {{count}} لعبة برصيدك',
   'charades.checkout.price': 'لعبة وحدة — {{price}}',
   'charades.checkout.devNotice':

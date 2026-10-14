@@ -112,7 +112,7 @@
         <div class="card">
           <table>
             <thead>
-              <tr><th>ID</th><th>Name</th><th>Language</th><th>Titles</th><th></th></tr>
+              <tr><th>ID</th><th>Name</th><th>Language</th><th>Difficulty</th><th>Titles</th><th></th></tr>
             </thead>
             <tbody id="deckRows"></tbody>
           </table>
@@ -139,12 +139,13 @@
               </select>
             </div>
             <div class="field">
-              <label>Difficulty (modified mode only)</label>
+              <label>Difficulty (default for every title in this deck — modified mode only)</label>
               <select id="dDifficulty">
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
+                <option value="easy">Easy — 1 point (everyday words, things everyone knows)</option>
+                <option value="medium">Medium — 3 points (recent series and films)</option>
+                <option value="hard">Hard — 5 points (classics, long or obscure titles)</option>
               </select>
+              <p class="muted" style="margin:6px 0 0">A title over four words is bumped one level up automatically. A single title can override this via its own edit form, or an "easy / medium / hard" column when importing.</p>
             </div>
           </div>
           <div class="row">
@@ -176,7 +177,7 @@
 
         <div class="card">
           <h3 style="margin-top:0">Import titles</h3>
-          <p class="muted">Upload a .docx, .xlsx or .pdf list of names — every non-duplicate title is added to this deck directly. No size limit, so the whole list goes in at once.</p>
+          <p class="muted">Upload a .docx, .xlsx or .pdf list of names — every non-duplicate title is added to this deck directly. No size limit, so the whole list goes in at once. In a .docx or .xlsx table, a cell that reads "easy"/"medium"/"hard" (or "سهل"/"متوسط"/"صعب") sets that row's own difficulty, overriding the deck's default for that one title.</p>
           <input id="importFile" type="file" accept=".docx,.xlsx,.pdf" />
           <button id="importBtn" class="secondary">Import</button>
           <p id="importResult" class="muted"></p>
@@ -184,7 +185,7 @@
 
         <div class="card">
           <h3 style="margin-top:0">Import titles with pictures</h3>
-          <p class="muted">Two files: a .xlsx with two columns (title, image filename — row 1 is a header and is skipped), and a .zip containing those image files (.png/.jpg/.webp, 5 MB max each). Titles are matched to pictures by filename; a title whose filename isn't found still gets added, just without a picture.</p>
+          <p class="muted">Two files: a .xlsx with two or three columns (title, image filename, optional difficulty — row 1 is a header and is skipped), and a .zip containing those image files (.png/.jpg/.webp, 5 MB max each). Titles are matched to pictures by filename; a title whose filename isn't found still gets added, just without a picture. A third-column value of "easy"/"medium"/"hard" (or the Arabic equivalent) sets that title's own difficulty.</p>
           <div class="row">
             <div class="field"><label>Manifest (.xlsx)</label><input id="imageManifestFile" type="file" accept=".xlsx" /></div>
             <div class="field"><label>Images (.zip)</label><input id="imageZipFile" type="file" accept=".zip" /></div>
@@ -388,10 +389,11 @@ async function showDeckList() {
       <td>${escapeHtml(d.id)}</td>
       <td>${escapeHtml(d.nameEn)} <span class="muted">/ ${escapeHtml(d.nameAr)}</span></td>
       <td>${d.language === 'en' ? 'English' : 'Arabic'}</td>
+      <td>${escapeHtml(d.difficulty || 'medium')}</td>
       <td>${d.titles.length}</td>
       <td><button class="secondary" data-open="${escapeHtml(d.id)}">Open</button></td>
     </tr>`).join('');
-  $('deckRows').innerHTML = rows || '<tr><td colspan="5" class="muted">No decks yet.</td></tr>';
+  $('deckRows').innerHTML = rows || '<tr><td colspan="6" class="muted">No decks yet.</td></tr>';
   $('deckRows').querySelectorAll('[data-open]').forEach((btn) => {
     btn.addEventListener('click', () => openDeck(btn.dataset.open));
   });
@@ -496,6 +498,12 @@ function renderDeckEdit() {
       <img src="${t.imagePath ? escapeHtml(t.imagePath) : ''}" alt=""
         style="width:40px;height:40px;object-fit:cover;border-radius:0;background:#E4E2E2;flex:0 0 auto;${t.imagePath ? '' : 'visibility:hidden'}" />
       <input dir="rtl" style="flex:1;min-width:120px" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" />
+      <select data-title-difficulty="${escapeHtml(t.id)}" style="width:110px;font-size:12px" title="Overrides the deck's default difficulty for this title only">
+        <option value="" ${!t.difficulty ? 'selected' : ''}>Deck default</option>
+        <option value="easy" ${t.difficulty === 'easy' ? 'selected' : ''}>Easy</option>
+        <option value="medium" ${t.difficulty === 'medium' ? 'selected' : ''}>Medium</option>
+        <option value="hard" ${t.difficulty === 'hard' ? 'selected' : ''}>Hard</option>
+      </select>
       <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" style="width:130px;font-size:11px" />
       ${t.imagePath ? `<button class="secondary" data-remove-image="${escapeHtml(t.id)}">Remove picture</button>` : ''}
       <button class="secondary" data-save-title="${escapeHtml(t.id)}">Save</button>
@@ -674,9 +682,11 @@ async function importTitlesWithImages() {
 
 async function saveTitleEdit(titleId) {
   const textInput = document.querySelector('[data-title-text="' + titleId + '"]');
+  const difficultySelect = document.querySelector('[data-title-difficulty="' + titleId + '"]');
   const fileInput = document.querySelector('[data-title-image="' + titleId + '"]');
   const form = new FormData();
   form.append('text', textInput.value.trim());
+  form.append('difficulty', difficultySelect.value); // empty clears the override, back to the deck's default
   if (fileInput.files[0]) form.append('image', fileInput.files[0]);
   try {
     await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), {
