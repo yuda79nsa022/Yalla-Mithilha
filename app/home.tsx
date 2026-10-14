@@ -43,8 +43,18 @@ function LanguageToggle() {
 }
 
 export default function Home() {
-  const { t, lang, homeContent, player, walletBalance, refreshWallet, logoutPlayerAccount, charades, quitCharades } =
-    useApp();
+  const {
+    t,
+    lang,
+    homeContent,
+    player,
+    walletBalance,
+    freeClassicCredits,
+    refreshWallet,
+    logoutPlayerAccount,
+    charades,
+    quitCharades,
+  } = useApp();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
@@ -146,6 +156,11 @@ export default function Home() {
           <T variant="label" color={colors.neutral700} style={{ fontWeight: '500' }}>
             {t('charades.checkout.walletBalance', { count: walletBalance })}
           </T>
+          {freeClassicCredits > 0 ? (
+            <T variant="label" color={colors.purple} style={{ fontWeight: '500' }}>
+              {t('charades.checkout.freeGamesLeft', { count: freeClassicCredits })}
+            </T>
+          ) : null}
           <Spacer size={spacing.xs} />
           <TextLink label={t('account.logout')} onPress={() => setConfirmingLogout(true)} />
         </>

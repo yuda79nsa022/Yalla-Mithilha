@@ -1,5 +1,7 @@
 import { CATALOGUE_API_URL } from '../config';
 import type { CharadesTitle } from '../engine/charades';
+import type { CharadesStacks } from '../engine/modifiedCharades';
+import type { GameMode } from '../engine/game';
 import type { Lang } from '../engine/types';
 
 export class WalletError extends Error {
@@ -55,9 +57,9 @@ function authedPost<T>(path: string, token: string, body: unknown, timeoutMs = 8
   );
 }
 
-/** Current price of one game, in fils (1000 fils = 1 KD). Public, so a guest can see it before signing up. */
-export function getGamePrice(timeoutMs = 8000): Promise<{ fils: number; currency: string }> {
-  return request('/charades/price', { method: 'GET' }, timeoutMs);
+/** Current price of one game in `mode`, in fils (1000 fils = 1 KD). Public, so a guest can see it before signing up. */
+export function getGamePrice(mode: GameMode, timeoutMs = 8000): Promise<{ fils: number; currency: string }> {
+  return request(`/charades/price?mode=${mode}`, { method: 'GET' }, timeoutMs);
 }
 
 export interface HomeContent {
@@ -87,18 +89,25 @@ export function getPlayableDecks(timeoutMs = 8000): Promise<PlayableDeck[]> {
   return request('/charades/decks', { method: 'GET' }, timeoutMs);
 }
 
+export interface WalletBalance {
+  /** Paid, pooled credits — spendable on either game mode. */
+  balance: number;
+  /** The signup bonus's remainder, if any — spendable only on classic-mode sessions. */
+  freeClassicCredits: number;
+}
+
 /** Current server-held wallet balance for the signed-in player, in whole games. */
-export function getWalletBalance(token: string, timeoutMs = 8000): Promise<number> {
-  return request<{ balance: number }>(
+export function getWalletBalance(token: string, timeoutMs = 8000): Promise<WalletBalance> {
+  return request<WalletBalance>(
     '/charades/wallet',
     { method: 'GET', headers: { Authorization: `Bearer ${token}` } },
     timeoutMs
-  ).then((r) => r.balance);
+  );
 }
 
-/** Starts a top-up for exactly one game's worth of credit, at the current price. No credit exists until confirmed. */
-export function startCheckout(token: string, timeoutMs = 8000): Promise<CheckoutPayment> {
-  return authedPost<CheckoutPayment>('/charades/checkout', token, {}, timeoutMs);
+/** Starts a top-up for exactly one game's worth of credit, at `mode`'s current price. No credit exists until confirmed. */
+export function startCheckout(token: string, mode: GameMode, timeoutMs = 8000): Promise<CheckoutPayment> {
+  return authedPost<CheckoutPayment>('/charades/checkout', token, { mode }, timeoutMs);
 }
 
 /** Stands in for a real payment provider's success callback until KNET is wired up. */
@@ -112,27 +121,34 @@ export function failCheckout(token: string, paymentId: string, timeoutMs = 8000)
 }
 
 /**
- * Spends one wallet credit and deals `sessionId`'s 20 titles in one call —
- * at random across `deckIds` combined, never a title the player chose
+ * Spends one wallet credit and deals `sessionId`'s titles in one call — at
+ * random across `deckIds` combined, never a title the player chose
  * directly. `deckIds` is the player's own explicit choice made alongside
- * the team names when drafting. Idempotent server-side — calling this again
- * with the same sessionId (e.g. after an app restart) never spends a second
- * credit, and returns the same dealt titles instead, regardless of
- * `deckIds`. Throws `WalletError` with `status: 402` when the balance is
- * empty.
+ * the team names when drafting. `mode` decides both the shape of the deal
+ * (classic: a flat `titles` list; modified: `rounds` + three difficulty
+ * `stacks`) and which wallet pays for it — the two free signup games only
+ * ever cover `'classic'`; a purchased credit covers either. Idempotent
+ * server-side — calling this again with the same sessionId (e.g. after an
+ * app restart) never spends a second credit, and returns the same dealt
+ * session instead, regardless of `deckIds`/`mode`. Throws `WalletError`
+ * with `status: 402` when the balance is empty.
  */
 export function startGameSession(
   token: string,
   sessionId: string,
   deckIds: string[],
+  mode: GameMode,
   timeoutMs = 8000
-): Promise<{ titles: CharadesTitle[]; balance: number }> {
-  return authedPost<{ session: { titles: CharadesTitle[] }; balance: number }>(
-    '/charades/sessions',
-    token,
-    { sessionId, deckIds },
-    timeoutMs
-  ).then((r) => ({ titles: r.session.titles, balance: r.balance }));
+): Promise<{ titles: CharadesTitle[]; rounds?: number; stacks?: CharadesStacks; balance: number }> {
+  return authedPost<{
+    session: { titles: CharadesTitle[]; rounds?: number; stacks?: CharadesStacks };
+    balance: number;
+  }>('/charades/sessions', token, { sessionId, deckIds, mode }, timeoutMs).then((r) => ({
+    titles: r.session.titles,
+    rounds: r.session.rounds,
+    stacks: r.session.stacks,
+    balance: r.balance,
+  }));
 }
 
 /**

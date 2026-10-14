@@ -14,10 +14,12 @@ import {
   getDeck,
   getGamePriceFils,
   getHomeContent,
+  getModifiedGamePriceFils,
   getTitle,
   listDecks,
   recordAudit,
   setGamePriceFils,
+  setModifiedGamePriceFils,
   updateDeck,
   updateHomeContent,
   updateTitle,
@@ -28,7 +30,9 @@ import {
   parsePdfTitles,
   parseTitleImageManifestXlsx,
   parseXlsxTitles,
+  type ParsedTitle,
 } from '../import/parseTitles';
+import { isDifficulty, type Difficulty } from '../types';
 import {
   parseCreateDeckBody,
   parseImportTitlesBody,
@@ -57,7 +61,7 @@ const uploadImages = multer({
 
 class UnsupportedFileTypeError extends Error {}
 
-async function parseTitlesFromUpload(file: Express.Multer.File): Promise<string[]> {
+async function parseTitlesFromUpload(file: Express.Multer.File): Promise<ParsedTitle[]> {
   const ext = path.extname(file.originalname).toLowerCase();
   if (ext === '.docx') return parseDocxTitles(file.buffer);
   if (ext === '.xlsx') return parseXlsxTitles(file.buffer);
@@ -121,7 +125,7 @@ adminDecksRouter.post('/decks', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'deck.create',
       target: deck.id,
-      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language },
+      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language, difficulty: deck.difficulty },
     });
     res.status(201).json(deck);
   } catch (err) {
@@ -139,8 +143,10 @@ adminDecksRouter.put('/decks/:id', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'deck.update',
       target: req.params.id,
-      before: before ? { nameAr: before.nameAr, nameEn: before.nameEn, language: before.language } : undefined,
-      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language },
+      before: before
+        ? { nameAr: before.nameAr, nameEn: before.nameEn, language: before.language, difficulty: before.difficulty }
+        : undefined,
+      after: { nameAr: deck.nameAr, nameEn: deck.nameEn, language: deck.language, difficulty: deck.difficulty },
     });
     res.json(deck);
   } catch (err) {
@@ -279,18 +285,18 @@ adminDecksRouter.post(
       const entries = new Map(zip.getEntries().map((e) => [path.basename(e.entryName).toLowerCase(), e]));
 
       const imageIssues: string[] = [];
-      const rows = manifestRows.map(({ text, imageFilename }) => {
+      const rows = manifestRows.map(({ text, imageFilename, difficulty }) => {
         const entry = entries.get(imageFilename.toLowerCase());
         if (!entry) {
           imageIssues.push(`${imageFilename}: referenced for "${text}" but not found in the zip`);
-          return { text, imagePath: null };
+          return { text, imagePath: null, difficulty };
         }
         const saved = saveImage(entry.getData(), imageFilename);
         if ('issue' in saved) {
           imageIssues.push(saved.issue);
-          return { text, imagePath: null };
+          return { text, imagePath: null, difficulty };
         }
-        return { text, imagePath: saved.path };
+        return { text, imagePath: saved.path, difficulty };
       });
 
       const result = addTitlesToDeckWithImages(req.params.id, rows);
@@ -354,9 +360,20 @@ adminDecksRouter.put('/decks/:deckId/titles/:titleId', uploadImages.single('imag
       return;
     }
 
-    const input: { text?: string; imagePath?: string | null } = {};
+    const input: { text?: string; imagePath?: string | null; difficulty?: Difficulty | null } = {};
     if (typeof req.body?.text === 'string' && req.body.text.trim()) {
       input.text = req.body.text;
+    }
+    // "difficulty=easy|medium|hard" sets a per-title override; "difficulty="
+    // (empty) clears it back to the deck's default; omitted leaves it alone.
+    if (typeof req.body?.difficulty === 'string') {
+      const d = req.body.difficulty.trim();
+      if (d === '') input.difficulty = null;
+      else if (isDifficulty(d)) input.difficulty = d;
+      else {
+        res.status(400).json({ error: '"difficulty" must be "easy", "medium", "hard" or empty' });
+        return;
+      }
     }
 
     let newImageIssue: string | null = null;
@@ -385,8 +402,8 @@ adminDecksRouter.put('/decks/:deckId/titles/:titleId', uploadImages.single('imag
       actorUsername: req.admin!.username,
       action: 'deck.title.update',
       target: `${req.params.deckId}/${req.params.titleId}`,
-      before: { text: existing.text, hadImage: Boolean(existing.imagePath) },
-      after: { text: title.text, hasImage: Boolean(title.imagePath) },
+      before: { text: existing.text, hadImage: Boolean(existing.imagePath), difficulty: existing.difficulty },
+      after: { text: title.text, hasImage: Boolean(title.imagePath), difficulty: title.difficulty },
     });
     res.json(title);
   } catch (err) {
@@ -424,6 +441,29 @@ adminDecksRouter.put('/settings/game-price', (req, res) => {
       actorUsername: req.admin!.username,
       action: 'settings.game-price.update',
       target: 'game-price',
+      before: { fils: before },
+      after: { fils: after },
+    });
+    res.json({ fils: after });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+adminDecksRouter.get('/settings/modified-game-price', (_req, res) => {
+  res.json({ fils: getModifiedGamePriceFils() });
+});
+
+adminDecksRouter.put('/settings/modified-game-price', (req, res) => {
+  try {
+    const { fils } = parseSetGamePriceBody(req.body);
+    const before = getModifiedGamePriceFils();
+    const after = setModifiedGamePriceFils(fils);
+    recordAudit({
+      actorId: req.admin!.sub,
+      actorUsername: req.admin!.username,
+      action: 'settings.modified-game-price.update',
+      target: 'modified-game-price',
       before: { fils: before },
       after: { fils: after },
     });

@@ -1,11 +1,17 @@
 import { Router } from 'express';
-import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFils, getGameSession, getHomeContent, getPayment, listPublicDecks, startGameSession } from '../db';
+import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFilsForMode, getGameSession, getHomeContent, getPayment, getPlayerById, listPublicDecks, startGameSession } from '../db';
+import { isGameMode, type GameMode } from '../types';
 import { requirePlayerSession } from '../auth';
 import { handleError } from '../errors';
 import { paymentProvider } from '../payments/provider';
 import { parseCreateRevealTokenBody, parseStartSessionBody } from '../validate';
 
 export const charadesRouter = Router();
+
+/** `?mode=modified` opts into the modified game's price/session; anything else (including omitted) means classic. */
+function modeFromQuery(value: unknown): GameMode {
+  return isGameMode(value) ? value : 'classic';
+}
 
 // Public in the CORS sense (called cross-origin from the app running as a
 // web page, same as /players), even though most routes below still require
@@ -23,9 +29,10 @@ charadesRouter.use((req, res, next) => {
   next();
 });
 
-/** The price needs to be visible before signing in, so a guest can see what they'd be paying for. */
-charadesRouter.get('/price', (_req, res) => {
-  res.json({ fils: getGamePriceFils(), currency: 'KWD' });
+/** The price needs to be visible before signing in, so a guest can see what they'd be paying for. `?mode=modified` for the modified game's price; omitted (or any other value) means classic. */
+charadesRouter.get('/price', (req, res) => {
+  const mode = modeFromQuery(req.query.mode);
+  res.json({ fils: getGamePriceFilsForMode(mode), currency: 'KWD' });
 });
 
 /** Every deck a player can choose from when drafting a game — public, since drafting never requires being signed in. */
@@ -46,13 +53,18 @@ charadesRouter.get('/home-content', (_req, res) => {
 // client-side router — a blanket check would 401 a plain page refresh on
 // one of those before Express ever got to notice no API route matched,
 // instead of falling through to that app's SPA shell.
+/** `freeClassicCredits` are spendable only on classic-mode sessions — `balance` (paid credits) works for either mode. */
 charadesRouter.get('/wallet', requirePlayerSession, (req, res) => {
-  res.json({ balance: creditBalance(req.player!.sub) });
+  res.json({
+    balance: creditBalance(req.player!.sub),
+    freeClassicCredits: getPlayerById(req.player!.sub)?.freeClassicCredits ?? 0,
+  });
 });
 
 charadesRouter.post('/checkout', requirePlayerSession, async (req, res) => {
   try {
-    const payment = createPayment({ playerId: req.player!.sub, provider: paymentProvider.name });
+    const mode = modeFromQuery((req.body as Record<string, unknown> | undefined)?.mode);
+    const payment = createPayment({ playerId: req.player!.sub, provider: paymentProvider.name, mode });
     const { redirectUrl } = await paymentProvider.createCheckout({
       paymentId: payment.id,
       amountFils: payment.amountFils,
@@ -105,8 +117,8 @@ charadesRouter.post('/checkout/:paymentId/fail', requirePlayerSession, (req, res
  */
 charadesRouter.post('/sessions', requirePlayerSession, (req, res) => {
   try {
-    const { sessionId, deckIds } = parseStartSessionBody(req.body);
-    const { session, balance } = startGameSession(req.player!.sub, sessionId, deckIds);
+    const { sessionId, deckIds, mode } = parseStartSessionBody(req.body);
+    const { session, balance } = startGameSession(req.player!.sub, sessionId, deckIds, mode);
     res.status(201).json({ session, balance });
   } catch (err) {
     handleError(err, res);

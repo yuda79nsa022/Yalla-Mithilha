@@ -32,10 +32,24 @@ function buildDocxFixture(titles: string[]): Buffer {
   return zip.toBuffer();
 }
 
-async function buildManifestXlsx(rows: Array<[string, string]>): Promise<Buffer> {
+/** Same shape as `buildDocxFixture`, plus a third cell carrying each row's difficulty word. */
+function buildDocxFixtureWithDifficulty(rows: Array<[string, string]>): Buffer {
+  const zip = new AdmZip();
+  const trs = rows
+    .map(
+      ([title, difficulty], i) =>
+        `<w:tr><w:tc><w:p><w:r><w:t>${i + 1}</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>${title}</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>${difficulty}</w:t></w:r></w:p></w:tc></w:tr>`
+    )
+    .join('');
+  const xml = `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:tbl>${trs}</w:tbl></w:body></w:document>`;
+  zip.addFile('word/document.xml', Buffer.from(xml, 'utf-8'));
+  return zip.toBuffer();
+}
+
+async function buildManifestXlsx(rows: Array<[string, string] | [string, string, string]>): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Titles');
-  sheet.addRow(['Title', 'Image filename']); // header, always skipped
+  sheet.addRow(['Title', 'Image filename', 'Difficulty']); // header, always skipped
   for (const row of rows) sheet.addRow(row);
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
@@ -122,6 +136,29 @@ describe('POST /admin/decks/:id/import', () => {
       .attach('file', Buffer.from('not a real file'), 'list.txt');
     expect(res.status).toBe(400);
   });
+
+  it('tags each title with its own row difficulty, in English or Arabic', async () => {
+    createDeck(sample);
+    const res = await request(app)
+      .post(`/admin/decks/${sample.id}/import`)
+      .set(auth)
+      .attach(
+        'file',
+        buildDocxFixtureWithDifficulty([
+          ['Title Easy', 'easy'],
+          ['Title Hard', 'صعب'],
+          ['Title Plain', 'N/A'], // not a recognised difficulty word — no override
+        ]),
+        'list.docx'
+      );
+    expect(res.status).toBe(200);
+    expect(res.body.added).toBe(3);
+
+    const titles = getDeck(sample.id)!.titles;
+    expect(titles.find((t) => t.text === 'Title Easy')?.difficulty).toBe('easy');
+    expect(titles.find((t) => t.text === 'Title Hard')?.difficulty).toBe('hard');
+    expect(titles.find((t) => t.text === 'Title Plain')?.difficulty).toBeNull();
+  });
 });
 
 describe('DELETE /admin/decks/:deckId/titles/:titleId', () => {
@@ -163,6 +200,32 @@ describe('POST /admin/decks/:id/import-with-images', () => {
     const titles = getDeck(sample.id)!.titles;
     expect(titles.find((t) => t.text === 'Title A')!.imagePath).toMatch(/^\/title-images\/.+\.png$/);
     expect(titles.find((t) => t.text === 'Title B')!.imagePath).toMatch(/^\/title-images\/.+\.jpg$/);
+  });
+
+  it('tags a title with the difficulty in the manifest\'s optional third column', async () => {
+    createDeck(sample);
+    const manifest = await buildManifestXlsx([
+      ['Title Easy', 'a.png', 'easy'],
+      ['Title Hard', 'b.jpg', 'hard'],
+      ['Title Plain', 'c.png', ''],
+    ]);
+    const images = buildImagesZip([
+      { name: 'a.png', data: FAKE_IMAGE },
+      { name: 'b.jpg', data: FAKE_IMAGE },
+      { name: 'c.png', data: FAKE_IMAGE },
+    ]);
+
+    const res = await request(app)
+      .post(`/admin/decks/${sample.id}/import-with-images`)
+      .set(auth)
+      .attach('manifest', manifest, 'manifest.xlsx')
+      .attach('images', images, 'images.zip');
+
+    expect(res.status).toBe(200);
+    const titles = getDeck(sample.id)!.titles;
+    expect(titles.find((t) => t.text === 'Title Easy')?.difficulty).toBe('easy');
+    expect(titles.find((t) => t.text === 'Title Hard')?.difficulty).toBe('hard');
+    expect(titles.find((t) => t.text === 'Title Plain')?.difficulty).toBeNull();
   });
 
   it('still adds a title whose image filename is missing from the zip, reported in imageIssues', async () => {
@@ -242,6 +305,32 @@ describe('PUT /admin/decks/:deckId/titles/:titleId', () => {
     expect(res.body.text).toBe('Title A');
     expect(res.body.imagePath).not.toBe(title.imagePath);
     expect(res.body.imagePath).toMatch(/\.png$/);
+  });
+
+  it('sets a per-title difficulty override, and clears it back to the deck default', async () => {
+    const title = await seedOneTitleWithImage();
+
+    const set = await request(app)
+      .put(`/admin/decks/${sample.id}/titles/${title.id}`)
+      .set(auth)
+      .field('difficulty', 'hard');
+    expect(set.status).toBe(200);
+    expect(set.body.difficulty).toBe('hard');
+
+    const cleared = await request(app)
+      .put(`/admin/decks/${sample.id}/titles/${title.id}`)
+      .set(auth)
+      .field('difficulty', '');
+    expect(cleared.body.difficulty).toBeNull();
+  });
+
+  it('rejects a difficulty that is not easy, medium, hard or empty', async () => {
+    const title = await seedOneTitleWithImage();
+    const res = await request(app)
+      .put(`/admin/decks/${sample.id}/titles/${title.id}`)
+      .set(auth)
+      .field('difficulty', 'extreme');
+    expect(res.status).toBe(400);
   });
 
   it('removes the picture when removeImage is sent', async () => {

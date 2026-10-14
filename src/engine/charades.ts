@@ -21,6 +21,7 @@ export interface CharadesTitle {
 export type CharadesLock = 'locked' | 'unlocked';
 
 export interface CharadesState {
+  mode: 'classic';
   /** Client-generated, becomes the server's game_sessions row id — the idempotency key for "start game". */
   id: string;
   teamAName: string;
@@ -55,7 +56,18 @@ export function draftCharades(
   playerId: string | null = null,
   deckIds: string[] = []
 ): CharadesState {
-  return { id, teamAName, teamBName, titles: [], index: 0, scores: [0, 0], lock: 'locked', playerId, deckIds };
+  return {
+    mode: 'classic',
+    id,
+    teamAName,
+    teamBName,
+    titles: [],
+    index: 0,
+    scores: [0, 0],
+    lock: 'locked',
+    playerId,
+    deckIds,
+  };
 }
 
 export function unlockCharades(state: CharadesState, titles: CharadesTitle[], playerId: string): CharadesState {

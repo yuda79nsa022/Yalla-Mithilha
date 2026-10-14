@@ -4,6 +4,7 @@ import {
   createPasswordReset,
   createPlayer,
   getActivePasswordReset,
+  getPlayerById,
   getPlayerByUsernameWithHash,
   grantSignupBonus,
   incrementPasswordResetAttempts,
@@ -54,12 +55,14 @@ playerAuthRouter.post('/register', registerLimiter, async (req, res) => {
     const { username, password, email } = parseRegisterPlayerBody(req.body);
     const passwordHash = await hashPassword(password);
     const player = createPlayer({ username, passwordHash, email });
-    // One-time new-account bonus (currently worth 3.00 KD in game credits at
-    // today's price) — only this route grants it, so a brand new account
-    // gets it exactly once and a login or an admin-side change never does.
+    // One-time new-account bonus: two free classic-mode games, spent before
+    // any paid credit (see startGameSession) — only this route grants it,
+    // so a brand new account gets it exactly once and a login or an
+    // admin-side change never does. Re-fetched so the response reflects the
+    // grant, not the pre-bonus row `createPlayer` returned.
     grantSignupBonus(player.id);
     const token = signPlayerSessionToken({ sub: player.id, username: player.username });
-    res.status(201).json({ token, player });
+    res.status(201).json({ token, player: getPlayerById(player.id) });
   } catch (err) {
     handleError(err, res);
   }

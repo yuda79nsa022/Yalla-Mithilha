@@ -17,7 +17,9 @@ export default function CharadesCheckout() {
     charades,
     player,
     gamePriceFils,
+    modifiedGamePriceFils,
     walletBalance,
+    freeClassicCredits,
     walletBusy,
     walletError,
     refreshWallet,
@@ -51,16 +53,21 @@ export default function CharadesCheckout() {
   if (charades.lock === 'unlocked') return <Redirect href="/charades/play" />;
   if (!player) return null;
 
+  const mode = charades.mode;
+  const priceFils = mode === 'classic' ? gamePriceFils : modifiedGamePriceFils;
+  const hasFreeGame = mode === 'classic' && freeClassicCredits > 0;
+  const canStart = hasFreeGame || walletBalance >= 1;
+
   const topUp = async () => {
     setBusy('topup');
-    const payment = await startTopUp();
+    const payment = await startTopUp(mode);
     if (payment) await confirmTopUp(payment.id);
     setBusy(null);
   };
 
   const simulateFailure = async () => {
     setBusy('topup');
-    const payment = await startTopUp();
+    const payment = await startTopUp(mode);
     if (payment) await failTopUp(payment.id);
     setBusy(null);
   };
@@ -76,7 +83,7 @@ export default function CharadesCheckout() {
     <Screen
       scroll
       header={{ onBack: () => goBack('/charades/draft') }}
-      footer={<Button label={t('charades.checkout.start')} disabled={walletBalance < 1} busy={busy === 'start'} onPress={start} />}
+      footer={<Button label={t('charades.checkout.start')} disabled={!canStart} busy={busy === 'start'} onPress={start} />}
     >
       <Spacer size={spacing.md} />
       <Hero />
@@ -97,9 +104,18 @@ export default function CharadesCheckout() {
         </T>
       </View>
 
+      {hasFreeGame ? (
+        <>
+          <Spacer size={spacing.sm} />
+          <T variant="label" color={colors.purple}>
+            {t('charades.checkout.freeGamesLeft', { count: freeClassicCredits })}
+          </T>
+        </>
+      ) : null}
+
       <Spacer />
       <Button
-        label={t('charades.checkout.price', { price: formatKwd(gamePriceFils) })}
+        label={t('charades.checkout.price', { price: formatKwd(priceFils) })}
         tone="secondary"
         busy={busy === 'topup' || walletBusy}
         onPress={topUp}

@@ -1,4 +1,5 @@
-import type { Lang } from './types';
+import type { Difficulty, GameMode, Lang } from './types';
+import { isDifficulty, isGameMode } from './types';
 
 export class ValidationError extends Error {}
 
@@ -15,6 +16,20 @@ function optionalLang(value: unknown, field: string): Lang {
   if (value !== 'ar' && value !== 'en') {
     throw new ValidationError(`"${field}" must be "ar" or "en"`);
   }
+  return value;
+}
+
+/** Defaults to 'medium' when omitted. */
+function optionalDifficulty(value: unknown, field: string): Difficulty {
+  if (value === undefined) return 'medium';
+  if (!isDifficulty(value)) throw new ValidationError(`"${field}" must be "easy", "medium" or "hard"`);
+  return value;
+}
+
+/** Defaults to 'classic' when omitted — every call site predating dual game modes meant the classic game. */
+function optionalGameMode(value: unknown, field: string): GameMode {
+  if (value === undefined) return 'classic';
+  if (!isGameMode(value)) throw new ValidationError(`"${field}" must be "classic" or "modified"`);
   return value;
 }
 
@@ -41,6 +56,7 @@ export interface CreateDeckBody {
   nameAr: string;
   nameEn: string;
   language: Lang;
+  difficulty: Difficulty;
 }
 
 export function parseCreateDeckBody(body: unknown): CreateDeckBody {
@@ -50,6 +66,7 @@ export function parseCreateDeckBody(body: unknown): CreateDeckBody {
     nameAr: requireString(b.nameAr, 'nameAr'),
     nameEn: requireString(b.nameEn, 'nameEn'),
     language: optionalLang(b.language, 'language'),
+    difficulty: optionalDifficulty(b.difficulty, 'difficulty'),
   };
 }
 
@@ -57,6 +74,7 @@ export interface UpdateDeckBody {
   nameAr?: string;
   nameEn?: string;
   language?: Lang;
+  difficulty?: Difficulty;
 }
 
 export function parseUpdateDeckBody(body: unknown): UpdateDeckBody {
@@ -65,6 +83,7 @@ export function parseUpdateDeckBody(body: unknown): UpdateDeckBody {
   if (b.nameAr !== undefined) out.nameAr = requireString(b.nameAr, 'nameAr');
   if (b.nameEn !== undefined) out.nameEn = requireString(b.nameEn, 'nameEn');
   if (b.language !== undefined) out.language = optionalLang(b.language, 'language');
+  if (b.difficulty !== undefined) out.difficulty = optionalDifficulty(b.difficulty, 'difficulty');
   return out;
 }
 
@@ -88,7 +107,7 @@ export interface SetGamePriceBody {
   fils: number;
 }
 
-/** 1000 fils = 1 KD. Capped well above any plausible real price, just to reject fat-fingered input like accidentally adding an extra zero. */
+/** 1000 fils = 1 KD. Capped well above any plausible real price, just to reject fat-fingered input like accidentally adding an extra zero. Shared by both the classic and modified price endpoints — which one it sets is purely which route calls it. */
 export function parseSetGamePriceBody(body: unknown): SetGamePriceBody {
   const b = (body ?? {}) as Record<string, unknown>;
   if (typeof b.fils !== 'number' || !Number.isInteger(b.fils) || b.fils <= 0 || b.fils > 100_000) {
@@ -228,6 +247,7 @@ export function parseConfirmPasswordResetBody(body: unknown): ConfirmPasswordRes
 export interface StartSessionBody {
   sessionId: string;
   deckIds?: string[];
+  mode: GameMode;
 }
 
 /**
@@ -235,13 +255,14 @@ export interface StartSessionBody {
  * the server-side game_sessions row id. `deckIds` names which decks the
  * session deals from (see `startGameSession`) — the player's own explicit
  * choice made alongside the team names, entirely separate from the app's
- * own UI language.
+ * own UI language. `mode` picks the rule set (classic/modified); omitted
+ * means classic, same as every call site that predates dual game modes.
  */
 export function parseStartSessionBody(body: unknown): StartSessionBody {
   const b = (body ?? {}) as Record<string, unknown>;
   const sessionId = requireString(b.sessionId, 'sessionId');
   if (sessionId.length > 200) throw new ValidationError('"sessionId" is too long');
-  return { sessionId, deckIds: optionalDeckIds(b.deckIds, 'deckIds') };
+  return { sessionId, deckIds: optionalDeckIds(b.deckIds, 'deckIds'), mode: optionalGameMode(b.mode, 'mode') };
 }
 
 export interface CreateRevealTokenBody {

@@ -16,9 +16,9 @@ describe('startGameSession', () => {
       return new Response(JSON.stringify({ session: { titles: [] }, balance: 0 }), { status: 201 });
     });
 
-    await startGameSession('tok', 'sess-1', ['us-movies']);
+    await startGameSession('tok', 'sess-1', ['us-movies'], 'classic');
 
-    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['us-movies'] });
+    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['us-movies'], mode: 'classic' });
   });
 
   it('also sends multiple chosen deck ids as-is', async () => {
@@ -28,9 +28,9 @@ describe('startGameSession', () => {
       return new Response(JSON.stringify({ session: { titles: [] }, balance: 0 }), { status: 201 });
     });
 
-    await startGameSession('tok', 'sess-1', ['kuwaiti-plays', 'us-movies']);
+    await startGameSession('tok', 'sess-1', ['kuwaiti-plays', 'us-movies'], 'modified');
 
-    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['kuwaiti-plays', 'us-movies'] });
+    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['kuwaiti-plays', 'us-movies'], mode: 'modified' });
   });
 });
 
