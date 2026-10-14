@@ -55,7 +55,7 @@ playerAuthRouter.post('/register', registerLimiter, async (req, res) => {
     const { username, password, email } = parseRegisterPlayerBody(req.body);
     const passwordHash = await hashPassword(password);
     const player = createPlayer({ username, passwordHash, email });
-    // One-time new-account bonus: two free classic-mode games, spent before
+    // One-time new-account bonus: two free games of either mode, spent before
     // any paid credit (see startGameSession) — only this route grants it,
     // so a brand new account gets it exactly once and a login or an
     // admin-side change never does. Re-fetched so the response reflects the

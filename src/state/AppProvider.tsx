@@ -96,12 +96,12 @@ interface AppValue {
   /**
    * Real, server-authoritative wallet state — owned by the signed-in
    * player's account, never trusted to local device state. `walletBalance`
-   * is the paid, pooled balance that covers either mode; `freeClassicCredits`
-   * is the signup bonus's remainder, spendable only on classic-mode games.
+   * is the paid, pooled balance that covers either mode; `freeGameCredits`
+   * is the signup bonus's remainder, also good for either mode.
    * Topping up requires a player session; drafting a session does not.
    */
   walletBalance: number;
-  freeClassicCredits: number;
+  freeGameCredits: number;
   walletBusy: boolean;
   walletError: string | null;
   refreshWallet: () => Promise<void>;
@@ -155,7 +155,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [playerAuthBusy, setPlayerAuthBusy] = useState(false);
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState(0);
-  const [freeClassicCredits, setFreeClassicCredits] = useState(0);
+  const [freeGameCredits, setFreeGameCredits] = useState(0);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
 
@@ -190,7 +190,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getWalletBalance(storedPlayerSession.token)
           .then((w) => {
             setWalletBalance(w.balance);
-            setFreeClassicCredits(w.freeClassicCredits);
+            setFreeGameCredits(w.freeGameCredits);
           })
           .catch(() => undefined);
       }
@@ -212,7 +212,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await resetAllLocalData(deviceStore);
     setCharadesState(null);
     setWalletBalance(0);
-    setFreeClassicCredits(0);
+    setFreeGameCredits(0);
     setWalletError(null);
     setPlayerSession(null);
     setPlayerAuthError(null);
@@ -269,13 +269,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshWallet = useCallback(async () => {
     if (!playerSession) {
       setWalletBalance(0);
-      setFreeClassicCredits(0);
+      setFreeGameCredits(0);
       return;
     }
     try {
       const w = await getWalletBalance(playerSession.token);
       setWalletBalance(w.balance);
-      setFreeClassicCredits(w.freeClassicCredits);
+      setFreeGameCredits(w.freeGameCredits);
     } catch (err) {
       if (err instanceof WalletError && err.status === 401) {
         setWalletError(handleWalletError(err));
@@ -295,7 +295,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           charades.deckIds,
           charades.mode
         );
-        // A spent credit is either the paid wallet or the classic-only free
+        // A spent credit is either the paid wallet or the free signup
         // bonus — re-fetch rather than guess client-side which one the
         // server actually decremented.
         void refreshWallet();
@@ -395,7 +395,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getWalletBalance(session.token)
         .then((w) => {
           setWalletBalance(w.balance);
-          setFreeClassicCredits(w.freeClassicCredits);
+          setFreeGameCredits(w.freeGameCredits);
         })
         .catch(() => undefined);
       return true;
@@ -420,7 +420,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getWalletBalance(session.token)
         .then((w) => {
           setWalletBalance(w.balance);
-          setFreeClassicCredits(w.freeClassicCredits);
+          setFreeGameCredits(w.freeGameCredits);
         })
         .catch(() => undefined);
       return true;
@@ -436,7 +436,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPlayerSession(null);
     setPlayerAuthError(null);
     setWalletBalance(0);
-    setFreeClassicCredits(0);
+    setFreeGameCredits(0);
     setWalletError(null);
     void clearPlayerSession(deviceStore);
     // Logging out always ends whatever game was in progress — even an
@@ -494,7 +494,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     quitCharades,
     mintRevealToken,
     walletBalance,
-    freeClassicCredits,
+    freeGameCredits,
     walletBusy,
     walletError,
     refreshWallet,

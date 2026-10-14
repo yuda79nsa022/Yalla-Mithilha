@@ -287,10 +287,18 @@ ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
 ensureColumn('settings', 'home_writeup_ar', 'home_writeup_ar TEXT');
 ensureColumn('settings', 'home_writeup_en', 'home_writeup_en TEXT');
 ensureColumn('players', 'email', 'email TEXT');
-// Free classic-mode games left from the one-time signup grant — see
-// grantSignupBonus. A column, not a ledger entry: this isn't real money,
-// just an entitlement counter, and it only ever needs to go down.
-ensureColumn('players', 'free_classic_credits', 'free_classic_credits INTEGER NOT NULL DEFAULT 0');
+// Free games left from the one-time signup grant, spendable on either mode —
+// see grantSignupBonus. A column, not a ledger entry: this isn't real money,
+// just an entitlement counter, and it only ever needs to go down. It was
+// `free_classic_credits` while the bonus was classic-only; renamed in place
+// so an existing player's unspent free games carry over unchanged.
+{
+  const playerColumns = (db.prepare('PRAGMA table_info(players)').all() as { name: string }[]).map((c) => c.name);
+  if (playerColumns.includes('free_classic_credits') && !playerColumns.includes('free_game_credits')) {
+    db.exec('ALTER TABLE players RENAME COLUMN free_classic_credits TO free_game_credits');
+  }
+}
+ensureColumn('players', 'free_game_credits', 'free_game_credits INTEGER NOT NULL DEFAULT 0');
 
 db.prepare('INSERT OR IGNORE INTO settings (id, game_price_fils) VALUES (1, ?)').run(DEFAULT_GAME_PRICE_FILS);
 db.prepare('UPDATE settings SET modified_game_price_fils = COALESCE(modified_game_price_fils, ?) WHERE id = 1').run(
@@ -743,7 +751,7 @@ function rowToPlayer(r: any): PlayerRowWithHash {
     username: r.username,
     passwordHash: r.password_hash,
     email: r.email ?? null,
-    freeClassicCredits: r.free_classic_credits ?? 0,
+    freeGameCredits: r.free_game_credits ?? 0,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -979,23 +987,24 @@ export function grantCredits(playerId: string, amount: number): void {
 }
 
 /**
- * One-time new-account bonus: this many classic-mode games, free, before
- * any paid credit is touched (see `free_classic_credits` on the players
- * table and `startGameSession`). Never applies to modified mode — a player
- * who only ever wants modified games still has to pay for the first one.
+ * One-time new-account bonus: this many games, free, before any paid credit
+ * is touched (see `free_game_credits` on the players table and
+ * `startGameSession`). Each one covers a game of either mode, so a player
+ * can spend them as two classic, two modified, or one of each.
  */
-const SIGNUP_FREE_CLASSIC_GAMES = 2;
+const SIGNUP_FREE_GAMES = 2;
 
 /**
  * Grants the one-time signup bonus. Only ever called once per account, right
  * after `createPlayer` in the `/players/register` route — nothing else
  * calls this, so there's no separate de-duplication to do here beyond that.
- * A plain counter, not a `credit_transactions` grant: this is a classic-only
- * entitlement, never fungible with the paid, either-mode wallet balance.
+ * A plain counter, not a `credit_transactions` grant: it's a free
+ * entitlement, kept apart from the paid wallet balance so the payment
+ * ledger only ever records real money.
  */
 export function grantSignupBonus(playerId: string): number {
-  db.prepare('UPDATE players SET free_classic_credits = ? WHERE id = ?').run(SIGNUP_FREE_CLASSIC_GAMES, playerId);
-  return SIGNUP_FREE_CLASSIC_GAMES;
+  db.prepare('UPDATE players SET free_game_credits = ? WHERE id = ?').run(SIGNUP_FREE_GAMES, playerId);
+  return SIGNUP_FREE_GAMES;
 }
 
 export interface CreatePaymentInput {
@@ -1184,11 +1193,10 @@ function dealStacks(count: number, deckIds?: string[]): DealtStacks {
  * way, the player picks which decks to draw from, not individual titles,
  * and nothing repeats within the same session even across decks.
  *
- * Spending itself differs by mode too: a classic session first draws down
- * the account's free signup games (`free_classic_credits`, set once at
+ * Spending is the same for both modes: a session first draws down the
+ * account's free signup games (`free_game_credits`, set once at
  * registration — see `grantSignupBonus`) before ever touching the paid
- * wallet balance; a modified session always spends a paid credit, since the
- * free bonus is classic-only. Either way, `deckIds` is the player's own
+ * wallet balance. Whatever the mode, `deckIds` is the player's own
  * explicit choice made alongside the team names when drafting; omitted
  * entirely (never an empty array — see `parseStartSessionBody`) only for
  * direct callers that predate per-deck selection (tests, scripts), meaning
@@ -1225,9 +1233,9 @@ export function startGameSession(
 
   const tx = db.transaction(() => {
     const player = getPlayerById(playerId)!;
-    const spendFreeClassicGame = mode === 'classic' && player.freeClassicCredits > 0;
-    if (spendFreeClassicGame) {
-      db.prepare('UPDATE players SET free_classic_credits = free_classic_credits - 1 WHERE id = ?').run(playerId);
+    const spendFreeGame = player.freeGameCredits > 0;
+    if (spendFreeGame) {
+      db.prepare('UPDATE players SET free_game_credits = free_game_credits - 1 WHERE id = ?').run(playerId);
     } else if (creditBalance(playerId) < 1) {
       throw new InsufficientCreditsError('not enough credits to start a game — top up your wallet first');
     }
@@ -1240,7 +1248,7 @@ export function startGameSession(
       // deal the first title. Never read back; `GameSessionRow` exposes no
       // such field now that a session spans every deck.
     ).run({ id: sessionId, playerId, deckId: firstDeckId, mode, titlesJson, now });
-    if (!spendFreeClassicGame) {
+    if (!spendFreeGame) {
       db.prepare(
         `INSERT INTO credit_transactions (id, player_id, kind, amount, game_session_id, created_at)
          VALUES (@id, @playerId, 'consume', 1, @sessionId, @now)`
