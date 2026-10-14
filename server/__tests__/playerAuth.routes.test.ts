@@ -249,6 +249,22 @@ describe('POST /players/password-reset/request + /confirm', () => {
     expect(second.status).toBe(400);
   });
 
+  it('a code is single-use even when two confirms race — only one of them resets the password', async () => {
+    await request(app)
+      .post('/players/register')
+      .send({ username: 'racereset', password: 'oldpassword1', email: 'racereset@example.com' });
+    const code = await requestResetAndCaptureCode('racereset');
+
+    // Both in flight at once: the route awaits password hashing, so without
+    // claiming the code first, both would pass the code check before either
+    // marked it used.
+    const [a, b] = await Promise.all([
+      request(app).post('/players/password-reset/confirm').send({ username: 'racereset', code, newPassword: 'passwordAAAA' }),
+      request(app).post('/players/password-reset/confirm').send({ username: 'racereset', code, newPassword: 'passwordBBBB' }),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 400]);
+  });
+
   it('a new request invalidates any code already outstanding for that player', async () => {
     await request(app)
       .post('/players/register')
