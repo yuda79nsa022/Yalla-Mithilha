@@ -63,12 +63,12 @@ describe('POST /players/register', () => {
     expect(res.status).toBe(400);
   });
 
-  it('credits two free classic-mode games on signup, separate from the paid wallet', async () => {
+  it('credits two free games (either mode) on signup, separate from the paid wallet', async () => {
     const register = await request(app)
       .post('/players/register')
       .send({ username: 'bonusplayer', password: 'password1234', email: 'bonusplayer@example.com' });
     expect(register.status).toBe(201);
-    expect(register.body.player.freeClassicCredits).toBe(2);
+    expect(register.body.player.freeGameCredits).toBe(2);
 
     const wallet = await request(app)
       .get('/charades/wallet')
@@ -82,7 +82,7 @@ describe('POST /players/register', () => {
       .send({ username: 'onceonly', password: 'password1234', email: 'onceonly@example.com' });
 
     await request(app).post('/players/login').send({ username: 'onceonly', password: 'password1234' });
-    expect(getPlayerById(register.body.player.id)?.freeClassicCredits).toBe(2);
+    expect(getPlayerById(register.body.player.id)?.freeGameCredits).toBe(2);
   });
 
   it('a player token does not work as an admin session', async () => {

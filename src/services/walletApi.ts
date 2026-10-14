@@ -92,8 +92,8 @@ export function getPlayableDecks(timeoutMs = 8000): Promise<PlayableDeck[]> {
 export interface WalletBalance {
   /** Paid, pooled credits — spendable on either game mode. */
   balance: number;
-  /** The signup bonus's remainder, if any — spendable only on classic-mode sessions. */
-  freeClassicCredits: number;
+  /** The signup bonus's remainder, if any — spendable on either game mode, and spent before `balance`. */
+  freeGameCredits: number;
 }
 
 /** Current server-held wallet balance for the signed-in player, in whole games. */

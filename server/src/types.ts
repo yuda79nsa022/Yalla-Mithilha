@@ -17,8 +17,8 @@ export interface PlayerRow {
   username: string;
   /** Optional — collected at signup so a forgotten password can be reset. `null` for accounts created before this existed, or that never gave one. */
   email: string | null;
-  /** Free classic-mode games left from the one-time signup grant (starts at 2) — spent before any paid credit, and only ever for a classic session. Modified-mode sessions always spend a paid credit. */
-  freeClassicCredits: number;
+  /** Free games left from the one-time signup grant (starts at 2) — spent before any paid credit, on a session of either mode. */
+  freeGameCredits: number;
   createdAt: number;
   updatedAt: number;
 }

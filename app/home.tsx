@@ -49,7 +49,7 @@ export default function Home() {
     homeContent,
     player,
     walletBalance,
-    freeClassicCredits,
+    freeGameCredits,
     refreshWallet,
     logoutPlayerAccount,
     charades,
@@ -156,9 +156,9 @@ export default function Home() {
           <T variant="label" color={colors.neutral700} style={{ fontWeight: '500' }}>
             {t('charades.checkout.walletBalance', { count: walletBalance })}
           </T>
-          {freeClassicCredits > 0 ? (
+          {freeGameCredits > 0 ? (
             <T variant="label" color={colors.purple} style={{ fontWeight: '500' }}>
-              {t('charades.checkout.freeGamesLeft', { count: freeClassicCredits })}
+              {t('charades.checkout.freeGamesLeft', { count: freeGameCredits })}
             </T>
           ) : null}
           <Spacer size={spacing.xs} />

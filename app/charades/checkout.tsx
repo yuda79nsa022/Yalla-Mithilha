@@ -19,7 +19,7 @@ export default function CharadesCheckout() {
     gamePriceFils,
     modifiedGamePriceFils,
     walletBalance,
-    freeClassicCredits,
+    freeGameCredits,
     walletBusy,
     walletError,
     refreshWallet,
@@ -55,7 +55,7 @@ export default function CharadesCheckout() {
 
   const mode = charades.mode;
   const priceFils = mode === 'classic' ? gamePriceFils : modifiedGamePriceFils;
-  const hasFreeGame = mode === 'classic' && freeClassicCredits > 0;
+  const hasFreeGame = freeGameCredits > 0;
   const canStart = hasFreeGame || walletBalance >= 1;
 
   const topUp = async () => {
@@ -108,7 +108,7 @@ export default function CharadesCheckout() {
         <>
           <Spacer size={spacing.sm} />
           <T variant="label" color={colors.purple}>
-            {t('charades.checkout.freeGamesLeft', { count: freeClassicCredits })}
+            {t('charades.checkout.freeGamesLeft', { count: freeGameCredits })}
           </T>
         </>
       ) : null}

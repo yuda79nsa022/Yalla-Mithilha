@@ -53,11 +53,11 @@ charadesRouter.get('/home-content', (_req, res) => {
 // client-side router — a blanket check would 401 a plain page refresh on
 // one of those before Express ever got to notice no API route matched,
 // instead of falling through to that app's SPA shell.
-/** `freeClassicCredits` are spendable only on classic-mode sessions — `balance` (paid credits) works for either mode. */
+/** `freeGameCredits` (the signup bonus) and `balance` (paid credits) both work for either mode; free ones are spent first. */
 charadesRouter.get('/wallet', requirePlayerSession, (req, res) => {
   res.json({
     balance: creditBalance(req.player!.sub),
-    freeClassicCredits: getPlayerById(req.player!.sub)?.freeClassicCredits ?? 0,
+    freeGameCredits: getPlayerById(req.player!.sub)?.freeGameCredits ?? 0,
   });
 });
 
