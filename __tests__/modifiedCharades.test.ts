@@ -3,6 +3,7 @@ import {
   DIFFICULTY_POINTS,
   SPEED_BONUS_POINTS,
   SPEED_BONUS_WINDOW_SECONDS,
+  MAX_STEALS_PER_GAME,
   STEAL_POINTS,
   adjustScore,
   assistAvailable,
@@ -18,7 +19,9 @@ import {
   revealLetters,
   skipRound,
   stackSizes,
+  canSteal,
   stealRound,
+  stealsLeft,
   unlockModifiedCharades,
   type CharadesDeal,
   type CharadesTitle,
@@ -154,6 +157,41 @@ describe('stealRound', () => {
     expect(currentTeamIndex(state)).toBe(0);
     const stolen = stealRound(state);
     expect(stolen.scores).toEqual([0, STEAL_POINTS]);
+  });
+
+  it('allows at most MAX_STEALS_PER_GAME steals in the whole game, both teams together', () => {
+    let state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(20), 'player-1');
+    for (let i = 0; i < MAX_STEALS_PER_GAME; i++) {
+      state = pickDifficulty(state, 'easy');
+      expect(canSteal(state)).toBe(true);
+      state = stealRound(state);
+    }
+    expect(state.stealsUsed).toBe(MAX_STEALS_PER_GAME);
+    expect(stealsLeft(state)).toBe(0);
+    // Round 1 (team A acting) went to B, round 2 (team B acting) to A.
+    expect(state.scores).toEqual([STEAL_POINTS, STEAL_POINTS]);
+
+    const third = pickDifficulty(state, 'easy');
+    expect(canSteal(third)).toBe(false);
+    // A stale button can't sneak a third one in: nothing changes.
+    expect(stealRound(third)).toBe(third);
+  });
+
+  it('treats a game saved before the cap existed as having used none', () => {
+    const { stealsUsed: _omit, ...legacy } = pickDifficulty(
+      unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(6), 'player-1'),
+      'easy'
+    );
+    expect(stealsLeft(legacy)).toBe(MAX_STEALS_PER_GAME);
+    expect(stealRound(legacy).stealsUsed).toBe(1);
+  });
+});
+
+describe('ending early', () => {
+  it('is complete once ended for inactivity, even with a title in play', () => {
+    const state = pickDifficulty(unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(6), 'player-1'), 'easy');
+    expect(isModifiedCharadesComplete(state)).toBe(false);
+    expect(isModifiedCharadesComplete({ ...state, endedReason: 'inactivity' })).toBe(true);
   });
 });
 

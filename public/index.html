@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ar">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!-- viewport-fit=cover so the safe-area insets are real on notched phones; zoom stays allowed for accessibility. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+    <style id="expo-reset">
+      /* The app scrolls inside its own ScrollViews — the page itself never does. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background-color: #f3f2f2;
+      }
+      body {
+        overflow: hidden;
+        /* No pull-to-refresh or rubber-band bounce dragging the whole app around. */
+        overscroll-behavior: none;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+      /* On mobile browsers a plain 100% can disagree with the visible area as
+         the address bar shows and hides, pushing the pinned footer button out
+         of reach; dvh tracks the visible area exactly. */
+      @supports (height: 100dvh) {
+        html,
+        body,
+        #root {
+          height: 100dvh;
+        }
+      }
+    </style>
+    <script>
+      // iOS Safari scrolls the whole (overflow: hidden) page up to keep a
+      // focused input above the keyboard, and doesn't always scroll it back —
+      // leaving the app shifted with a gap below it. Put it back whenever focus
+      // leaves an input or the visible viewport grows again.
+      (function () {
+        function reset() {
+          if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+        }
+        document.addEventListener('focusout', function () {
+          setTimeout(reset, 50);
+        });
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', reset);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

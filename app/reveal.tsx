@@ -88,7 +88,7 @@ export default function CharadesReveal() {
           : t('charades.reveal.missing');
 
   return (
-    <Screen>
+    <Screen header={{}}>
       <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
         {payload ? (
           <>

@@ -1,46 +1,11 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Button, ConfirmModal, Divider, Screen, Spacer, T, TextLink } from '../src/ui/components';
+import { StyleSheet, View } from 'react-native';
+import { Button, ConfirmModal, Divider, LowBalanceAlert, LowBalanceBanner, Screen, Spacer, T, TextLink } from '../src/ui/components';
 import { CategoryGrid } from '../src/ui/Hero';
 import { Logo } from '../src/ui/Logo';
 import { colors, fonts, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
-import { needsRestartForDirection } from '../src/platform';
-import { track } from '../src/services/analytics';
-import type { Lang } from '../src/engine/types';
-
-function LanguageToggle() {
-  const { lang, prefs, setPrefs, t } = useApp();
-  const next: Lang = lang === 'ar' ? 'en' : 'ar';
-  const label = next === 'ar' ? 'AR' : 'EN';
-  const restartNeeded = prefs.lang !== null && needsRestartForDirection(lang);
-
-  return (
-    <View style={{ alignItems: 'flex-end' }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        onPress={() => {
-          setPrefs({ lang: next });
-          track({ name: 'language_changed', lang: next });
-        }}
-        style={({ pressed }) => [styles.langToggle, pressed && { backgroundColor: colors.ink }]}
-      >
-        {({ pressed }: { pressed: boolean }) => (
-          <T style={{ fontFamily: fonts.display, fontSize: 13, letterSpacing: 1, color: pressed ? colors.white : colors.purple }}>
-            {label}
-          </T>
-        )}
-      </Pressable>
-      {restartNeeded ? (
-        <T variant="label" color={colors.purple} align="right" style={{ maxWidth: 160 }}>
-          {t('lang.restartNotice')}
-        </T>
-      ) : null}
-    </View>
-  );
-}
 
 export default function Home() {
   const {
@@ -56,8 +21,6 @@ export default function Home() {
     quitCharades,
   } = useApp();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
-  const { width } = useWindowDimensions();
-  const isWide = width >= 900;
 
   useEffect(() => {
     if (player) void refreshWallet();
@@ -80,56 +43,27 @@ export default function Home() {
   return (
     <Screen
       scroll
-      header={{ end: <LanguageToggle />, titleColor: colors.purple }}
+      header={{ titleColor: colors.purple }}
       footer={charades ? undefined : footer}
     >
       <Spacer size={spacing.sm} />
-      {isWide ? (
-        <View style={[styles.heroRow, lang === 'en' && styles.heroRowEn]}>
-          <View style={styles.heroTextCol}>
-            <T variant="heading" style={{ fontSize: 24 }}>
-              {tagline}
-            </T>
-            {!player ? (
-              <>
-                <Spacer size={spacing.sm} />
-                <T variant="label" color={colors.neutral700} style={{ fontWeight: '500', fontSize: 12 }}>
-                  {writeup}
-                </T>
-              </>
-            ) : null}
-          </View>
-          <View style={styles.heroMediaCol}>
-            <View style={styles.heroLogoWrap}>
-              <Logo size="lg" />
-            </View>
-            {!player ? (
-              <>
-                <Spacer size={spacing.md} />
-                <CategoryGrid />
-              </>
-            ) : null}
-          </View>
-        </View>
-      ) : (
+      {/* One layout at every width — a desktop window shows the same
+          phone-shaped column as the app (see MAX_CONTENT_WIDTH). */}
+      <Logo size="lg" />
+      <Spacer size={spacing.md} />
+      <T variant="heading" style={{ fontSize: 20 }}>
+        {tagline}
+      </T>
+      {!player ? (
         <>
-          <Logo size="lg" />
-          <Spacer size={spacing.md} />
-          <T variant="heading" style={{ fontSize: 20 }}>
-            {tagline}
+          <Spacer size={spacing.sm} />
+          <T variant="label" color={colors.neutral700} style={{ fontWeight: '500', fontSize: 12 }}>
+            {writeup}
           </T>
-          {!player ? (
-            <>
-              <Spacer size={spacing.sm} />
-              <T variant="label" color={colors.neutral700} style={{ fontWeight: '500', fontSize: 12 }}>
-                {writeup}
-              </T>
-              <Spacer size={spacing.sm} />
-              <CategoryGrid />
-            </>
-          ) : null}
+          <Spacer size={spacing.sm} />
+          <CategoryGrid />
         </>
-      )}
+      ) : null}
       <Spacer size={spacing.md} />
       <Divider />
       <Spacer size={spacing.md} />
@@ -161,6 +95,9 @@ export default function Home() {
               {t('charades.checkout.freeGamesLeft', { count: freeGameCredits })}
             </T>
           ) : null}
+          <Spacer size={spacing.sm} />
+          <LowBalanceBanner />
+          <LowBalanceAlert path="/home" />
           <Spacer size={spacing.xs} />
           <TextLink label={t('account.logout')} onPress={() => setConfirmingLogout(true)} />
         </>
@@ -220,17 +157,6 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  langToggle: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  heroRow: { flexDirection: 'row-reverse', alignItems: 'stretch', gap: 40 },
-  heroRowEn: { flexDirection: 'row' },
-  heroTextCol: { flex: 1.15, justifyContent: 'center' },
-  heroMediaCol: { flex: 1, justifyContent: 'center' },
-  heroLogoWrap: { alignItems: 'center' },
   accountCard: { flexDirection: 'row', borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white },
   accountCardInfo: { flex: 1, padding: 14, gap: 2 },
   accountCardCredit: {

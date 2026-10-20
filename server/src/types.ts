@@ -34,32 +34,49 @@ export function isGameMode(value: unknown): value is GameMode {
 }
 
 /**
- * How hard a title is to act — only meaningful in modified mode, where the
- * acting team picks a level each round and it decides the points on offer
- * (see the client's modified engine). A deck carries a default for every
- * title in it; a single title may override that; and a long title (over
- * `LONG_TITLE_WORDS` words) is automatically bumped one level up from its
- * deck's default, since length makes a title hard to act regardless of how
- * famous it is — see `effectiveDifficulty`. Classic mode ignores this
- * entirely; decks are shared between both modes.
+ * How hard a title is to act. In modified mode the acting team picks a level
+ * each round and it decides the points on offer (see the client's modified
+ * engine); in classic mode the player may pick one level for the whole game
+ * (see `ClassicDifficulty`). A single title may carry an explicit level;
+ * otherwise its level comes from its length — length makes a title hard to
+ * act regardless of how famous it is — shifted by its deck's level. See
+ * `effectiveDifficulty`. Decks are shared between both modes.
  */
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
-export const LONG_TITLE_WORDS = 4;
+/** A title of at most this many words is easy to act on a medium deck. */
+export const SHORT_TITLE_WORDS = 1;
+/** A title of more than this many words is hard to act on a medium deck. */
+export const LONG_TITLE_WORDS = 3;
 
 export function isDifficulty(value: unknown): value is Difficulty {
   return value === 'easy' || value === 'medium' || value === 'hard';
 }
 
-function bumpDifficulty(d: Difficulty): Difficulty {
-  return d === 'easy' ? 'medium' : 'hard';
-}
-
-/** A title's own override wins; otherwise its deck's default, bumped one level for a long title. */
+/**
+ * A title's own override wins. Otherwise its length sets its level — one
+ * word easy, two or three medium, more than that hard — and the deck's
+ * level shifts that one step: an easy deck makes every title one level
+ * easier, a hard deck one level harder, a medium deck (every deck's default)
+ * leaves it as is.
+ *
+ * Before, an un-tagged title simply took its deck's level (bumped once if
+ * long), so a deck nobody had tagged dealt only medium titles plus a few
+ * long hard ones — the easy stack was always empty and players couldn't
+ * actually choose a level.
+ */
 export function effectiveDifficulty(deckDefault: Difficulty, title: { text: string; difficulty: Difficulty | null }): Difficulty {
   if (title.difficulty) return title.difficulty;
   const words = title.text.trim().split(/\s+/).filter(Boolean).length;
-  return words > LONG_TITLE_WORDS ? bumpDifficulty(deckDefault) : deckDefault;
+  const byLength = words <= SHORT_TITLE_WORDS ? 0 : words <= LONG_TITLE_WORDS ? 1 : 2;
+  const shift = deckDefault === 'easy' ? -1 : deckDefault === 'hard' ? 1 : 0;
+  return DIFFICULTIES[Math.min(2, Math.max(0, byLength + shift))];
+}
+
+/** A classic game's level, chosen when drafting: one level, or `mixed` for every level. */
+export type ClassicDifficulty = 'mixed' | Difficulty;
+export function isClassicDifficulty(value: unknown): value is ClassicDifficulty {
+  return value === 'mixed' || isDifficulty(value);
 }
 
 /**

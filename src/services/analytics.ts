@@ -15,7 +15,9 @@ export type AnalyticsEvent =
   | { name: 'wallet_topped_up'; balance: number }
   | { name: 'player_account_created' }
   | { name: 'player_logged_in' }
-  | { name: 'player_logout' };
+  | { name: 'player_logout' }
+  | { name: 'player_session_expired' }
+  | { name: 'charades_ended_inactive' };
 
 export interface AnalyticsSink {
   track(event: AnalyticsEvent): void;

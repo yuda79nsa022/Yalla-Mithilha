@@ -1,8 +1,11 @@
+import { router, usePathname } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +32,9 @@ import {
   type,
 } from '../theme';
 import { useApp } from '../../state/AppProvider';
+import { needsRestartForDirection } from '../../platform';
+import { track } from '../../services/analytics';
+import type { Lang } from '../../engine/types';
 
 /* ------------------------------------------------------------------ text */
 
@@ -81,6 +87,55 @@ export function T({
 
 /* ---------------------------------------------------------------- screen */
 
+/**
+ * The widest the app's column gets. A phone uses its full width; a tablet or
+ * desktop window gets the same phone-shaped column, centered, with the
+ * screen's own background colour filling the rest — so every screen looks
+ * and behaves the same on the web as in the app, instead of stretching rows
+ * of buttons across a 1400px window.
+ */
+export const MAX_CONTENT_WIDTH = 560;
+
+/**
+ * The AR/EN switch every screen header carries. On native, flipping between
+ * RTL and LTR only fully applies after the app restarts — the notice under
+ * the switch says so rather than leaving a half-mirrored layout unexplained.
+ */
+export function LanguageToggle({ light = false }: { light?: boolean }) {
+  const { lang, prefs, setPrefs, t } = useApp();
+  const next: Lang = lang === 'ar' ? 'en' : 'ar';
+  const label = next === 'ar' ? 'AR' : 'EN';
+  const restartNeeded = prefs.lang !== null && needsRestartForDirection(lang);
+  const fg = light ? colors.white : colors.purple;
+  const border = light ? colors.white : colors.ink;
+
+  return (
+    <View style={{ alignItems: 'flex-end' }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('lang.switchTo', { lang: next === 'ar' ? 'العربية' : 'English' })}
+        hitSlop={8}
+        onPress={() => {
+          setPrefs({ lang: next });
+          track({ name: 'language_changed', lang: next });
+        }}
+        style={({ pressed }) => [styles.langToggle, { borderColor: border }, pressed && { backgroundColor: border }]}
+      >
+        {({ pressed }: { pressed: boolean }) => (
+          <T style={{ fontFamily: fonts.display, fontSize: 13, letterSpacing: 1, color: pressed ? (light ? colors.ink : colors.white) : fg }}>
+            {label}
+          </T>
+        )}
+      </Pressable>
+      {restartNeeded ? (
+        <T variant="label" color={fg} align="right" style={{ maxWidth: 160, fontSize: 11 }}>
+          {t('lang.restartNotice')}
+        </T>
+      ) : null}
+    </View>
+  );
+}
+
 export function Screen({
   children,
   scroll = false,
@@ -93,7 +148,7 @@ export function Screen({
   scroll?: boolean;
   background?: string;
   style?: StyleProp<ViewStyle>;
-  /** Header bar: a back button or wordmark on the start side, custom content (EN toggle, logo) on the end side. */
+  /** Header bar: a back button or wordmark on the start side; on the end side any custom content, then the language toggle every header carries. */
   header?: { title?: string; onBack?: () => void; end?: React.ReactNode; light?: boolean; titleColor?: string };
   /** Pinned footer content (primary CTA) — always visible, never scrolls with the content above it. */
   footer?: React.ReactNode;
@@ -101,14 +156,15 @@ export function Screen({
   const { t, lang } = useApp();
   const inner = <View style={[styles.screenInner, style]}>{children}</View>;
   return (
-    // Genuinely fills the available viewport width at any screen size —
-    // header, scroll body and pinned footer all stretch edge-to-edge
-    // together, so there's no centered "card" reading as a box floating
-    // in empty space, and no dead margin on a wide desktop window.
-    <View style={styles.pageOuter}>
-      <SafeAreaView style={[styles.screen, styles.pageColumn, { backgroundColor: background }]} edges={['top', 'bottom']}>
+    // The background runs edge to edge at any width (so a wide window never
+    // shows a box floating in a differently-coloured void), while header,
+    // body and footer share one centered, phone-width column — see
+    // MAX_CONTENT_WIDTH.
+    <View style={[styles.pageOuter, { backgroundColor: background }]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: background }]} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {header ? (
-        <View style={styles.headerBar}>
+        <View style={[styles.headerBar, styles.column]}>
           {header.onBack ? (
             <Pressable
               accessibilityRole="button"
@@ -129,19 +185,31 @@ export function Screen({
               {header.title ?? t('app.name')}
             </T>
           )}
-          {header.end}
+          <View style={styles.headerEnd}>
+            {header.end}
+            <LanguageToggle light={header.light} />
+          </View>
         </View>
       ) : null}
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        // The ScrollView itself spans the full width, so a wheel or swipe
+        // anywhere on a wide window scrolls it — only its content is
+        // narrowed to the column.
+        <ScrollView
+          style={styles.screen}
+          contentContainerStyle={[styles.scrollContent, styles.column]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           {inner}
         </ScrollView>
       ) : (
-        inner
+        <View style={[styles.screen, styles.column]}>{inner}</View>
       )}
         {footer ? (
-          <View style={[styles.footer, { backgroundColor: background }]}>{footer}</View>
+          <View style={[styles.footer, styles.column, { backgroundColor: background }]}>{footer}</View>
         ) : null}
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -498,6 +566,7 @@ export function ScoreBlock({
   teamBScore,
   big = false,
   light = false,
+  compact = false,
 }: {
   teamAName: string;
   teamAScore: number;
@@ -507,34 +576,30 @@ export function ScoreBlock({
   big?: boolean;
   /** On the ink final-score background, the un-highlighted cell is transparent, not white. */
   light?: boolean;
+  /** Smaller digits, for screens where something else (the QR code) has to fit on a phone too. */
+  compact?: boolean;
 }) {
+  const digits = compact ? { fontSize: 36, lineHeight: 42 } : big ? { fontSize: 72, lineHeight: 78 } : { fontSize: 64, lineHeight: 70 };
+  const cellPadding = compact ? { padding: 10 } : null;
   return (
     <View style={[styles.scoreBlock, { borderColor: light ? colors.white : colors.ink }]}>
       <View
         style={[
           styles.scoreCell,
+          cellPadding,
           { backgroundColor: colors.purple, borderColor: light ? colors.white : colors.ink },
         ]}
       >
-        <T variant="label" color={colors.white} style={{ fontSize: 14 }}>
+        <T variant="label" color={colors.white} style={{ fontSize: 14 }} numberOfLines={1}>
           {teamAName}
         </T>
-        <T style={{ fontFamily: fonts.displayBlack, fontSize: big ? 72 : 64, lineHeight: big ? 78 : 70, color: colors.white }}>
-          {teamAScore}
-        </T>
+        <T style={[{ fontFamily: fonts.displayBlack, color: colors.white }, digits]}>{teamAScore}</T>
       </View>
-      <View style={[styles.scoreCell, { backgroundColor: light ? 'transparent' : colors.white }]}>
-        <T variant="label" color={light ? colors.white : colors.ink} style={{ fontSize: 14 }}>
+      <View style={[styles.scoreCell, cellPadding, { backgroundColor: light ? 'transparent' : colors.white }]}>
+        <T variant="label" color={light ? colors.white : colors.ink} style={{ fontSize: 14 }} numberOfLines={1}>
           {teamBName}
         </T>
-        <T
-          style={{
-            fontFamily: fonts.displayBlack,
-            fontSize: big ? 72 : 64,
-            lineHeight: big ? 78 : 70,
-            color: light ? colors.white : colors.ink,
-          }}
-        >
+        <T style={[{ fontFamily: fonts.displayBlack, color: light ? colors.white : colors.ink }, digits]}>
           {teamBScore}
         </T>
       </View>
@@ -595,6 +660,82 @@ export function ConfirmModal({
   );
 }
 
+/* ------------------------------------------------------- account prompts */
+
+/** Asks the player to sign in again once their session ended on its own. Mounted once, above every screen. */
+export function SessionExpiredPrompt() {
+  const { t, sessionExpired, dismissSessionExpired, player } = useApp();
+  const pathname = usePathname();
+  // Not over the sign-in screen itself, and never on the standalone reveal
+  // page, which a different phone opens from a QR code.
+  const visible = sessionExpired && !player && pathname !== '/account' && pathname !== '/reveal';
+  return (
+    <ConfirmModal
+      visible={visible}
+      title={t('session.expiredTitle')}
+      body={t('session.expiredBody')}
+      confirmLabel={t('session.signInAgain')}
+      cancelLabel={t('session.notNow')}
+      onConfirm={() => {
+        dismissSessionExpired();
+        router.push('/account');
+      }}
+      onCancel={dismissSessionExpired}
+    />
+  );
+}
+
+/** "Only N games left — Buy more", shown wherever the wallet matters while the player is under the low-balance threshold. */
+export function LowBalanceBanner({ light = false }: { light?: boolean }) {
+  const { t, lowBalance, walletBalance, freeGameCredits } = useApp();
+  if (!lowBalance) return null;
+  return (
+    <View style={[styles.lowBalanceBanner, { borderColor: light ? colors.white : colors.red }]}>
+      <T variant="label" color={light ? colors.white : colors.red}>
+        {t('wallet.lowBanner', { count: walletBalance + freeGameCredits })}
+      </T>
+      <Spacer size={spacing.sm} />
+      <Button label={t('wallet.buyMore')} accent={colors.red} onPress={() => router.push('/buy')} />
+    </View>
+  );
+}
+
+// Which "N games left" the player already acknowledged this run — so the
+// alert pops up once each time the count drops, not on every visit home.
+let acknowledgedLowBalance: string | null = null;
+
+/**
+ * The one-time pop-up when games left fall under the threshold. `path` is
+ * the screen it sits on: a stack keeps that screen mounted underneath the
+ * ones pushed over it, and a Modal would otherwise pop up over those too —
+ * in the middle of a game.
+ */
+export function LowBalanceAlert({ path }: { path: string }) {
+  const { t, lowBalance, walletBalance, freeGameCredits, player } = useApp();
+  const pathname = usePathname();
+  const key = player ? `${player.id}:${walletBalance + freeGameCredits}` : null;
+  const [, rerender] = React.useState(0);
+  const visible = pathname === path && lowBalance && key !== null && acknowledgedLowBalance !== key;
+  const acknowledge = () => {
+    acknowledgedLowBalance = key;
+    rerender((n) => n + 1);
+  };
+  return (
+    <ConfirmModal
+      visible={visible}
+      title={t('wallet.lowTitle')}
+      body={t('wallet.lowBody', { count: walletBalance + freeGameCredits })}
+      confirmLabel={t('wallet.buyMore')}
+      cancelLabel={t('wallet.dismiss')}
+      onConfirm={() => {
+        acknowledge();
+        router.push('/buy');
+      }}
+      onCancel={acknowledge}
+    />
+  );
+}
+
 /**
  * The two controls a performer uses mid-round. Deliberately enormous: the
  * phone is often on a forehead or being waved around. Kept for backward
@@ -633,8 +774,10 @@ export function BigChoice({
 
 const styles = StyleSheet.create({
   pageOuter: { flex: 1, backgroundColor: colors.ground },
-  pageColumn: { width: '100%' },
   screen: { flex: 1 },
+  column: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
+  headerEnd: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  langToggle: { borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5 },
   screenInner: { flex: 1, padding: spacing.lg, gap: spacing.md },
   scrollContent: { flexGrow: 1 },
   headerBar: {
@@ -736,5 +879,14 @@ const styles = StyleSheet.create({
   scoreBlock: { flexDirection: 'row', borderWidth: 2 },
   scoreCell: { flex: 1, padding: 18, gap: 2, borderRightWidth: 2 },
   confirmBackdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', padding: spacing.lg },
-  confirmCard: { backgroundColor: colors.white, borderWidth: 2, borderColor: colors.ink, padding: spacing.lg },
+  lowBalanceBanner: { borderWidth: 2, padding: spacing.md, backgroundColor: 'transparent' },
+  confirmCard: {
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH - 2 * spacing.lg,
+    alignSelf: 'center',
+  },
 });

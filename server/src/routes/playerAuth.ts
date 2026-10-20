@@ -12,7 +12,7 @@ import {
   updatePlayer,
   claimPasswordReset,
 } from '../db';
-import { hashPassword, signPlayerSessionToken, verifyPassword } from '../auth';
+import { hashPassword, requirePlayerSession, signPlayerSessionToken, verifyPassword } from '../auth';
 import { handleError } from '../errors';
 import { resetCodeProvider } from '../notifications/resetCodeProvider';
 import { loginLimiter, passwordResetConfirmLimiter, passwordResetRequestLimiter, registerLimiter } from '../rateLimit';
@@ -41,7 +41,8 @@ export const playerAuthRouter = Router();
 playerAuthRouter.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Authorization for /session/refresh, the one route here that needs a session.
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') {
     res.status(204).end();
     return;
@@ -149,6 +150,29 @@ playerAuthRouter.post('/password-reset/confirm', passwordResetConfirmLimiter, as
       target: player.id,
     });
     res.json({ ok: true });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+/**
+ * Swaps a still-valid session token for a fresh one with a new expiry — the
+ * app calls this while it's in use, so an active player is never signed out
+ * mid-game by the token's fixed 12-hour lifetime, while an abandoned device
+ * still needs a real sign-in once its token lapses. `requirePlayerSession`
+ * does the real check (signature, expiry, and the account's session
+ * version), so an expired, signed-out-everywhere or deleted account's token
+ * gets a 401 here like anywhere else and can't be revived.
+ */
+playerAuthRouter.post('/session/refresh', requirePlayerSession, (req, res) => {
+  try {
+    const player = getPlayerById(req.player!.sub);
+    if (!player) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    const token = signPlayerSessionToken({ sub: player.id, username: player.username });
+    res.json({ token, player: { id: player.id, username: player.username } });
   } catch (err) {
     handleError(err, res);
   }

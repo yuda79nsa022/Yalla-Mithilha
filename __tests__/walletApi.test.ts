@@ -18,7 +18,19 @@ describe('startGameSession', () => {
 
     await startGameSession('tok', 'sess-1', ['us-movies'], 'classic');
 
-    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['us-movies'], mode: 'classic' });
+    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['us-movies'], mode: 'classic', difficulty: 'mixed' });
+  });
+
+  it("sends a classic game's chosen difficulty", async () => {
+    let sentBody: unknown;
+    mockFetch(async (_url, init) => {
+      sentBody = JSON.parse((init as RequestInit).body as string);
+      return new Response(JSON.stringify({ session: { titles: [] }, balance: 0 }), { status: 201 });
+    });
+
+    await startGameSession('tok', 'sess-1', ['us-movies'], 'classic', 'hard');
+
+    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['us-movies'], mode: 'classic', difficulty: 'hard' });
   });
 
   it('also sends multiple chosen deck ids as-is', async () => {
@@ -30,7 +42,7 @@ describe('startGameSession', () => {
 
     await startGameSession('tok', 'sess-1', ['kuwaiti-plays', 'us-movies'], 'modified');
 
-    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['kuwaiti-plays', 'us-movies'], mode: 'modified' });
+    expect(sentBody).toEqual({ sessionId: 'sess-1', deckIds: ['kuwaiti-plays', 'us-movies'], mode: 'modified', difficulty: 'mixed' });
   });
 });
 

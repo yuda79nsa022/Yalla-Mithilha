@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from '../src/state/AppProvider';
 import { applyDirection, needsRestartForDirection } from '../src/platform';
 import { colors } from '../src/ui/theme';
+import { SessionExpiredPrompt } from '../src/ui/components';
 import { useBrandFonts } from '../src/ui/fonts';
 
 function Gate({ children }: { children: React.ReactNode }) {
@@ -45,6 +46,7 @@ export default function RootLayout() {
               gestureEnabled: false,
             }}
           />
+          <SessionExpiredPrompt />
         </Gate>
       </AppProvider>
     </SafeAreaProvider>

@@ -5,6 +5,7 @@ import { requirePlayerSession } from '../auth';
 import { handleError } from '../errors';
 import { getPaymentProvider } from '../payments/provider';
 import { settleFromProvider } from '../payments/settle';
+import { notifyLowBalance } from '../notifications/lowBalance';
 import { paymentGatewayLimiter } from '../rateLimit';
 import { parseCreateRevealTokenBody, parseStartSessionBody } from '../validate';
 
@@ -210,9 +211,12 @@ charadesRouter.post('/checkout/myfatoorah/webhook', paymentGatewayLimiter, async
  */
 charadesRouter.post('/sessions', requirePlayerSession, (req, res) => {
   try {
-    const { sessionId, deckIds, mode } = parseStartSessionBody(req.body);
-    const { session, balance } = startGameSession(req.player!.sub, sessionId, deckIds, mode);
+    const { sessionId, deckIds, mode, difficulty } = parseStartSessionBody(req.body);
+    const { session, balance } = startGameSession(req.player!.sub, sessionId, deckIds, mode, difficulty);
     res.status(201).json({ session, balance });
+    // After the response: spending this game may have taken them under the
+    // low-balance threshold. Fire-and-forget — never fails or delays the game.
+    void notifyLowBalance(req.player!.sub);
   } catch (err) {
     handleError(err, res);
   }

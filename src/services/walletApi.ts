@@ -1,5 +1,5 @@
 import { CATALOGUE_API_URL } from '../config';
-import type { CharadesTitle } from '../engine/charades';
+import type { CharadesTitle, ClassicDifficulty } from '../engine/charades';
 import type { CharadesStacks } from '../engine/modifiedCharades';
 import type { GameMode } from '../engine/game';
 import type { Lang } from '../engine/types';
@@ -22,6 +22,11 @@ export interface CheckoutPayment {
   status: PaymentStatus;
   /** Set when a real payment gateway is configured: the player pays on this page. Absent for the development mock. */
   redirectUrl?: string;
+}
+
+/** A price in fils (1000 fils = 1 KD), as the app shows it. */
+export function formatKwd(fils: number): string {
+  return `${(fils / 1000).toFixed(3)} KD`;
 }
 
 async function request<T>(path: string, init: RequestInit, timeoutMs: number): Promise<T> {
@@ -145,19 +150,21 @@ export function failCheckout(token: string, paymentId: string, timeoutMs = 8000)
  * server-side — calling this again with the same sessionId (e.g. after an
  * app restart) never spends a second credit, and returns the same dealt
  * session instead, regardless of `deckIds`/`mode`. Throws `WalletError`
- * with `status: 402` when the balance is empty.
+ * with `status: 402` when the balance is empty. `difficulty` only matters
+ * for a classic game — which level of titles to deal.
  */
 export function startGameSession(
   token: string,
   sessionId: string,
   deckIds: string[],
   mode: GameMode,
+  difficulty: ClassicDifficulty = 'mixed',
   timeoutMs = 8000
 ): Promise<{ titles: CharadesTitle[]; rounds?: number; stacks?: CharadesStacks; balance: number }> {
   return authedPost<{
     session: { titles: CharadesTitle[]; rounds?: number; stacks?: CharadesStacks };
     balance: number;
-  }>('/charades/sessions', token, { sessionId, deckIds, mode }, timeoutMs).then((r) => ({
+  }>('/charades/sessions', token, { sessionId, deckIds, mode, difficulty }, timeoutMs).then((r) => ({
     titles: r.session.titles,
     rounds: r.session.rounds,
     stacks: r.session.stacks,

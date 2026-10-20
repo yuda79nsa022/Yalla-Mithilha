@@ -1,15 +1,13 @@
-import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Linking, Platform, View } from 'react-native';
+import { Redirect, router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { Button, Divider, Screen, Spacer, T } from '../../src/ui/components';
 import { Hero } from '../../src/ui/Hero';
 import { colors, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { goBack } from '../../src/platform/navigation';
-
-function formatKwd(fils: number): string {
-  return `${(fils / 1000).toFixed(3)} KD`;
-}
+import { useTopUp } from '../../src/state/useTopUp';
+import { formatKwd } from '../../src/services/walletApi';
 
 export default function CharadesCheckout() {
   const {
@@ -23,49 +21,11 @@ export default function CharadesCheckout() {
     walletBusy,
     walletError,
     refreshWallet,
-    startTopUp,
-    checkTopUp,
-    confirmTopUp,
-    failTopUp,
     unlockCurrentCharades,
   } = useApp();
-  const [busy, setBusy] = useState<'topup' | 'start' | null>(null);
-  const [paymentNotice, setPaymentNotice] = useState<'paid' | 'pending' | 'failed' | 'error' | null>(null);
-
-  // Back from the payment gateway's page: the server's return route sends
-  // the browser here with `?payment=…&result=…`. The result in the URL is
-  // only a hint — the payment is always re-checked with the server (which
-  // asks the gateway itself) before saying anything to the player.
-  const { payment: returnedPaymentId, result: returnedResult } = useLocalSearchParams<{
-    payment?: string;
-    result?: string;
-  }>();
-  useEffect(() => {
-    if (!player) return;
-    if (returnedPaymentId) {
-      void checkTopUp(returnedPaymentId).then((status) =>
-        setPaymentNotice(status === 'paid' ? 'paid' : status === 'initiated' ? 'pending' : status ? 'failed' : 'error')
-      );
-    } else if (returnedResult === 'error') {
-      setPaymentNotice('error');
-    }
-  }, [player, returnedPaymentId, returnedResult, checkTopUp]);
-
-  // Native apps open the gateway's page in the device browser, which never
-  // comes back through the return route into the app — so check the payment
-  // when the player switches back to the app instead.
-  const pendingNativePayment = useRef<string | null>(null);
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      const paymentId = pendingNativePayment.current;
-      if (state !== 'active' || !paymentId) return;
-      void checkTopUp(paymentId).then((status) => {
-        if (status === 'paid' || status === 'failed' || status === 'cancelled') pendingNativePayment.current = null;
-        setPaymentNotice(status === 'paid' ? 'paid' : status === 'initiated' ? 'pending' : status ? 'failed' : 'error');
-      });
-    });
-    return () => sub.remove();
-  }, [checkTopUp]);
+  const [starting, setStarting] = useState(false);
+  const { busy: toppingUp, notice: paymentNotice, topUp: topUpFor, simulateFailure: simulateFailureFor, returnedPaymentId, returnedResult } =
+    useTopUp();
 
   useEffect(() => {
     if (player) void refreshWallet();
@@ -86,6 +46,15 @@ export default function CharadesCheckout() {
     }, [charades, player])
   );
 
+  // A payment started from the Buy-more screen also comes back through
+  // here (the gateway's return route only knows this one address) — with no
+  // game being set up, its result belongs on that screen instead.
+  if (!charades && (returnedPaymentId || returnedResult)) {
+    const query = returnedPaymentId
+      ? `payment=${encodeURIComponent(returnedPaymentId)}&result=${encodeURIComponent(returnedResult ?? '')}`
+      : `result=${encodeURIComponent(returnedResult ?? '')}`;
+    return <Redirect href={`/buy?${query}`} />;
+  }
   if (!charades) return <Redirect href="/charades/draft" />;
   if (charades.lock === 'unlocked') return <Redirect href="/charades/play" />;
   if (!player) return null;
@@ -95,38 +64,13 @@ export default function CharadesCheckout() {
   const hasFreeGame = freeGameCredits > 0;
   const canStart = hasFreeGame || walletBalance >= 1;
 
-  const topUp = async () => {
-    setBusy('topup');
-    setPaymentNotice(null);
-    const payment = await startTopUp(mode);
-    if (payment?.redirectUrl) {
-      // A real gateway: the player pays on its page. On web this tab goes
-      // there and comes back through the return route; native opens the
-      // device browser and checks the payment on returning to the app.
-      if (Platform.OS === 'web') {
-        const g = globalThis as { location?: { href?: string } };
-        if (g.location) g.location.href = payment.redirectUrl;
-        return; // leaving the page — keep the button busy
-      }
-      pendingNativePayment.current = payment.id;
-      void Linking.openURL(payment.redirectUrl);
-    } else if (payment) {
-      await confirmTopUp(payment.id); // development mock
-    }
-    setBusy(null);
-  };
-
-  const simulateFailure = async () => {
-    setBusy('topup');
-    const payment = await startTopUp(mode);
-    if (payment) await failTopUp(payment.id);
-    setBusy(null);
-  };
+  const topUp = () => topUpFor(mode);
+  const simulateFailure = () => simulateFailureFor(mode);
 
   const start = async () => {
-    setBusy('start');
+    setStarting(true);
     const unlocked = await unlockCurrentCharades();
-    setBusy(null);
+    setStarting(false);
     if (unlocked) router.push('/charades/play');
   };
 
@@ -134,7 +78,7 @@ export default function CharadesCheckout() {
     <Screen
       scroll
       header={{ onBack: () => goBack('/charades/draft') }}
-      footer={<Button label={t('charades.checkout.start')} disabled={!canStart} busy={busy === 'start'} onPress={start} />}
+      footer={<Button label={t('charades.checkout.start')} disabled={!canStart} busy={starting} onPress={start} />}
     >
       <Spacer size={spacing.md} />
       <Hero />
@@ -168,7 +112,7 @@ export default function CharadesCheckout() {
       <Button
         label={t('charades.checkout.price', { price: formatKwd(priceFils) })}
         tone="secondary"
-        busy={busy === 'topup' || walletBusy}
+        busy={toppingUp || walletBusy}
         onPress={topUp}
       />
 

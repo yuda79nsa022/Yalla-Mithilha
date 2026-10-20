@@ -1,5 +1,5 @@
-import type { Difficulty, GameMode, Lang } from './types';
-import { isDifficulty, isGameMode } from './types';
+import type { ClassicDifficulty, Difficulty, GameMode, Lang } from './types';
+import { isClassicDifficulty, isDifficulty, isGameMode } from './types';
 
 export class ValidationError extends Error {}
 
@@ -30,6 +30,12 @@ function optionalDifficulty(value: unknown, field: string): Difficulty {
 function optionalGameMode(value: unknown, field: string): GameMode {
   if (value === undefined) return 'classic';
   if (!isGameMode(value)) throw new ValidationError(`"${field}" must be "classic" or "modified"`);
+  return value;
+}
+
+function optionalClassicDifficulty(value: unknown, field: string): ClassicDifficulty {
+  if (value === undefined) return 'mixed';
+  if (!isClassicDifficulty(value)) throw new ValidationError(`"${field}" must be "mixed", "easy", "medium" or "hard"`);
   return value;
 }
 
@@ -248,6 +254,8 @@ export interface StartSessionBody {
   sessionId: string;
   deckIds?: string[];
   mode: GameMode;
+  /** Classic mode only — which level to deal; modified mode deals all three as stacks and ignores it. */
+  difficulty: ClassicDifficulty;
 }
 
 /**
@@ -262,7 +270,12 @@ export function parseStartSessionBody(body: unknown): StartSessionBody {
   const b = (body ?? {}) as Record<string, unknown>;
   const sessionId = requireString(b.sessionId, 'sessionId');
   if (sessionId.length > 200) throw new ValidationError('"sessionId" is too long');
-  return { sessionId, deckIds: optionalDeckIds(b.deckIds, 'deckIds'), mode: optionalGameMode(b.mode, 'mode') };
+  return {
+    sessionId,
+    deckIds: optionalDeckIds(b.deckIds, 'deckIds'),
+    mode: optionalGameMode(b.mode, 'mode'),
+    difficulty: optionalClassicDifficulty(b.difficulty, 'difficulty'),
+  };
 }
 
 export interface CreateRevealTokenBody {

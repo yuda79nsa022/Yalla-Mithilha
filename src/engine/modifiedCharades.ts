@@ -18,7 +18,7 @@
  *   `SPEED_BONUS_WINDOW_SECONDS` of the round;
  * - each team's final round counts double (`isDoubleRound`);
  * - when the timer runs out, the other team may steal with one guess for
- *   `STEAL_POINTS`;
+ *   `STEAL_POINTS` — at most `MAX_STEALS_PER_GAME` times in the whole game;
  * - each team has one of each assist (`ASSIST_KINDS`) per game, free to use.
  *
  * Kept entirely separate from `src/engine/charades.ts` (the classic game)
@@ -27,6 +27,8 @@
  * per game (see `src/engine/game.ts` for the union both screens dispatch
  * on).
  */
+
+import type { GameEndReason } from './rules';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
@@ -38,6 +40,12 @@ export const SPEED_BONUS_POINTS = 1;
 export const SPEED_BONUS_WINDOW_SECONDS = 60;
 /** What the other team earns by guessing the title once the acting team's time has run out. */
 export const STEAL_POINTS = 1;
+/**
+ * How many steals a whole game allows, both teams together — a game is 20
+ * rounds, and a steal on every timed-out round would let the guessing team
+ * out-score the acting one without ever acting.
+ */
+export const MAX_STEALS_PER_GAME = 2;
 
 export type AssistKind = 'firstLetters' | 'lastLetters' | 'extraTime';
 export const ASSIST_KINDS: readonly AssistKind[] = ['firstLetters', 'lastLetters', 'extraTime'];
@@ -97,6 +105,12 @@ export interface ModifiedCharadesState {
   deckIds: string[];
   /** Which assists each team has already spent this game — one of each per team. */
   assistsUsed: [AssistKind[], AssistKind[]];
+  /** Steals taken so far this game, both teams together — capped at `MAX_STEALS_PER_GAME`. Absent on games saved before the cap existed, meaning 0. */
+  stealsUsed?: number;
+  /** Set when the game was ended early (see `endedReason` in `./game`); absent while it is still being played. */
+  endedReason?: GameEndReason;
+  /** Epoch ms of the last tap on the play screen — how a reopened game knows it sat idle past the limit. */
+  lastActivityAt?: number;
 }
 
 export function makeModifiedCharadesId(): string {
@@ -126,6 +140,7 @@ export function draftModifiedCharades(
     playerId,
     deckIds,
     assistsUsed: [[], []],
+    stealsUsed: 0,
   };
 }
 
@@ -203,14 +218,24 @@ export function skipRound(state: ModifiedCharadesState): ModifiedCharadesState {
   return { ...state, index: state.index + 1, current: null };
 }
 
+export function stealsLeft(state: ModifiedCharadesState): number {
+  return Math.max(0, MAX_STEALS_PER_GAME - (state.stealsUsed ?? 0));
+}
+
+export function canSteal(state: ModifiedCharadesState): boolean {
+  return state.current !== null && stealsLeft(state) > 0;
+}
+
 /**
  * Time ran out and the *other* team guessed it: they take `STEAL_POINTS`,
  * the acting team nothing, and the round is over. Never doubled — a steal
- * is a consolation, not a gamble.
+ * is a consolation, not a gamble. Returns the same state once the game's
+ * steals are used up, so a stale button can't sneak a third one in.
  */
 export function stealRound(state: ModifiedCharadesState): ModifiedCharadesState {
+  if (!canSteal(state)) return state;
   const stealer = currentTeamIndex(state) === 0 ? 1 : 0;
-  return awardRound(state, stealer, STEAL_POINTS);
+  return { ...awardRound(state, stealer, STEAL_POINTS), stealsUsed: (state.stealsUsed ?? 0) + 1 };
 }
 
 export function assistAvailable(state: ModifiedCharadesState, team: 0 | 1, kind: AssistKind): boolean {
@@ -255,9 +280,11 @@ export function adjustScore(state: ModifiedCharadesState, team: 0 | 1, delta: nu
   return { ...state, scores };
 }
 
-/** Over once every round is played, or sooner if every stack has run dry — never while a title is still in play. */
+/** Over once every round is played, or sooner if every stack has run dry — never while a title is still in play, unless the game was ended early. */
 export function isModifiedCharadesComplete(state: ModifiedCharadesState): boolean {
-  if (state.lock !== 'unlocked' || state.current !== null) return false;
+  if (state.lock !== 'unlocked') return false;
+  if (state.endedReason) return true;
+  if (state.current !== null) return false;
   const sizes = stackSizes(state);
   return state.index >= state.rounds || sizes.easy + sizes.medium + sizes.hard === 0;
 }
