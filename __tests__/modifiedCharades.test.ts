@@ -1,8 +1,6 @@
 import {
   ASSIST_EXTRA_SECONDS,
   DIFFICULTY_POINTS,
-  MAX_STEALS_PER_GAME,
-  STEAL_POINTS,
   adjustScore,
   assistAvailable,
   awardRound,
@@ -10,16 +8,12 @@ import {
   consumeAssist,
   currentTeamIndex,
   draftModifiedCharades,
-  isDoubleRound,
   isModifiedCharadesComplete,
   pickDifficulty,
   pointsForGuess,
   revealLetters,
   skipRound,
   stackSizes,
-  canSteal,
-  stealRound,
-  stealsLeft,
   unlockModifiedCharades,
   type CharadesDeal,
   type CharadesTitle,
@@ -103,31 +97,11 @@ describe('stackSizes', () => {
   });
 });
 
-describe('isDoubleRound / roundMultiplier', () => {
-  it('is true only for each team’s final round', () => {
-    let state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(4), 'player-1');
-    const flags: boolean[] = [];
-    for (let i = 0; i < 4; i++) {
-      flags.push(isDoubleRound(state));
-      state = pickDifficulty(state, 'easy');
-      state = skipRound(state);
-    }
-    expect(flags).toEqual([false, false, true, true]);
-  });
-});
-
 describe('pointsForGuess', () => {
   it('awards easy 2, medium 3 and hard 5 points', () => {
-    const state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(6), 'player-1');
-    expect(pointsForGuess(state, 'easy')).toBe(2);
-    expect(pointsForGuess(state, 'medium')).toBe(3);
-    expect(pointsForGuess(state, 'hard')).toBe(5);
-  });
-
-  it('doubles everything on a double round', () => {
-    let state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(2), 'player-1');
-    expect(isDoubleRound(state)).toBe(true);
-    expect(pointsForGuess(state, 'hard')).toBe(DIFFICULTY_POINTS.hard * 2);
+    expect(pointsForGuess('easy')).toBe(2);
+    expect(pointsForGuess('medium')).toBe(3);
+    expect(pointsForGuess('hard')).toBe(5);
   });
 });
 
@@ -145,42 +119,6 @@ describe('awardRound / skipRound', () => {
     const next = skipRound(state);
     expect(next.scores).toEqual([0, 0]);
     expect(next.current).toBeNull();
-  });
-});
-
-describe('stealRound', () => {
-  it('gives the other team STEAL_POINTS, never the acting team', () => {
-    const state = pickDifficulty(unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(6), 'player-1'), 'easy');
-    expect(currentTeamIndex(state)).toBe(0);
-    const stolen = stealRound(state);
-    expect(stolen.scores).toEqual([0, STEAL_POINTS]);
-  });
-
-  it('allows at most MAX_STEALS_PER_GAME steals in the whole game, both teams together', () => {
-    let state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(20), 'player-1');
-    for (let i = 0; i < MAX_STEALS_PER_GAME; i++) {
-      state = pickDifficulty(state, 'easy');
-      expect(canSteal(state)).toBe(true);
-      state = stealRound(state);
-    }
-    expect(state.stealsUsed).toBe(MAX_STEALS_PER_GAME);
-    expect(stealsLeft(state)).toBe(0);
-    // Round 1 (team A acting) went to B, round 2 (team B acting) to A.
-    expect(state.scores).toEqual([STEAL_POINTS, STEAL_POINTS]);
-
-    const third = pickDifficulty(state, 'easy');
-    expect(canSteal(third)).toBe(false);
-    // A stale button can't sneak a third one in: nothing changes.
-    expect(stealRound(third)).toBe(third);
-  });
-
-  it('treats a game saved before the cap existed as having used none', () => {
-    const { stealsUsed: _omit, ...legacy } = pickDifficulty(
-      unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(6), 'player-1'),
-      'easy'
-    );
-    expect(stealsLeft(legacy)).toBe(MAX_STEALS_PER_GAME);
-    expect(stealRound(legacy).stealsUsed).toBe(1);
   });
 });
 

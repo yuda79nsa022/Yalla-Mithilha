@@ -32,25 +32,18 @@ import {
   ASSIST_EXTRA_SECONDS,
   ASSIST_KINDS,
   DIFFICULTIES,
-  DIFFICULTY_POINTS,
-  MAX_STEALS_PER_GAME,
-  STEAL_POINTS,
   adjustScore as adjustModifiedScore,
   assistAvailable,
   awardRound as awardModifiedRound,
   canPickDifficulty,
-  canSteal,
   consumeAssist,
   currentTeamIndex as currentModifiedTeamIndex,
-  isDoubleRound,
   isModifiedCharadesComplete,
   pickDifficulty,
   pointsForGuess,
   revealLetters,
   skipRound as skipModifiedRound,
   stackSizes,
-  stealRound,
-  stealsLeft,
   type AssistKind,
   type Difficulty,
   type ModifiedCharadesState,
@@ -495,8 +488,8 @@ function FinalScreen({ state }: { state: CharadesState }) {
  */
 interface PendingOutcome {
   round: number;
-  kind: 'award' | 'steal' | 'skip';
-  /** Who scores — the acting team for an award, the other team for a steal. */
+  kind: 'award' | 'skip';
+  /** The acting team — the one that scores on an award. */
   team: 0 | 1;
   points: number;
 }
@@ -520,8 +513,7 @@ function RoundRecap({
   const { t, lang } = useApp();
   const scored = outcome.kind !== 'skip';
   const scorerName = outcome.team === 0 ? state.teamAName : state.teamBName;
-  // Turns strictly alternate by round, whoever scored — after a steal the
-  // next team up is still decided by the round number, not by the stealer.
+  // Turns strictly alternate by round.
   const nextTeamName = (state.index + 1) % 2 === 0 ? state.teamAName : state.teamBName;
   // The score only lands in `state.scores` once "next round" is tapped, so
   // the recap previews it already applied, purely for display.
@@ -895,20 +887,12 @@ function ModifiedPlayScreen() {
   const teamIndex = currentModifiedTeamIndex(charades);
   const teamName = teamIndex === 0 ? charades.teamAName : charades.teamBName;
   const teamColor = teamIndex === 0 ? colors.purple : colors.green;
-  const doubleRound = isDoubleRound(charades);
 
   // --- Not yet picked: the acting team chooses a difficulty level ------------
   if (currentTitle === null) {
     const sizes = stackSizes(charades);
     return wrap(
       <Screen scroll header={{ title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}>
-        {doubleRound ? (
-          <View style={styles.doubleRoundBanner}>
-            <T variant="label" color={colors.white}>
-              {t('charades.play.doubleRound')}
-            </T>
-          </View>
-        ) : null}
         <T variant="heading" color={teamColor}>
           {t('charades.play.turn', { team: teamName })}
         </T>
@@ -935,15 +919,12 @@ function ModifiedPlayScreen() {
               <T style={{ fontFamily: fonts.displayBlack, fontSize: 20, color: colors.white }}>{t(DIFFICULTY_LABEL_KEY[difficulty])}</T>
               <T variant="label" color={colors.white}>
                 {sizes[difficulty] > 0
-                  ? t('charades.play.difficultyPoints', { points: DIFFICULTY_POINTS[difficulty] * (doubleRound ? 2 : 1) })
+                  ? t('charades.play.difficultyPoints', { points: pointsForGuess(difficulty) })
                   : t('charades.play.difficultyEmpty')}
               </T>
             </Pressable>
           );
         })}
-        <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
-          {t('charades.play.stealsLeft', { count: stealsLeft(charades), max: MAX_STEALS_PER_GAME })}
-        </T>
         <QuitControl />
       </Screen>
     );
@@ -962,11 +943,7 @@ function ModifiedPlayScreen() {
         isLastRound={charades.index + 1 >= charades.rounds}
         onNext={() =>
           updateCharades(
-            outcome.kind === 'steal'
-              ? stealRound(charades)
-              : outcome.kind === 'award'
-                ? awardModifiedRound(charades, outcome.team, outcome.points)
-                : skipModifiedRound(charades)
+            outcome.kind === 'award' ? awardModifiedRound(charades, outcome.team, outcome.points) : skipModifiedRound(charades)
           )
         }
       />
@@ -975,9 +952,6 @@ function ModifiedPlayScreen() {
 
   // --- Reveal + score buttons ----------------------------------------------
   if (clock.endedEarly || clock.timeUp) {
-    const stealerIndex: 0 | 1 = teamIndex === 0 ? 1 : 0;
-    const stealerName = stealerIndex === 0 ? charades.teamAName : charades.teamBName;
-    const stealAllowed = canSteal(charades);
     return wrap(
       <Screen
         scroll
@@ -1000,31 +974,16 @@ function ModifiedPlayScreen() {
             </View>
             <Spacer size={spacing.md} />
             {clock.timeUp ? (
+              // Same as classic: the 2 minutes are the whole move.
               <>
                 <T variant="label" color={colors.red} align="center" style={{ fontSize: 13 }}>
-                  {t('charades.play.timesUp')}{' '}
-                  {stealAllowed
-                    ? t('charades.play.stealsLeft', { count: stealsLeft(charades), max: MAX_STEALS_PER_GAME })
-                    : t('charades.play.noStealsLeft')}
+                  {t('charades.play.timesUp')} {t('charades.play.timesUpNoPoints')}
                 </T>
                 <Spacer size={spacing.xs} />
-                <View style={styles.actingFooterGrid}>
-                  <Button
-                    label={t('charades.play.stealAward', { team: stealerName })}
-                    accent={colors.green}
-                    showArrow={false}
-                    disabled={!stealAllowed}
-                    style={{ flex: 2 }}
-                    onPress={() => setPending({ round, kind: 'steal', team: stealerIndex, points: STEAL_POINTS })}
-                  />
-                  <Button
-                    label={t('charades.play.noSteal')}
-                    tone="secondary"
-                    showArrow={false}
-                    style={{ flex: 1 }}
-                    onPress={() => setPending({ round, kind: 'skip', team: teamIndex, points: 0 })}
-                  />
-                </View>
+                <Button
+                  label={t('charades.play.nextRound')}
+                  onPress={() => setPending({ round, kind: 'skip', team: teamIndex, points: 0 })}
+                />
               </>
             ) : (
               <View style={styles.actingFooterGrid}>
@@ -1038,7 +997,7 @@ function ModifiedPlayScreen() {
                       round,
                       kind: 'award',
                       team: teamIndex,
-                      points: pointsForGuess(charades, currentTitle.difficulty),
+                      points: pointsForGuess(currentTitle.difficulty),
                     })
                   }
                 />
@@ -1229,7 +1188,6 @@ const styles = StyleSheet.create({
   finalTop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   resultBanner: { padding: spacing.lg, gap: spacing.xl, borderBottomWidth: 2, borderBottomColor: colors.ink },
   resultTag: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingHorizontal: 12, paddingVertical: 4, transform: [{ rotate: '2deg' }] },
-  doubleRoundBanner: { backgroundColor: colors.red, padding: spacing.sm, alignItems: 'center' },
   difficultyRow: {
     borderWidth: 2,
     padding: spacing.md,
