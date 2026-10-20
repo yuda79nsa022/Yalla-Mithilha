@@ -13,9 +13,9 @@
  * written prompt/answer pair — the title itself is both.
  *
  * Scoring, all in one place so the screens never invent a number:
- * - a guessed title scores its level's points (`DIFFICULTY_POINTS`), plus
- *   `SPEED_BONUS_POINTS` when guessed within the first
- *   `SPEED_BONUS_WINDOW_SECONDS` of the round;
+ * - a guessed title scores its level's points (`DIFFICULTY_POINTS`) —
+ *   easy 2, medium 3, hard 5 — however fast it was guessed (speed only
+ *   counts in the classic game);
  * - each team's final round counts double (`isDoubleRound`);
  * - when the timer runs out, the other team may steal with one guess for
  *   `STEAL_POINTS` — at most `MAX_STEALS_PER_GAME` times in the whole game;
@@ -34,10 +34,7 @@ export type Difficulty = 'easy' | 'medium' | 'hard';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
 
 /** Points for a guessed title at each level — the spread is deliberately wide so hard picks can overturn a lead. */
-export const DIFFICULTY_POINTS: Record<Difficulty, number> = { easy: 1, medium: 3, hard: 5 };
-/** Extra point for a guess inside the first minute — keeps the time pressure the game always had. */
-export const SPEED_BONUS_POINTS = 1;
-export const SPEED_BONUS_WINDOW_SECONDS = 60;
+export const DIFFICULTY_POINTS: Record<Difficulty, number> = { easy: 2, medium: 3, hard: 5 };
 /** What the other team earns by guessing the title once the acting team's time has run out. */
 export const STEAL_POINTS = 1;
 /**
@@ -200,10 +197,9 @@ export function roundMultiplier(state: ModifiedCharadesState): number {
   return isDoubleRound(state) ? 2 : 1;
 }
 
-/** Points on offer for guessing the title in play — base for the level, plus the speed bonus while it still applies, doubled on a double round. */
-export function pointsForGuess(state: ModifiedCharadesState, difficulty: Difficulty, elapsedSeconds: number): number {
-  const base = DIFFICULTY_POINTS[difficulty] + (elapsedSeconds <= SPEED_BONUS_WINDOW_SECONDS ? SPEED_BONUS_POINTS : 0);
-  return base * roundMultiplier(state);
+/** Points on offer for guessing the title in play — its level's points, doubled on a double round. */
+export function pointsForGuess(state: ModifiedCharadesState, difficulty: Difficulty): number {
+  return DIFFICULTY_POINTS[difficulty] * roundMultiplier(state);
 }
 
 /** Resolves the round in play: `team` guessed it for `points`. Clears the title in play and moves to the next round. */

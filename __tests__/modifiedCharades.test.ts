@@ -1,8 +1,6 @@
 import {
   ASSIST_EXTRA_SECONDS,
   DIFFICULTY_POINTS,
-  SPEED_BONUS_POINTS,
-  SPEED_BONUS_WINDOW_SECONDS,
   MAX_STEALS_PER_GAME,
   STEAL_POINTS,
   adjustScore,
@@ -119,18 +117,17 @@ describe('isDoubleRound / roundMultiplier', () => {
 });
 
 describe('pointsForGuess', () => {
-  it('awards a level’s base points plus the speed bonus within the window', () => {
+  it('awards easy 2, medium 3 and hard 5 points', () => {
     const state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(6), 'player-1');
-    expect(pointsForGuess(state, 'medium', SPEED_BONUS_WINDOW_SECONDS)).toBe(
-      DIFFICULTY_POINTS.medium + SPEED_BONUS_POINTS
-    );
-    expect(pointsForGuess(state, 'medium', SPEED_BONUS_WINDOW_SECONDS + 1)).toBe(DIFFICULTY_POINTS.medium);
+    expect(pointsForGuess(state, 'easy')).toBe(2);
+    expect(pointsForGuess(state, 'medium')).toBe(3);
+    expect(pointsForGuess(state, 'hard')).toBe(5);
   });
 
   it('doubles everything on a double round', () => {
     let state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(2), 'player-1');
     expect(isDoubleRound(state)).toBe(true);
-    expect(pointsForGuess(state, 'hard', 5)).toBe((DIFFICULTY_POINTS.hard + SPEED_BONUS_POINTS) * 2);
+    expect(pointsForGuess(state, 'hard')).toBe(DIFFICULTY_POINTS.hard * 2);
   });
 });
 

@@ -1038,7 +1038,7 @@ function ModifiedPlayScreen() {
                       round,
                       kind: 'award',
                       team: teamIndex,
-                      points: pointsForGuess(charades, currentTitle.difficulty, clock.elapsed),
+                      points: pointsForGuess(charades, currentTitle.difficulty),
                     })
                   }
                 />
