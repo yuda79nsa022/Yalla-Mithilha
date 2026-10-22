@@ -21,8 +21,13 @@ export default function Home() {
     quitCharades,
   } = useApp();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isWide = width >= 900;
+  const isPhone = width < 600;
+  // A short phone screen can't hold the decorative category tiles as well
+  // as everything else; game setup shows the real decks anyway.
+  const showCategoryTiles = height >= 760;
+  const shortPhone = !isWide && height < 760;
 
   useEffect(() => {
     if (player) void refreshWallet();
@@ -42,8 +47,10 @@ export default function Home() {
     <Button label={t('charades.home.startNew')} onPress={() => router.push('/charades/draft')} />
   );
 
+  // One block with its own small gap — spacing between its parts no longer
+  // doubles up with the screen's gap.
   const accountSection = (
-    <>
+    <View style={styles.accountSection}>
       {player ? (
         <>
           <View style={styles.accountCard}>
@@ -62,41 +69,43 @@ export default function Home() {
               </T>
             </View>
           </View>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.neutral700} style={{ fontWeight: '500' }}>
-            {t('charades.checkout.walletBalance', { count: walletBalance })}
-          </T>
           {freeGameCredits > 0 ? (
             <T variant="label" color={colors.purple} style={{ fontWeight: '500' }}>
               {t('charades.checkout.freeGamesLeft', { count: freeGameCredits })}
             </T>
           ) : null}
-          <Spacer size={spacing.sm} />
           <LowBalanceBanner />
           <LowBalanceAlert path="/home" />
-          <Spacer size={spacing.xs} />
           <TextLink label={t('account.logout')} onPress={() => setConfirmingLogout(true)} />
         </>
       ) : (
         <>
-          <T variant="label" color={colors.neutral700} style={{ fontWeight: '500' }}>
-            {t('charades.home.guestNotice')}
-          </T>
-          <Spacer size={spacing.sm} />
-          <View style={width < 600 ? styles.authStack : styles.authRow}>
+          {/* The two buttons below say the same thing — on a short phone screen the note makes room for them. */}
+          {!shortPhone ? (
+            <T variant="label" color={colors.neutral700} style={{ fontWeight: '500' }}>
+              {t('charades.home.guestNotice')}
+            </T>
+          ) : null}
+          {/* Side by side everywhere; on a phone they use the smaller label size
+              (the secondary tone, recoloured) so both labels fit in one row. */}
+          <View style={styles.authRow}>
             <Button
               label={t('account.createAccount')}
-              accent={colors.purple}
+              {...(isPhone
+                ? { tone: 'secondary' as const, background: colors.purple, textColor: colors.white, borderColor: colors.ink, forceShadow: true }
+                : { accent: colors.purple })}
               showArrow={false}
-              style={width < 600 ? undefined : styles.authButton}
+              style={styles.authButton}
               onPress={() => router.push('/account?mode=create')}
             />
             <Button
               label={t('account.signIn')}
-              accent={colors.green}
+              {...(isPhone
+                ? { tone: 'secondary' as const, background: colors.green, borderColor: colors.ink, forceShadow: true }
+                : { accent: colors.green })}
               textColor={colors.ink}
               showArrow={false}
-              style={width < 600 ? undefined : styles.authButton}
+              style={styles.authButton}
               onPress={() => router.push('/account')}
             />
           </View>
@@ -105,18 +114,15 @@ export default function Home() {
 
       {charades ? (
         <>
-          <Spacer size={spacing.lg} />
           <View style={styles.resumeCard}>
             <T variant="heading">{t('charades.resume.title')}</T>
             <T variant="label" color={colors.neutral700}>
               {t('charades.resume.body')}
             </T>
-            <Spacer size={spacing.sm} />
             <Button
               label={t('resume.continue')}
               onPress={() => router.push(charades.lock === 'unlocked' ? '/charades/play' : '/charades/checkout')}
             />
-            <Spacer size={spacing.sm} />
             <Button
               label={t('resume.discard')}
               tone="ghost"
@@ -129,7 +135,7 @@ export default function Home() {
           </View>
         </>
       ) : null}
-    </>
+    </View>
   );
 
   return (
@@ -158,8 +164,7 @@ export default function Home() {
               </T>
             ) : null}
             <Divider />
-            {/* One block, so the column's gap doesn't also open up between every spacer inside it. */}
-            <View>{accountSection}</View>
+            {accountSection}
           </View>
           <View style={styles.heroMediaCol}>
             <View style={styles.heroLogoWrap}>
@@ -171,25 +176,23 @@ export default function Home() {
         </View>
       ) : (
         <>
-          <Spacer size={spacing.sm} />
           <Logo size="lg" />
-          <Spacer size={spacing.md} />
-          <T variant="heading" style={{ fontSize: 20 }}>
+          <T variant="heading" style={[{ fontSize: 20 }, shortPhone && { lineHeight: lang === 'ar' ? 30 : 26 }]}>
             {tagline}
           </T>
           {!player ? (
             <>
-              <Spacer size={spacing.sm} />
-              <T variant="label" color={colors.neutral700} style={{ fontWeight: '500', fontSize: 12 }}>
+              <T
+                variant="label"
+                color={colors.neutral700}
+                style={[{ fontWeight: '500', fontSize: 12 }, shortPhone && { lineHeight: lang === 'ar' ? 20 : 18 }]}
+              >
                 {writeup}
               </T>
-              <Spacer size={spacing.sm} />
-              <CategoryGrid />
+              {showCategoryTiles ? <CategoryGrid /> : null}
             </>
           ) : null}
-          <Spacer size={spacing.md} />
           <Divider />
-          <Spacer size={spacing.md} />
           {accountSection}
         </>
       )}
@@ -209,9 +212,8 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
+  accountSection: { gap: spacing.sm },
   authRow: { flexDirection: 'row', gap: spacing.sm },
-  // On a phone the two labels don't fit side by side — stack them.
-  authStack: { gap: spacing.sm },
   authButton: { flexGrow: 1, flexBasis: 0 },
   heroRow: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 64, paddingHorizontal: spacing.lg },
   heroRowEn: { flexDirection: 'row' },
@@ -230,5 +232,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 90,
   },
-  resumeCard: { borderWidth: 2, borderColor: colors.ink, padding: spacing.md, backgroundColor: colors.white },
+  resumeCard: { borderWidth: 2, borderColor: colors.ink, padding: spacing.md, gap: spacing.sm, backgroundColor: colors.white },
 });

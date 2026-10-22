@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -159,7 +160,9 @@ export function Screen({
   footer?: React.ReactNode;
 }) {
   const { t, lang } = useApp();
-  const inner = <View style={[styles.screenInner, style]}>{children}</View>;
+  // A phone gets a little less padding than a desktop window, so more of each page fits on its screen.
+  const { width } = useWindowDimensions();
+  const inner = <View style={[styles.screenInner, width < 600 && styles.screenInnerPhone, style]}>{children}</View>;
   return (
     // Genuinely fills the available viewport width at any screen size —
     // header, scroll body and pinned footer all stretch edge-to-edge
@@ -169,7 +172,7 @@ export function Screen({
       <SafeAreaView style={[styles.screen, { backgroundColor: background }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {header ? (
-        <View style={styles.headerBar}>
+        <View style={[styles.headerBar, width < 600 && styles.headerBarPhone]}>
           <View style={styles.headerStart}>
           {header.start}
           {header.onBack ? (
@@ -386,6 +389,7 @@ export function CategoryTile({
   selected,
   onPress,
   style,
+  compact = false,
 }: {
   index: number;
   name: string;
@@ -393,8 +397,34 @@ export function CategoryTile({
   onPress: () => void;
   /** Overrides the default two-to-a-row sizing, e.g. four to a row on a wide window. */
   style?: StyleProp<ViewStyle>;
+  /** One short row — checkbox then name, no number — for a phone screen. */
+  compact?: boolean;
 }) {
   const { lang } = useApp();
+  if (compact) {
+    return (
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: selected }}
+        accessibilityLabel={name}
+        onPress={onPress}
+        style={[
+          styles.categoryTile,
+          styles.categoryTileCompact,
+          { backgroundColor: selected ? colors.purple : colors.white },
+          selected && hardShadowPressed(lang),
+          style,
+        ]}
+      >
+        <View style={[styles.checkbox, { borderColor: selected ? colors.white : colors.ink }]}>
+          {selected ? <T style={{ fontSize: 12, fontWeight: '900', color: colors.white }}>✓</T> : null}
+        </View>
+        <T variant="label" color={selected ? colors.white : colors.ink} style={{ fontSize: 13, flexShrink: 1 }} numberOfLines={1}>
+          {name}
+        </T>
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -801,6 +831,7 @@ const styles = StyleSheet.create({
   headerEnd: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   langToggle: { borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5 },
   screenInner: { flex: 1, padding: spacing.lg, gap: spacing.md },
+  screenInnerPhone: { padding: spacing.md, gap: 12 },
   scrollContent: { flexGrow: 1 },
   headerBar: {
     flexDirection: 'row',
@@ -809,6 +840,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
   },
+  headerBarPhone: { paddingVertical: 10, paddingHorizontal: spacing.md },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   footer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
   copyright: { paddingHorizontal: 20, paddingBottom: 8, paddingTop: 2 },
@@ -849,6 +881,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
+  categoryTileCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', paddingVertical: 8, gap: 8 },
   categoryTileTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
   checkbox: { width: 18, height: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   optionCard: {

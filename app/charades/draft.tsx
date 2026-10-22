@@ -10,38 +10,65 @@ import type { GameMode } from '../../src/engine/game';
 import { CLASSIC_DIFFICULTIES, type ClassicDifficulty } from '../../src/engine/charades';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
 
-function ModePicker({ mode, onChange }: { mode: GameMode; onChange: (mode: GameMode) => void }) {
+/**
+ * The two game types. On a phone (`compact`) each card shows just its name
+ * and the chosen type's description sits on one small line underneath, so
+ * the whole setup fits a phone screen.
+ */
+function ModePicker({
+  mode,
+  onChange,
+  compact = false,
+  hideDescription = false,
+}: {
+  mode: GameMode;
+  onChange: (mode: GameMode) => void;
+  compact?: boolean;
+  /** The very shortest phone screens skip even the one-line description. */
+  hideDescription?: boolean;
+}) {
   const { t } = useApp();
   const options: { value: GameMode; title: string; desc: string }[] = [
     { value: 'classic', title: t('charades.draft.modeClassic'), desc: t('charades.draft.modeClassicDesc') },
     { value: 'modified', title: t('charades.draft.modeModified'), desc: t('charades.draft.modeModifiedDesc') },
   ];
+  const chosen = options.find((opt) => opt.value === mode)!;
   return (
-    <View style={styles.modeRow}>
-      {options.map((opt) => {
-        const selected = mode === opt.value;
-        return (
-          <Pressable
-            key={opt.value}
-            accessibilityRole="radio"
-            accessibilityState={{ selected }}
-            accessibilityLabel={opt.title}
-            onPress={() => onChange(opt.value)}
-            style={({ pressed }) => [
-              styles.modeCard,
-              { borderColor: colors.ink, backgroundColor: selected ? colors.purple : colors.white },
-              pressed && styles.pressed,
-            ]}
-          >
-            <T style={{ fontFamily: fonts.displayBlack, fontSize: 18, color: selected ? colors.white : colors.ink }}>
-              {opt.title}
-            </T>
-            <T variant="label" style={{ fontSize: 11 }} color={selected ? colors.white : colors.neutral700}>
-              {opt.desc}
-            </T>
-          </Pressable>
-        );
-      })}
+    <View style={{ gap: 6 }}>
+      <View style={styles.modeRow}>
+        {options.map((opt) => {
+          const selected = mode === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              accessibilityLabel={opt.title}
+              onPress={() => onChange(opt.value)}
+              style={({ pressed }) => [
+                styles.modeCard,
+                compact && { padding: 8 },
+                { borderColor: colors.ink, backgroundColor: selected ? colors.purple : colors.white },
+                pressed && styles.pressed,
+              ]}
+            >
+              <T style={{ fontFamily: fonts.displayBlack, fontSize: 18, color: selected ? colors.white : colors.ink }}>
+                {opt.title}
+              </T>
+              {!compact ? (
+                <T variant="label" style={{ fontSize: 11 }} color={selected ? colors.white : colors.neutral700}>
+                  {opt.desc}
+                </T>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+      {compact && !hideDescription ? (
+        <T variant="label" color={colors.neutral700} style={{ fontSize: 12, lineHeight: 17, fontWeight: '500' }}>
+          {chosen.desc}
+        </T>
+      ) : null}
     </View>
   );
 }
@@ -84,8 +111,9 @@ function DifficultyPicker({ value, onChange }: { value: ClassicDifficulty; onCha
 
 export default function CharadesDraft() {
   const { t, lang, startCharadesDraft } = useApp();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isWide = width >= 900;
+  const isPhone = width < 600;
   const [teamAName, setTeamAName] = useState('');
   const [teamBName, setTeamBName] = useState('');
   const [mode, setMode] = useState<GameMode>('classic');
@@ -124,29 +152,37 @@ export default function CharadesDraft() {
 
   const intro = (
     <View style={styles.section}>
-      <T variant="title" style={{ fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
+      <T variant="title" style={isPhone ? { fontSize: 24, lineHeight: lang === 'ar' ? 36 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
         {t('charades.draft.title')}
       </T>
-      <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
-        {t('charades.draft.subtitle')}
-      </T>
+      {!isPhone ? (
+        <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
+          {t('charades.draft.subtitle')}
+        </T>
+      ) : null}
     </View>
   );
 
   const modeSection = (
     <View style={styles.section}>
-      <T variant="heading" style={{ fontSize: 18 }}>
-        {t('charades.draft.modeTitle')}
-      </T>
-      <ModePicker mode={mode} onChange={setMode} />
+      {!isPhone ? (
+        <T variant="heading" style={{ fontSize: 18 }}>
+          {t('charades.draft.modeTitle')}
+        </T>
+      ) : null}
+      <ModePicker mode={mode} onChange={setMode} compact={isPhone} hideDescription={isPhone && height < 660} />
     </View>
   );
 
-  const difficultySection = (
+  // On a phone the chips need no heading, and a modified game (which picks
+  // its level every round, as its description says) shows nothing here.
+  const difficultySection = isPhone && mode !== 'classic' ? null : (
     <View style={styles.section}>
-      <T variant="heading" style={{ fontSize: 18 }}>
-        {t('charades.draft.difficultyTitle')}
-      </T>
+      {!isPhone ? (
+        <T variant="heading" style={{ fontSize: 18 }}>
+          {t('charades.draft.difficultyTitle')}
+        </T>
+      ) : null}
       {mode === 'classic' ? (
         <DifficultyPicker value={difficulty} onChange={setDifficulty} />
       ) : (
@@ -159,10 +195,12 @@ export default function CharadesDraft() {
 
   const teamsSection = (
     <View style={styles.teamRow}>
-      <View style={[styles.teamPanel, { backgroundColor: colors.purple }]}>
-        <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
-          {t('charades.draft.teamALabel')}
-        </T>
+      <View style={[styles.teamPanel, isPhone && styles.teamPanelPhone, { backgroundColor: colors.purple }]}>
+        {!isPhone ? (
+          <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
+            {t('charades.draft.teamALabel')}
+          </T>
+        ) : null}
         <TextInput
           value={teamAName}
           onChangeText={setTeamAName}
@@ -176,10 +214,12 @@ export default function CharadesDraft() {
       <View style={styles.vsStrip}>
         <T style={{ fontFamily: fonts.display, fontSize: 14, color: colors.white }}>VS</T>
       </View>
-      <View style={[styles.teamPanel, { backgroundColor: colors.green }]}>
-        <T variant="label" color={colors.ink} style={{ fontSize: 11 }}>
-          {t('charades.draft.teamBLabel')}
-        </T>
+      <View style={[styles.teamPanel, isPhone && styles.teamPanelPhone, { backgroundColor: colors.green }]}>
+        {!isPhone ? (
+          <T variant="label" color={colors.ink} style={{ fontSize: 11 }}>
+            {t('charades.draft.teamBLabel')}
+          </T>
+        ) : null}
         <TextInput
           value={teamBName}
           onChangeText={setTeamBName}
@@ -196,7 +236,7 @@ export default function CharadesDraft() {
   const decksSection = (
     <View style={styles.section}>
       <View style={styles.decksHeader}>
-        <T variant="heading" style={{ fontSize: 18 }}>
+        <T variant="heading" style={isPhone ? { fontSize: 16, lineHeight: lang === 'ar' ? 26 : 22 } : { fontSize: 18 }}>
           {t('charades.draft.decksTitle')}
         </T>
         <T style={{ fontFamily: fonts.display, fontSize: 13, color: colors.purple700 }}>
@@ -228,6 +268,7 @@ export default function CharadesDraft() {
               selected={selectedDeckIds.includes(deck.id)}
               onPress={() => toggleDeck(deck.id)}
               style={isWide ? styles.wideTile : undefined}
+              compact={isPhone}
             />
           ))}
         </View>
@@ -280,6 +321,7 @@ const styles = StyleSheet.create({
   modeCard: { flex: 1, borderWidth: 2, padding: 12, gap: 4 },
   pressed: { opacity: 0.72 },
   teamRow: { flexDirection: 'row', alignItems: 'stretch', borderWidth: 2, borderColor: colors.ink },
+  teamPanelPhone: { padding: 8, gap: 0 },
   teamPanel: { flex: 1, padding: 14, gap: 6, justifyContent: 'center' },
   vsStrip: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: colors.ink },
   teamInput: {
@@ -294,7 +336,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   difficultyRow: { flexDirection: 'row', gap: 8 },
-  difficultyChip: { flex: 1, borderWidth: 2, borderColor: colors.ink, paddingVertical: 10, alignItems: 'center' },
+  difficultyChip: { flex: 1, borderWidth: 2, borderColor: colors.ink, paddingVertical: 8, alignItems: 'center' },
   decksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 });
