@@ -16,6 +16,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function Account() {
   const {
     t,
+    lang,
     player,
     playerAuthBusy,
     playerAuthError,
@@ -122,7 +123,7 @@ export default function Account() {
         footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <T variant="title">
+          <T variant="title" style={{ fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
             {t('account.title')}
           </T>
         </View>
@@ -169,7 +170,7 @@ export default function Account() {
   return (
     <Screen scroll header={{ start: <HeaderLogo />, onBack: () => goBack() }} footer={footer}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <T variant="title">
+        <T variant="title" style={{ fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
           {title}
         </T>
       </View>
@@ -180,7 +181,7 @@ export default function Account() {
         </T>
       ) : null}
       {mode === 'create' ? (
-        <T variant="label" color={colors.purple}>
+        <T variant="label" color={colors.purple} style={{ fontSize: 13 }}>
           {t('account.signupBonus')}
         </T>
       ) : null}
@@ -218,7 +219,7 @@ export default function Account() {
             keyboardType="email-address"
             maxLength={254}
           />
-          <T variant="label" color={colors.neutral700}>
+          <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
             {t('account.emailRequiredHint')}
           </T>
         </>
