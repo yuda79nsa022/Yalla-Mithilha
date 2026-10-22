@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
 import { Button, OptionCard, Screen, T } from '../src/ui/components';
-import { HeaderLogo } from '../src/ui/Logo';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { needsRestartForDirection } from '../src/platform';
@@ -22,7 +21,7 @@ export default function LanguageScreen() {
   return (
     <Screen
       scroll
-      header={{ start: <HeaderLogo /> }}
+      header={{}}
       footer={<Button label={t('common.continue')} disabled={!prefs.lang} onPress={() => router.replace('/home')} />}
     >
       <T variant="title">{t('lang.title')}</T>

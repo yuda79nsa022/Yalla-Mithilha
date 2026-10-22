@@ -122,11 +122,6 @@ export function endArrow(lang: Lang): string {
   return lang === 'ar' ? '←' : '→';
 }
 
-/** → in RTL (back points toward reading start), ← in LTR. */
-export function backArrow(lang: Lang): string {
-  return lang === 'ar' ? '→' : '←';
-}
-
 /**
  * Arabic needs more line height than Latin at the same size, and the system
  * Arabic faces differ per platform. Noto Kufi Arabic (bundled via

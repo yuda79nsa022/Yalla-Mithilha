@@ -432,7 +432,7 @@ function FinalScreen({ state }: { state: CharadesState }) {
     <Screen
       scroll
       background={colors.ink}
-      header={{ title: t('app.name'), light: true }}
+      header={{ light: true }}
       footer={
         <>
           <Button
@@ -527,7 +527,7 @@ function RoundRecap({
   return (
     <Screen
       scroll
-      header={{ title: t('app.name') }}
+      header={{ variant: 'game' }}
       footer={
         <>
           {!isLastRound ? (
@@ -594,18 +594,18 @@ function HandoffScreen({
   const { t, lang } = useApp();
   const { height } = useWindowDimensions();
   const short = height < 700;
-  const qrSize = height < 640 ? 96 : short ? 112 : height < 760 ? 128 : 168;
+  const qrSize = height < 640 ? 88 : short ? 104 : height < 760 ? 128 : 168;
   return (
     <Screen
       scroll
       background={colors.purple}
-      header={{ light: true, title: t('charades.play.round', { round, total }) }}
+      header={{ variant: 'game', light: true, title: t('charades.play.round', { round, total }) }}
       footer={<Button label={t('charades.play.startTimer')} tone="secondary" background={colors.white} forceShadow onPress={onStart} />}
     >
       <RoundProgress round={round} total={total} />
       <ScoreBlock teamAName={state.teamAName} teamAScore={state.scores[0]} teamBName={state.teamBName} teamBScore={state.scores[1]} compact />
       <View style={{ gap: short ? spacing.xs : spacing.sm }}>
-        <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 16, lineHeight: lang === 'ar' ? 24 : 22 }}>
+        <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 16, lineHeight: lang === 'ar' ? 22 : 20 }}>
           {t('charades.play.turnLabel')}
         </T>
         <T
@@ -620,7 +620,7 @@ function HandoffScreen({
         >
           {teamName}
         </T>
-        <T variant="body" color={colors.white} style={{ fontSize: 14, lineHeight: lang === 'ar' ? 24 : 20 }}>
+        <T variant="body" color={colors.white} style={{ fontSize: 14, lineHeight: lang === 'ar' ? 22 : 20 }}>
           {t('charades.play.handoffInstruction')}
         </T>
       </View>
@@ -688,10 +688,13 @@ function ActingLogo() {
 /** The revealed title card, shown once the round's clock stops. */
 function TitleCard({ title, teamColor }: { title: CharadesTitle; teamColor: string }) {
   const { lang } = useApp();
+  const { height } = useWindowDimensions();
   const absoluteImageUrl = title.imageUrl ? `${CATALOGUE_API_URL}${title.imageUrl}` : undefined;
   return (
     <View style={[styles.titleCard, cardShadow(lang, teamColor)]}>
-      <T style={{ fontFamily: fonts.displayBlack, fontSize: 36, lineHeight: 44 }}>{title.text}</T>
+      <T style={height < 700 ? { fontFamily: fonts.displayBlack, fontSize: 30, lineHeight: 38 } : { fontFamily: fonts.displayBlack, fontSize: 36, lineHeight: 44 }}>
+        {title.text}
+      </T>
       {absoluteImageUrl ? (
         <Image source={{ uri: absoluteImageUrl }} style={{ width: '100%', height: 180 }} resizeMode="contain" accessibilityLabel={title.text} />
       ) : null}
@@ -760,7 +763,7 @@ function ClassicPlayScreen() {
     return wrap(
       <Screen
         scroll
-        header={{ title: t('charades.play.round', { round: charades.index + 1, total }) }}
+        header={{ variant: 'game', title: t('charades.play.round', { round: charades.index + 1, total }) }}
         footer={
           <>
             <View style={styles.scoreHeaderRow}>
@@ -851,7 +854,7 @@ function ClassicPlayScreen() {
   return wrap(
     <Screen
       scroll
-      header={{ title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }) }}
+      header={{ variant: 'game', title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }) }}
       footer={<Button label={t('charades.play.endEarly')} tone="secondary" showArrow={false} onPress={clock.endEarly} />}
     >
       <ActingClock timeLeft={clock.timeLeft} limit={clock.limit} />
@@ -905,7 +908,7 @@ function ModifiedPlayScreen() {
   if (currentTitle === null) {
     const sizes = stackSizes(charades);
     return wrap(
-      <Screen scroll header={{ title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}>
+      <Screen scroll header={{ variant: 'game', title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}>
         <T variant="heading" color={teamColor}>
           {t('charades.play.turn', { team: teamName })}
         </T>
@@ -978,7 +981,7 @@ function ModifiedPlayScreen() {
     return wrap(
       <Screen
         scroll
-        header={{ title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}
+        header={{ variant: 'game', title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}
         footer={
           <>
             <View style={styles.scoreHeaderRow}>
@@ -1100,7 +1103,7 @@ function ModifiedPlayScreen() {
   return wrap(
     <Screen
       scroll
-      header={{ title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }) }}
+      header={{ variant: 'game', title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }) }}
       footer={<Button label={t('charades.play.endEarly')} tone="secondary" showArrow={false} onPress={clock.endEarly} />}
     >
       <ActingClock timeLeft={clock.timeLeft} limit={clock.limit} />

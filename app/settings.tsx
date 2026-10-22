@@ -1,10 +1,8 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Button, ConfirmModal, Divider, Screen, T } from '../src/ui/components';
-import { HeaderLogo } from '../src/ui/Logo';
 import { colors } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
-import { goBack } from '../src/platform/navigation';
 
 export default function Settings() {
   const { t, prefs, wipeEverything, player } = useApp();
@@ -18,7 +16,7 @@ export default function Settings() {
   };
 
   return (
-    <Screen scroll header={{ start: <HeaderLogo />, onBack: () => goBack() }}>
+    <Screen scroll header={{}}>
       <T variant="title">{t('settings.title')}</T>
 
       <Button

@@ -191,6 +191,16 @@ export const ar = {
   'charades.play.idleWarning': 'ما في أي حركة — اللعبة بتنتهي بعد {{time}}. اضغط أي مكان عشان تكملون.',
   'charades.play.endedInactive': 'انتهت اللعبة — محد لعب لمدة دقيقتين.',
   'charades.play.finalScore': 'النتيجة النهائية',
+  'nav.home': 'الرئيسية',
+  'nav.play': 'العب',
+  'nav.resume': 'كمّل اللعبة',
+  'nav.buy': 'اشترِ ألعاب',
+  'nav.settings': 'الإعدادات',
+  'nav.account': 'حسابك',
+  'nav.gamesLeft': 'الألعاب: {{count}}',
+  'nav.menu': 'القائمة',
+  'nav.close': 'سكّر القائمة',
+  'charades.checkout.changeSetup': 'غيّر إعدادات اللعبة',
 } as const;
 
 export type TranslationKey = keyof typeof ar;
