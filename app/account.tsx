@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { Linking, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Button, ConfirmModal, Field, Screen, T, TextLink } from '../src/ui/components';
 import { HeaderLogo } from '../src/ui/Logo';
 import { colors } from '../src/ui/theme';
@@ -28,6 +28,8 @@ export default function Account() {
   } = useApp();
   // `?mode=create` opens straight on the create-account form (Home's "Create account" button).
   const { mode: initialMode } = useLocalSearchParams<{ mode?: string }>();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
   const [mode, setMode] = useState<Mode>(initialMode === 'create' ? 'create' : 'signIn');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -167,14 +169,13 @@ export default function Account() {
       <Button label={t('account.resetPassword')} disabled={!canSubmitReset || playerAuthBusy} busy={playerAuthBusy} onPress={submitReset} />
     );
 
-  return (
-    <Screen scroll header={{ start: <HeaderLogo />, onBack: () => goBack() }} footer={footer}>
+  const intro = (
+    <>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <T variant="title" style={{ fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
           {title}
         </T>
       </View>
-
       {mode !== 'signIn' && mode !== 'create' ? (
         <T variant="body" color={colors.neutral700}>
           {t(mode === 'forgotRequest' ? 'account.forgotRequestBody' : 'account.forgotConfirmBody')}
@@ -190,7 +191,10 @@ export default function Account() {
           {t('account.resetSuccess')}
         </T>
       ) : null}
-
+    </>
+  );
+  const form = (
+    <>
       {mode !== 'forgotConfirm' ? (
         <Field label={t('account.username')} value={username} onChangeText={setUsername} placeholder={t('account.username')} maxLength={40} />
       ) : null}
@@ -232,13 +236,6 @@ export default function Account() {
         </>
       ) : null}
 
-      <TextLink
-        label={
-          mode === 'signIn' ? t('account.switchToCreate') : mode === 'create' ? t('account.switchToSignIn') : t('account.backToSignIn')
-        }
-        onPress={() => goToMode(mode === 'signIn' ? 'create' : 'signIn')}
-      />
-
       {adminRedirecting ? (
         <T variant="label" color={colors.green}>
           {t('account.openingAdminTool')}
@@ -248,6 +245,42 @@ export default function Account() {
           {playerAuthError}
         </T>
       ) : null}
+    </>
+  );
+  const switchLink = (
+    <TextLink
+      label={mode === 'signIn' ? t('account.switchToCreate') : mode === 'create' ? t('account.switchToSignIn') : t('account.backToSignIn')}
+      onPress={() => goToMode(mode === 'signIn' ? 'create' : 'signIn')}
+    />
+  );
+
+  // A wide window puts the heading and notes beside the form instead of
+  // above it, so the page fits a laptop-sized browser window without
+  // scrolling (and the fields don't stretch across the whole screen).
+  return (
+    <Screen scroll header={{ start: <HeaderLogo />, onBack: () => goBack() }} footer={footer}>
+      {isWide ? (
+        <View style={[styles.wideRow, lang === 'en' && styles.wideRowEn]}>
+          <View style={styles.wideIntro}>
+            {intro}
+            {switchLink}
+          </View>
+          <View style={styles.wideForm}>{form}</View>
+        </View>
+      ) : (
+        <>
+          {intro}
+          {form}
+          {switchLink}
+        </>
+      )}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  wideRow: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 64, paddingHorizontal: 24 },
+  wideRowEn: { flexDirection: 'row' },
+  wideIntro: { flex: 1, gap: 16 },
+  wideForm: { flex: 1.2, gap: 16, maxWidth: 640 },
+});
