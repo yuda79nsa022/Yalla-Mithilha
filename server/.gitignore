@@ -7,3 +7,5 @@ data/
 *.sqlite-shm
 .env
 .env.local
+# The exported player web app, copied in at deploy time — a build output.
+public-player/
