@@ -1,8 +1,8 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Divider, Screen, Spacer, T } from '../../src/ui/components';
-import { Hero } from '../../src/ui/Hero';
+import { Button, Screen, T } from '../../src/ui/components';
+import { HeaderLogo } from '../../src/ui/Logo';
 import { colors, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { goBack } from '../../src/platform/navigation';
@@ -77,21 +77,15 @@ export default function CharadesCheckout() {
   return (
     <Screen
       scroll
-      header={{ onBack: () => goBack('/charades/draft') }}
+      header={{ start: <HeaderLogo />, onBack: () => goBack('/charades/draft') }}
       footer={<Button label={t('charades.checkout.start')} disabled={!canStart} busy={starting} onPress={start} />}
     >
-      <Spacer size={spacing.md} />
-      <Hero />
-      <Spacer size={spacing.md} />
-      <Divider />
-      <Spacer size={spacing.md} />
       <T variant="title" style={{ fontSize: 30 }}>
         {t('charades.checkout.title')}
       </T>
       <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
         {t('charades.checkout.subtitle')}
       </T>
-      <Spacer size={spacing.xl} />
 
       <View style={styles.card}>
         <T variant="heading" color={colors.white}>
@@ -100,15 +94,11 @@ export default function CharadesCheckout() {
       </View>
 
       {hasFreeGame ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.purple}>
-            {t('charades.checkout.freeGamesLeft', { count: freeGameCredits })}
-          </T>
-        </>
+        <T variant="label" color={colors.purple}>
+          {t('charades.checkout.freeGamesLeft', { count: freeGameCredits })}
+        </T>
       ) : null}
 
-      <Spacer />
       <Button
         label={t('charades.checkout.price', { price: formatKwd(priceFils) })}
         tone="secondary"
@@ -117,44 +107,34 @@ export default function CharadesCheckout() {
       />
 
       {paymentNotice ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={paymentNotice === 'paid' ? colors.purple : colors.red}>
-            {t(
-              paymentNotice === 'paid'
-                ? 'charades.checkout.paymentReceived'
-                : paymentNotice === 'pending'
-                  ? 'charades.checkout.paymentNotCompleted'
-                  : paymentNotice === 'failed'
-                    ? 'charades.checkout.paymentFailed'
-                    : 'charades.checkout.paymentError'
-            )}
-          </T>
-        </>
+        <T variant="label" color={paymentNotice === 'paid' ? colors.purple : colors.red}>
+          {t(
+            paymentNotice === 'paid'
+              ? 'charades.checkout.paymentReceived'
+              : paymentNotice === 'pending'
+                ? 'charades.checkout.paymentNotCompleted'
+                : paymentNotice === 'failed'
+                  ? 'charades.checkout.paymentFailed'
+                  : 'charades.checkout.paymentError'
+          )}
+        </T>
       ) : null}
 
       {walletError ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.red}>
-            {walletError}
-          </T>
-        </>
+        <T variant="label" color={colors.red}>
+          {walletError}
+        </T>
       ) : null}
 
       {__DEV__ ? (
         <>
-          <Spacer size={spacing.sm} />
           <T variant="label" color={colors.neutral700}>
             {t('charades.checkout.devNotice')}
           </T>
-          <Spacer size={spacing.xs} />
           <Button label={t('charades.checkout.simulateFailure')} tone="ghost" showArrow={false} onPress={simulateFailure} />
         </>
       ) : null}
 
-      <Spacer size={spacing.xl} />
-      <Divider />
     </Screen>
   );
 }

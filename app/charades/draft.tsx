@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Button, CategoryTile, Divider, Screen, Spacer, T } from '../../src/ui/components';
-import { Hero } from '../../src/ui/Hero';
+import { Pressable, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { Button, CategoryTile, Screen, T } from '../../src/ui/components';
+import { HeaderLogo } from '../../src/ui/Logo';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { goBack } from '../../src/platform/navigation';
@@ -84,6 +84,8 @@ function DifficultyPicker({ value, onChange }: { value: ClassicDifficulty; onCha
 
 export default function CharadesDraft() {
   const { t, lang, startCharadesDraft } = useApp();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
   const [teamAName, setTeamAName] = useState('');
   const [teamBName, setTeamBName] = useState('');
   const [mode, setMode] = useState<GameMode>('classic');
@@ -120,127 +122,160 @@ export default function CharadesDraft() {
     router.push('/charades/checkout');
   };
 
+  const intro = (
+    <View style={styles.section}>
+      <T variant="title" style={{ fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
+        {t('charades.draft.title')}
+      </T>
+      <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
+        {t('charades.draft.subtitle')}
+      </T>
+    </View>
+  );
+
+  const modeSection = (
+    <View style={styles.section}>
+      <T variant="heading" style={{ fontSize: 18 }}>
+        {t('charades.draft.modeTitle')}
+      </T>
+      <ModePicker mode={mode} onChange={setMode} />
+    </View>
+  );
+
+  const difficultySection = (
+    <View style={styles.section}>
+      <T variant="heading" style={{ fontSize: 18 }}>
+        {t('charades.draft.difficultyTitle')}
+      </T>
+      {mode === 'classic' ? (
+        <DifficultyPicker value={difficulty} onChange={setDifficulty} />
+      ) : (
+        <T variant="label" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
+          {t('charades.draft.difficultyModifiedNote')}
+        </T>
+      )}
+    </View>
+  );
+
+  const teamsSection = (
+    <View style={styles.teamRow}>
+      <View style={[styles.teamPanel, { backgroundColor: colors.purple }]}>
+        <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
+          {t('charades.draft.teamALabel')}
+        </T>
+        <TextInput
+          value={teamAName}
+          onChangeText={setTeamAName}
+          placeholder={t('charades.draft.teamAName')}
+          placeholderTextColor={colors.neutral700}
+          maxLength={20}
+          accessibilityLabel={t('charades.draft.teamAName')}
+          style={styles.teamInput}
+        />
+      </View>
+      <View style={styles.vsStrip}>
+        <T style={{ fontFamily: fonts.display, fontSize: 14, color: colors.white }}>VS</T>
+      </View>
+      <View style={[styles.teamPanel, { backgroundColor: colors.green }]}>
+        <T variant="label" color={colors.ink} style={{ fontSize: 11 }}>
+          {t('charades.draft.teamBLabel')}
+        </T>
+        <TextInput
+          value={teamBName}
+          onChangeText={setTeamBName}
+          placeholder={t('charades.draft.teamBName')}
+          placeholderTextColor={colors.neutral700}
+          maxLength={20}
+          accessibilityLabel={t('charades.draft.teamBName')}
+          style={styles.teamInput}
+        />
+      </View>
+    </View>
+  );
+
+  const decksSection = (
+    <View style={styles.section}>
+      <View style={styles.decksHeader}>
+        <T variant="heading" style={{ fontSize: 18 }}>
+          {t('charades.draft.decksTitle')}
+        </T>
+        <T style={{ fontFamily: fonts.display, fontSize: 13, color: colors.purple700 }}>
+          {selectedDeckIds.length}/{decks?.length ?? 0}
+        </T>
+      </View>
+      {decksError ? (
+        <>
+          <T variant="label" color={colors.red}>
+            {t('charades.draft.decksError')}
+          </T>
+          <Button label={t('charades.draft.decksRetry')} tone="secondary" showArrow={false} onPress={loadDecks} />
+        </>
+      ) : decks === null ? (
+        <T variant="label" color={colors.neutral700}>
+          {t('charades.draft.decksLoading')}
+        </T>
+      ) : decks.length === 0 ? (
+        <T variant="label" color={colors.neutral700}>
+          {t('charades.draft.decksEmpty')}
+        </T>
+      ) : (
+        <View style={styles.grid}>
+          {decks.map((deck, i) => (
+            <CategoryTile
+              key={deck.id}
+              index={i}
+              name={lang === 'ar' ? deck.nameAr : deck.nameEn}
+              selected={selectedDeckIds.includes(deck.id)}
+              onPress={() => toggleDeck(deck.id)}
+              style={isWide ? styles.wideTile : undefined}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
+  // A wide window sets the game up in two columns — how to play on one
+  // side, who plays and with which decks on the other — so it fits a
+  // laptop-sized browser window without scrolling.
   return (
     <Screen
       scroll
-      header={{ onBack: () => goBack() }}
+      header={{ start: <HeaderLogo />, onBack: () => goBack() }}
       footer={<Button label={t('charades.draft.confirm')} disabled={!canConfirm} onPress={confirmDraft} />}
     >
-      <>
-        <Spacer size={spacing.md} />
-        <Hero />
-        <Spacer size={spacing.md} />
-        <Divider />
-        <Spacer size={spacing.md} />
-        <T variant="title" style={{ fontSize: 34 }}>
-          {t('charades.draft.title')}
-        </T>
-        <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
-          {t('charades.draft.subtitle')}
-        </T>
-        <Spacer size={spacing.lg} />
-
-        <T variant="heading" style={{ fontSize: 18 }}>
-          {t('charades.draft.modeTitle')}
-        </T>
-        <Spacer size={spacing.sm} />
-        <ModePicker mode={mode} onChange={setMode} />
-        <Spacer size={spacing.lg} />
-
-        <T variant="heading" style={{ fontSize: 18 }}>
-          {t('charades.draft.difficultyTitle')}
-        </T>
-        <Spacer size={spacing.sm} />
-        {mode === 'classic' ? (
-          <DifficultyPicker value={difficulty} onChange={setDifficulty} />
-        ) : (
-          <T variant="label" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
-            {t('charades.draft.difficultyModifiedNote')}
-          </T>
-        )}
-        <Spacer size={spacing.lg} />
-
-        <View style={styles.teamRow}>
-          <View style={[styles.teamPanel, { backgroundColor: colors.purple }]}>
-            <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
-              {t('charades.draft.teamALabel')}
-            </T>
-            <TextInput
-              value={teamAName}
-              onChangeText={setTeamAName}
-              placeholder={t('charades.draft.teamAName')}
-              placeholderTextColor={colors.neutral700}
-              maxLength={20}
-              accessibilityLabel={t('charades.draft.teamAName')}
-              style={styles.teamInput}
-            />
+      {isWide ? (
+        <View style={[styles.wideRow, lang === 'en' && styles.wideRowEn]}>
+          <View style={styles.wideCol}>
+            {intro}
+            {modeSection}
+            {difficultySection}
           </View>
-          <View style={styles.vsStrip}>
-            <T style={{ fontFamily: fonts.display, fontSize: 14, color: colors.white }}>VS</T>
-          </View>
-          <View style={[styles.teamPanel, { backgroundColor: colors.green }]}>
-            <T variant="label" color={colors.ink} style={{ fontSize: 11 }}>
-              {t('charades.draft.teamBLabel')}
-            </T>
-            <TextInput
-              value={teamBName}
-              onChangeText={setTeamBName}
-              placeholder={t('charades.draft.teamBName')}
-              placeholderTextColor={colors.neutral700}
-              maxLength={20}
-              accessibilityLabel={t('charades.draft.teamBName')}
-              style={styles.teamInput}
-            />
+          <View style={styles.wideCol}>
+            {teamsSection}
+            {decksSection}
           </View>
         </View>
-
-        <Spacer size={spacing.lg} />
-        <View style={styles.decksHeader}>
-          <T variant="heading" style={{ fontSize: 18 }}>
-            {t('charades.draft.decksTitle')}
-          </T>
-          <T style={{ fontFamily: fonts.display, fontSize: 13, color: colors.purple700 }}>
-            {selectedDeckIds.length}/{decks?.length ?? 0}
-          </T>
-        </View>
-        <Spacer size={spacing.sm} />
-
-        {decksError ? (
-          <>
-            <T variant="label" color={colors.red}>
-              {t('charades.draft.decksError')}
-            </T>
-            <Spacer size={spacing.xs} />
-            <Button label={t('charades.draft.decksRetry')} tone="secondary" showArrow={false} onPress={loadDecks} />
-          </>
-        ) : decks === null ? (
-          <T variant="label" color={colors.neutral700}>
-            {t('charades.draft.decksLoading')}
-          </T>
-        ) : decks.length === 0 ? (
-          <T variant="label" color={colors.neutral700}>
-            {t('charades.draft.decksEmpty')}
-          </T>
-        ) : (
-          <View style={styles.grid}>
-            {decks.map((deck, i) => (
-              <CategoryTile
-                key={deck.id}
-                index={i}
-                name={lang === 'ar' ? deck.nameAr : deck.nameEn}
-                selected={selectedDeckIds.includes(deck.id)}
-                onPress={() => toggleDeck(deck.id)}
-              />
-            ))}
-          </View>
-        )}
-        <Spacer size={spacing.lg} />
-      </>
+      ) : (
+        <>
+          {intro}
+          {modeSection}
+          {difficultySection}
+          {teamsSection}
+          {decksSection}
+        </>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  section: { gap: spacing.sm },
+  wideRow: { flex: 1, flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 48 },
+  wideRowEn: { flexDirection: 'row' },
+  wideCol: { flex: 1, gap: spacing.lg },
+  // Four decks to a row on a wide window, shorter than on a phone.
+  wideTile: { flexBasis: '23%', minHeight: 72 },
   modeRow: { flexDirection: 'row', gap: 10 },
   modeCard: { flex: 1, borderWidth: 2, padding: 12, gap: 4 },
   pressed: { opacity: 0.72 },

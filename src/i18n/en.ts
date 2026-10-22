@@ -2,6 +2,7 @@ import type { TranslationKey } from './ar';
 
 export const en: Record<TranslationKey, string> = {
   'app.name': 'Bas Bedoon Kalam',
+  'app.copyright': '© {{year}} Bas Bedoon Kalam. All rights reserved.',
   'app.tagline': 'You do not need to know the answer. You need your friends to understand you.',
   'app.writeup':
     'Bas Bedoon Kalam is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',

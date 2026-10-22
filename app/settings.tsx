@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Button, ConfirmModal, Divider, Screen, Spacer, T } from '../src/ui/components';
-import { Hero } from '../src/ui/Hero';
-import { colors, spacing } from '../src/ui/theme';
+import { Button, ConfirmModal, Divider, Screen, T } from '../src/ui/components';
+import { HeaderLogo } from '../src/ui/Logo';
+import { colors } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { goBack } from '../src/platform/navigation';
 
@@ -18,14 +18,8 @@ export default function Settings() {
   };
 
   return (
-    <Screen scroll header={{ onBack: () => goBack() }}>
-      <Spacer size={spacing.md} />
-      <Hero />
-      <Spacer size={spacing.md} />
-      <Divider />
-      <Spacer size={spacing.md} />
+    <Screen scroll header={{ start: <HeaderLogo />, onBack: () => goBack() }}>
       <T variant="title">{t('settings.title')}</T>
-      <Spacer />
 
       <Button
         label={`${t('settings.language')} — ${prefs.lang === 'ar' ? 'العربية' : 'English'}`}
@@ -33,26 +27,19 @@ export default function Settings() {
         onPress={() => router.push('/language')}
       />
 
-      <Spacer size={spacing.sm} />
       <Button
         label={player ? t('account.loggedInAs', { username: player.username }) : t('account.title')}
         tone="secondary"
         onPress={() => router.push('/account')}
       />
 
-      <Spacer />
       <Divider />
-      <Spacer />
       <Button label={t('home.about')} tone="secondary" onPress={() => router.push('/privacy')} />
-      <Spacer size={spacing.sm} />
       <Button label={t('settings.reset')} tone="danger" showArrow={false} onPress={() => setConfirmingReset(true)} />
       {wiped ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.green}>
-            {t('settings.resetDone')}
-          </T>
-        </>
+        <T variant="label" color={colors.green}>
+          {t('settings.resetDone')}
+        </T>
       ) : null}
 
       <ConfirmModal

@@ -214,8 +214,21 @@ export function Screen({
         {footer ? (
           <View style={[styles.footer, { backgroundColor: background }]}>{footer}</View>
         ) : null}
+        <Copyright onDark={background === colors.ink || background === colors.purple} />
         </KeyboardAvoidingView>
       </SafeAreaView>
+    </View>
+  );
+}
+
+/** The copyright line at the foot of every screen — pinned below everything else, so it never adds scrolling of its own. */
+function Copyright({ onDark }: { onDark: boolean }) {
+  const { t } = useApp();
+  return (
+    <View style={styles.copyright} accessibilityRole="text">
+      <T variant="label" align="center" color={onDark ? colors.white : colors.mutedText} style={{ fontSize: 11, lineHeight: 16, fontWeight: '500' }}>
+        {t('app.copyright', { year: new Date().getFullYear() })}
+      </T>
     </View>
   );
 }
@@ -372,11 +385,14 @@ export function CategoryTile({
   name,
   selected,
   onPress,
+  style,
 }: {
   index: number;
   name: string;
   selected: boolean;
   onPress: () => void;
+  /** Overrides the default two-to-a-row sizing, e.g. four to a row on a wide window. */
+  style?: StyleProp<ViewStyle>;
 }) {
   const { lang } = useApp();
   return (
@@ -389,6 +405,7 @@ export function CategoryTile({
         styles.categoryTile,
         { backgroundColor: selected ? colors.purple : colors.white },
         selected && hardShadowPressed(lang),
+        style,
       ]}
     >
       <View style={styles.categoryTileTop}>
@@ -793,7 +810,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  footer: { padding: 20 },
+  footer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  copyright: { paddingHorizontal: 20, paddingBottom: 8, paddingTop: 2 },
   button: {
     minHeight: HIT_SIZE,
     paddingHorizontal: spacing.lg,
