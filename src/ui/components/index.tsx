@@ -385,11 +385,14 @@ export function CategoryTile({
   name,
   selected,
   onPress,
+  style,
 }: {
   index: number;
   name: string;
   selected: boolean;
   onPress: () => void;
+  /** Overrides the default two-to-a-row sizing, e.g. four to a row on a wide window. */
+  style?: StyleProp<ViewStyle>;
 }) {
   const { lang } = useApp();
   return (
@@ -402,6 +405,7 @@ export function CategoryTile({
         styles.categoryTile,
         { backgroundColor: selected ? colors.purple : colors.white },
         selected && hardShadowPressed(lang),
+        style,
       ]}
     >
       <View style={styles.categoryTileTop}>
