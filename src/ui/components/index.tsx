@@ -203,7 +203,10 @@ export function Screen({
  */
 function Copyright({ onDark, showLinks }: { onDark: boolean; showLinks: boolean }) {
   const { t } = useApp();
+  const { width } = useWindowDimensions();
   const color = onDark ? colors.white : colors.mutedText;
+  // On a phone the link lives in the ☰ menu instead, keeping this one line.
+  showLinks = showLinks && width >= 760;
   return (
     <View style={styles.copyright}>
       <T variant="label" align="center" color={color} style={styles.copyrightText}>
@@ -278,8 +281,10 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
     { key: 'home', label: t('nav.home'), href: '/home', active: pathname === '/home' || pathname === '/' },
     { key: 'play', label: charades ? t('nav.resume') : t('nav.play'), href: playHref, active: pathname.startsWith('/charades') },
     ...(player ? [{ key: 'buy', label: t('nav.buy'), href: '/buy', active: pathname === '/buy' }] : []),
-    { key: 'settings', label: t('nav.settings'), href: '/settings', active: pathname === '/settings' || pathname === '/privacy' },
+    { key: 'settings', label: t('nav.settings'), href: '/settings', active: pathname === '/settings' },
   ];
+  // The footer carries this link on a wide window; on a phone it joins the menu.
+  const menuLinks: NavLink[] = [...links, { key: 'privacy', label: t('home.about'), href: '/privacy', active: pathname === '/privacy' }];
   const gamesLeft = walletBalance + freeGameCredits;
   const accountLabel = player ? player.username : t('account.signIn');
 
@@ -338,7 +343,7 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
                     </T>
                   </Pressable>
                 </View>
-                {links.map((link) => (
+                {menuLinks.map((link) => (
                   <Pressable
                     key={link.key}
                     accessibilityRole="link"
@@ -494,6 +499,7 @@ export function Field({
   borderColor?: string;
 }) {
   const { lang } = useApp();
+  const { width } = useWindowDimensions();
   const [focused, setFocused] = React.useState(false);
   return (
     <View style={{ gap: 6 }}>
@@ -515,6 +521,8 @@ export function Field({
         onBlur={() => setFocused(false)}
         style={[
           styles.input,
+          // 48 on a phone — still a comfortable tap target — so forms fit its screen.
+          width < 600 && { minHeight: 48 },
           { borderColor: focused ? colors.purple : borderColor ?? colors.ink },
           focused && hardShadowPressed(lang, colors.purple),
         ]}

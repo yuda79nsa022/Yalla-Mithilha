@@ -155,7 +155,10 @@ export default function Home() {
         // up in patches under the shorter column and at the bottom.
         <View style={[styles.heroRow, lang === 'en' && styles.heroRowEn]}>
           <View style={styles.heroTextCol}>
-            <T variant="title" style={[styles.wideTagline, lang === 'ar' && { lineHeight: 56 }]}>
+            <T
+              variant="title"
+              style={[styles.wideTagline, lang === 'ar' && { lineHeight: 56 }, height < 700 && { fontSize: 30, lineHeight: lang === 'ar' ? 46 : 38 }]}
+            >
               {tagline}
             </T>
             {!player ? (
@@ -182,13 +185,16 @@ export default function Home() {
           </T>
           {!player ? (
             <>
-              <T
-                variant="label"
-                color={colors.neutral700}
-                style={[{ fontWeight: '500', fontSize: 12 }, shortPhone && { lineHeight: lang === 'ar' ? 20 : 18 }]}
-              >
-                {writeup}
-              </T>
+              {/* The very smallest phones (under 660px tall) skip the write-up to fit. */}
+              {height >= 660 ? (
+                <T
+                  variant="label"
+                  color={colors.neutral700}
+                  style={[{ fontWeight: '500', fontSize: 12 }, shortPhone && { lineHeight: lang === 'ar' ? 20 : 18 }]}
+                >
+                  {writeup}
+                </T>
+              ) : null}
               {showCategoryTiles ? <CategoryGrid /> : null}
             </>
           ) : null}

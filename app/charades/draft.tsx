@@ -285,12 +285,12 @@ export default function CharadesDraft() {
     >
       {isWide ? (
         <View style={[styles.wideRow, lang === 'en' && styles.wideRowEn]}>
-          <View style={styles.wideCol}>
+          <View style={[styles.wideCol, height < 700 && { gap: spacing.md }]}>
             {intro}
             {modeSection}
             {difficultySection}
           </View>
-          <View style={styles.wideCol}>
+          <View style={[styles.wideCol, height < 700 && { gap: spacing.md }]}>
             {teamsSection}
             {decksSection}
           </View>
