@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
-import { Button, ConfirmModal, Divider, Field, Screen, Spacer, T, TextLink } from '../src/ui/components';
-import { Hero } from '../src/ui/Hero';
-import { colors, spacing } from '../src/ui/theme';
+import { Button, ConfirmModal, Field, Screen, T, TextLink } from '../src/ui/components';
+import { HeaderLogo } from '../src/ui/Logo';
+import { colors } from '../src/ui/theme';
 import { goBack } from '../src/platform/navigation';
 import { useApp } from '../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../src/config';
@@ -16,6 +16,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function Account() {
   const {
     t,
+    lang,
     player,
     playerAuthBusy,
     playerAuthError,
@@ -118,20 +119,14 @@ export default function Account() {
     return (
       <Screen
         scroll
-        header={{ onBack: () => goBack() }}
+        header={{ start: <HeaderLogo />, onBack: () => goBack() }}
         footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
       >
-        <Spacer size={spacing.md} />
-        <Hero />
-        <Spacer size={spacing.md} />
-        <Divider />
-        <Spacer size={spacing.md} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <T variant="title" style={{ fontSize: 44, lineHeight: 50 }}>
+          <T variant="title" style={{ fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
             {t('account.title')}
           </T>
         </View>
-        <Spacer size={spacing.xl} />
         <T variant="body">{t('account.loggedInAs', { username: player.username })}</T>
 
         <ConfirmModal
@@ -155,104 +150,67 @@ export default function Account() {
   const canSendReset = Boolean(username.trim());
   const canSubmitReset = resetCode.trim().length === 6 && Boolean(newPassword);
 
+  // One button in the footer; switching between sign-in, sign-up and the
+  // reset steps is a text link under the form, so the page fits a screen
+  // without scrolling.
   const footer =
     mode === 'signIn' || mode === 'create' ? (
-      <>
-        <Button
-          label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
-          disabled={!(mode === 'signIn' ? canSubmitSignIn : canSubmitCreate) || playerAuthBusy || tryingAdmin}
-          busy={playerAuthBusy || tryingAdmin}
-          onPress={submit}
-        />
-        <Spacer size={spacing.sm} />
-        <Button
-          label={mode === 'signIn' ? t('account.switchToCreate') : t('account.switchToSignIn')}
-          tone="secondary"
-          showArrow={mode === 'signIn'}
-          onPress={() => goToMode(mode === 'signIn' ? 'create' : 'signIn')}
-        />
-      </>
+      <Button
+        label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
+        disabled={!(mode === 'signIn' ? canSubmitSignIn : canSubmitCreate) || playerAuthBusy || tryingAdmin}
+        busy={playerAuthBusy || tryingAdmin}
+        onPress={submit}
+      />
     ) : mode === 'forgotRequest' ? (
-      <>
-        <Button label={t('account.sendResetCode')} disabled={!canSendReset || playerAuthBusy} busy={playerAuthBusy} onPress={sendResetCode} />
-        <Spacer size={spacing.sm} />
-        <Button label={t('account.backToSignIn')} tone="secondary" showArrow={false} onPress={() => goToMode('signIn')} />
-      </>
+      <Button label={t('account.sendResetCode')} disabled={!canSendReset || playerAuthBusy} busy={playerAuthBusy} onPress={sendResetCode} />
     ) : (
-      <>
-        <Button label={t('account.resetPassword')} disabled={!canSubmitReset || playerAuthBusy} busy={playerAuthBusy} onPress={submitReset} />
-        <Spacer size={spacing.sm} />
-        <Button label={t('account.backToSignIn')} tone="secondary" showArrow={false} onPress={() => goToMode('signIn')} />
-      </>
+      <Button label={t('account.resetPassword')} disabled={!canSubmitReset || playerAuthBusy} busy={playerAuthBusy} onPress={submitReset} />
     );
 
   return (
-    <Screen scroll header={{ onBack: () => goBack() }} footer={footer}>
-      <Spacer size={spacing.md} />
-      <Hero />
-      <Spacer size={spacing.md} />
-      <Divider />
-      <Spacer size={spacing.md} />
+    <Screen scroll header={{ start: <HeaderLogo />, onBack: () => goBack() }} footer={footer}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <T variant="title" style={{ fontSize: 44, lineHeight: 50 }}>
+        <T variant="title" style={{ fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
           {title}
         </T>
       </View>
 
       {mode !== 'signIn' && mode !== 'create' ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="body" color={colors.neutral700}>
-            {t(mode === 'forgotRequest' ? 'account.forgotRequestBody' : 'account.forgotConfirmBody')}
-          </T>
-        </>
+        <T variant="body" color={colors.neutral700}>
+          {t(mode === 'forgotRequest' ? 'account.forgotRequestBody' : 'account.forgotConfirmBody')}
+        </T>
       ) : null}
       {mode === 'create' ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.purple}>
-            {t('account.signupBonus')}
-          </T>
-        </>
+        <T variant="label" color={colors.purple} style={{ fontSize: 13 }}>
+          {t('account.signupBonus')}
+        </T>
       ) : null}
       {mode === 'signIn' && justResetPassword ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.green}>
-            {t('account.resetSuccess')}
-          </T>
-        </>
+        <T variant="label" color={colors.green}>
+          {t('account.resetSuccess')}
+        </T>
       ) : null}
-
-      <Spacer size={spacing.xl} />
 
       {mode !== 'forgotConfirm' ? (
         <Field label={t('account.username')} value={username} onChangeText={setUsername} placeholder={t('account.username')} maxLength={40} />
       ) : null}
 
       {mode === 'signIn' || mode === 'create' ? (
-        <>
-          <Spacer size={spacing.md} />
-          <Field
-            label={t('account.password')}
-            value={password}
-            onChangeText={setPassword}
-            placeholder={t('account.password')}
-            secureTextEntry
-          />
-        </>
+        <Field
+          label={t('account.password')}
+          value={password}
+          onChangeText={setPassword}
+          placeholder={t('account.password')}
+          secureTextEntry
+        />
       ) : null}
 
       {mode === 'signIn' ? (
-        <>
-          <Spacer size={spacing.md} />
-          <TextLink label={t('account.forgotPassword')} onPress={() => goToMode('forgotRequest')} />
-        </>
+        <TextLink label={t('account.forgotPassword')} onPress={() => goToMode('forgotRequest')} />
       ) : null}
 
       {mode === 'create' ? (
         <>
-          <Spacer size={spacing.md} />
           <Field
             label={t('account.email')}
             value={email}
@@ -261,8 +219,7 @@ export default function Account() {
             keyboardType="email-address"
             maxLength={254}
           />
-          <Spacer size={spacing.xs} />
-          <T variant="label" color={colors.neutral700}>
+          <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
             {t('account.emailRequiredHint')}
           </T>
         </>
@@ -271,25 +228,25 @@ export default function Account() {
       {mode === 'forgotConfirm' ? (
         <>
           <Field label={t('account.resetCode')} value={resetCode} onChangeText={setResetCode} placeholder={t('account.resetCode')} keyboardType="number-pad" maxLength={6} />
-          <Spacer size={spacing.md} />
           <Field label={t('account.newPassword')} value={newPassword} onChangeText={setNewPassword} placeholder={t('account.newPassword')} secureTextEntry />
         </>
       ) : null}
 
+      <TextLink
+        label={
+          mode === 'signIn' ? t('account.switchToCreate') : mode === 'create' ? t('account.switchToSignIn') : t('account.backToSignIn')
+        }
+        onPress={() => goToMode(mode === 'signIn' ? 'create' : 'signIn')}
+      />
+
       {adminRedirecting ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.green}>
-            {t('account.openingAdminTool')}
-          </T>
-        </>
+        <T variant="label" color={colors.green}>
+          {t('account.openingAdminTool')}
+        </T>
       ) : playerAuthError ? (
-        <>
-          <Spacer size={spacing.sm} />
-          <T variant="label" color={colors.red}>
-            {playerAuthError}
-          </T>
-        </>
+        <T variant="label" color={colors.red}>
+          {playerAuthError}
+        </T>
       ) : null}
     </Screen>
   );
