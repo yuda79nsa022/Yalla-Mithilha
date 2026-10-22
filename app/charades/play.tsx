@@ -32,10 +32,14 @@ import {
   ASSIST_EXTRA_SECONDS,
   ASSIST_KINDS,
   DIFFICULTIES,
+  DIFFICULTY_POINTS,
+  MAX_STEALS_PER_GAME,
+  STEAL_POINTS,
   adjustScore as adjustModifiedScore,
   assistAvailable,
   awardRound as awardModifiedRound,
   canPickDifficulty,
+  canSteal,
   consumeAssist,
   currentTeamIndex as currentModifiedTeamIndex,
   isModifiedCharadesComplete,
@@ -44,6 +48,8 @@ import {
   revealLetters,
   skipRound as skipModifiedRound,
   stackSizes,
+  stealRound,
+  stealsLeft,
   type AssistKind,
   type Difficulty,
   type ModifiedCharadesState,
@@ -488,8 +494,8 @@ function FinalScreen({ state }: { state: CharadesState }) {
  */
 interface PendingOutcome {
   round: number;
-  kind: 'award' | 'skip';
-  /** The acting team — the one that scores on an award. */
+  kind: 'award' | 'steal' | 'skip';
+  /** Who scores — the acting team for an award, the other team for a steal. */
   team: 0 | 1;
   points: number;
 }
@@ -513,7 +519,8 @@ function RoundRecap({
   const { t, lang } = useApp();
   const scored = outcome.kind !== 'skip';
   const scorerName = outcome.team === 0 ? state.teamAName : state.teamBName;
-  // Turns strictly alternate by round.
+  // Turns strictly alternate by round, whoever scored — after a steal the
+  // next team up is still decided by the round number, not by the stealer.
   const nextTeamName = (state.index + 1) % 2 === 0 ? state.teamAName : state.teamBName;
   // The score only lands in `state.scores` once "next round" is tapped, so
   // the recap previews it already applied, purely for display.
@@ -925,6 +932,9 @@ function ModifiedPlayScreen() {
             </Pressable>
           );
         })}
+        <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
+          {t('charades.play.stealsLeft', { count: stealsLeft(charades), max: MAX_STEALS_PER_GAME })}
+        </T>
         <QuitControl />
       </Screen>
     );
@@ -943,7 +953,11 @@ function ModifiedPlayScreen() {
         isLastRound={charades.index + 1 >= charades.rounds}
         onNext={() =>
           updateCharades(
-            outcome.kind === 'award' ? awardModifiedRound(charades, outcome.team, outcome.points) : skipModifiedRound(charades)
+            outcome.kind === 'steal'
+              ? stealRound(charades)
+              : outcome.kind === 'award'
+                ? awardModifiedRound(charades, outcome.team, outcome.points)
+                : skipModifiedRound(charades)
           )
         }
       />
@@ -952,6 +966,9 @@ function ModifiedPlayScreen() {
 
   // --- Reveal + score buttons ----------------------------------------------
   if (clock.endedEarly || clock.timeUp) {
+    const stealerIndex: 0 | 1 = teamIndex === 0 ? 1 : 0;
+    const stealerName = stealerIndex === 0 ? charades.teamAName : charades.teamBName;
+    const stealAllowed = canSteal(charades);
     return wrap(
       <Screen
         scroll
@@ -974,16 +991,31 @@ function ModifiedPlayScreen() {
             </View>
             <Spacer size={spacing.md} />
             {clock.timeUp ? (
-              // Same as classic: the 2 minutes are the whole move.
               <>
                 <T variant="label" color={colors.red} align="center" style={{ fontSize: 13 }}>
-                  {t('charades.play.timesUp')} {t('charades.play.timesUpNoPoints')}
+                  {t('charades.play.timesUp')}{' '}
+                  {stealAllowed
+                    ? t('charades.play.stealsLeft', { count: stealsLeft(charades), max: MAX_STEALS_PER_GAME })
+                    : t('charades.play.noStealsLeft')}
                 </T>
                 <Spacer size={spacing.xs} />
-                <Button
-                  label={t('charades.play.nextRound')}
-                  onPress={() => setPending({ round, kind: 'skip', team: teamIndex, points: 0 })}
-                />
+                <View style={styles.actingFooterGrid}>
+                  <Button
+                    label={t('charades.play.stealAward', { team: stealerName })}
+                    accent={colors.green}
+                    showArrow={false}
+                    disabled={!stealAllowed}
+                    style={{ flex: 2 }}
+                    onPress={() => setPending({ round, kind: 'steal', team: stealerIndex, points: STEAL_POINTS })}
+                  />
+                  <Button
+                    label={t('charades.play.noSteal')}
+                    tone="secondary"
+                    showArrow={false}
+                    style={{ flex: 1 }}
+                    onPress={() => setPending({ round, kind: 'skip', team: teamIndex, points: 0 })}
+                  />
+                </View>
               </>
             ) : (
               <View style={styles.actingFooterGrid}>

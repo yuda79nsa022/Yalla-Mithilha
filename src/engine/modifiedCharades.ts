@@ -16,7 +16,8 @@
  * - a guessed title scores its level's points (`DIFFICULTY_POINTS`) —
  *   easy 2, medium 3, hard 5 — however fast it was guessed (speed only
  *   counts in the classic game);
- * - a title not guessed in time scores nothing for anyone;
+ * - when the timer runs out, the other team may steal with one guess for
+ *   `STEAL_POINTS` — at most `MAX_STEALS_PER_GAME` times in the whole game;
  * - each team has one of each assist (`ASSIST_KINDS`) per game, free to use.
  *
  * Kept entirely separate from `src/engine/charades.ts` (the classic game)
@@ -33,6 +34,14 @@ export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
 
 /** Points for a guessed title at each level — the spread is deliberately wide so hard picks can overturn a lead. */
 export const DIFFICULTY_POINTS: Record<Difficulty, number> = { easy: 2, medium: 3, hard: 5 };
+/** What the other team earns by guessing the title once the acting team's time has run out. */
+export const STEAL_POINTS = 1;
+/**
+ * How many steals a whole game allows, both teams together — a game is 20
+ * rounds, and a steal on every timed-out round would let the guessing team
+ * out-score the acting one without ever acting.
+ */
+export const MAX_STEALS_PER_GAME = 2;
 
 export type AssistKind = 'firstLetters' | 'lastLetters' | 'extraTime';
 export const ASSIST_KINDS: readonly AssistKind[] = ['firstLetters', 'lastLetters', 'extraTime'];
@@ -92,6 +101,8 @@ export interface ModifiedCharadesState {
   deckIds: string[];
   /** Which assists each team has already spent this game — one of each per team. */
   assistsUsed: [AssistKind[], AssistKind[]];
+  /** Steals taken so far this game, both teams together — capped at `MAX_STEALS_PER_GAME`. Absent on games saved before the cap existed, meaning 0. */
+  stealsUsed?: number;
   /** Set when the game was ended early (see `endedReason` in `./game`); absent while it is still being played. */
   endedReason?: GameEndReason;
   /** Epoch ms of the last tap on the play screen — how a reopened game knows it sat idle past the limit. */
@@ -125,6 +136,7 @@ export function draftModifiedCharades(
     playerId,
     deckIds,
     assistsUsed: [[], []],
+    stealsUsed: 0,
   };
 }
 
@@ -186,6 +198,25 @@ export function awardRound(state: ModifiedCharadesState, team: 0 | 1, points: nu
 /** Resolves the round in play with nobody scoring. */
 export function skipRound(state: ModifiedCharadesState): ModifiedCharadesState {
   return { ...state, index: state.index + 1, current: null };
+}
+
+export function stealsLeft(state: ModifiedCharadesState): number {
+  return Math.max(0, MAX_STEALS_PER_GAME - (state.stealsUsed ?? 0));
+}
+
+export function canSteal(state: ModifiedCharadesState): boolean {
+  return state.current !== null && stealsLeft(state) > 0;
+}
+
+/**
+ * Time ran out and the *other* team guessed it: they take `STEAL_POINTS`,
+ * the acting team nothing, and the round is over. Returns the same state once the game's
+ * steals are used up, so a stale button can't sneak a third one in.
+ */
+export function stealRound(state: ModifiedCharadesState): ModifiedCharadesState {
+  if (!canSteal(state)) return state;
+  const stealer = currentTeamIndex(state) === 0 ? 1 : 0;
+  return { ...awardRound(state, stealer, STEAL_POINTS), stealsUsed: (state.stealsUsed ?? 0) + 1 };
 }
 
 export function assistAvailable(state: ModifiedCharadesState, team: 0 | 1, kind: AssistKind): boolean {
