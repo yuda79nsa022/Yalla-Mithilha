@@ -70,6 +70,10 @@ account's balance instead of failing on the duplicate username.
 | `PLAYER_SESSION_SECRET` | — | Signs player-account session tokens (JWT), entirely separate from `SESSION_SECRET` — a player token can never verify as an admin session or vice versa. Required for `/players/*`, `/charades/*` and any player-only route. |
 | `DATA_DIR` | `./data` | Where the SQLite file lives. |
 | `DB_PATH` | `<DATA_DIR>/catalogue.sqlite` | Override the exact file — tests set this to an isolated temp path. |
+| `EMAIL_PROVIDER` | — | `resend` sends real email (the low-balance notice) through Resend's HTTPS API; unset logs each email to the server console instead — development only. |
+| `RESEND_API_KEY` | — | Required with `EMAIL_PROVIDER=resend`. Secret — server-side only. |
+| `EMAIL_FROM` | — | Required with `EMAIL_PROVIDER=resend`, e.g. `Bas Bedoon Kalam <games@your-domain.example>` (a sender verified in Resend). |
+| `PUBLIC_BASE_URL` | — | This server's public https address: MyFatoorah's return URL, and the "Buy more games" link in the low-balance email (`$PUBLIC_BASE_URL/buy` — without it the email has no link). |
 
 `.env` in this directory is loaded automatically (`src/loadEnv.ts`, the
 first import of every entry point) — copy `.env.example` to `.env` and fill
@@ -168,6 +172,18 @@ handled explicitly, not just by convention:
   *client's own* locally-generated session id (made once when the player
   taps "Start the game"). Replaying the same id after an app restart
   returns the same 20 already-dealt titles and spends nothing further.
+
+### Running low
+
+When a game leaves a player with fewer than 2 games (paid credits plus free
+signup games), the server emails them once — "you're running low", with a
+link to the app's `/buy` screen, which starts a MyFatoorah checkout once
+they're signed in. The link carries no token or payment id. One email per
+dip: `players.low_balance_notified_at` is claimed with a conditional UPDATE
+before sending (released again if sending fails), and only cleared once a
+top-up brings them back to 2 or more (`src/notifications/lowBalance.ts`).
+Players with no email on file are never emailed; the app shows its own
+alert and "Buy more" banner either way.
 
 ## Decks and titles
 
@@ -281,6 +297,10 @@ own errors rather than throwing.
   as a web page; a JSON POST also triggers a CORS preflight, so `OPTIONS`
   gets an explicit response too). `{ username, password, email? }` →
   `{ token, player }`. Never returns a password hash.
+- `POST /players/session/refresh` — player session required. Swaps a
+  still-valid token for a fresh one (`{ token, player }`), so the app keeps
+  an in-use session alive instead of signing a player out mid-game at the
+  12-hour mark. An expired or revoked token gets a 401 like anywhere else.
 - `POST /players/password-reset/request` — public, CORS-open. `{ username }`
   → always `{ message }`, whether or not it matched an account with an
   email on file (see "Auth model" above).
@@ -315,12 +335,17 @@ own errors rather than throwing.
   session required, and the payment must belong to the caller (404
   otherwise). Stand in for a real payment provider's success/failure
   callback; confirm is idempotent (see above).
-- `POST /charades/sessions` — player session required. `{ sessionId, lang }`
-  spends one credit and deals 20 titles at random across every playable
-  deck combined *in the given deck-language pool* — no `deckId`, the player
-  never chooses one directly; idempotent on `sessionId` (see above). `lang`
-  is `'ar'`, `'en'` or `'mixed'`, defaulting to `'mixed'` when omitted. 402
-  when the balance is empty, 409 when no deck in that pool has any titles.
+- `POST /charades/sessions` — player session required.
+  `{ sessionId, deckIds?, mode?, difficulty? }` spends one credit and deals
+  the game from the chosen decks — the player never chooses a title
+  directly; idempotent on `sessionId` (see above). `mode` is `'classic'`
+  (default: a flat 20 titles) or `'modified'` (three difficulty stacks).
+  `difficulty` (classic only) is `'mixed'` (default), `'easy'`, `'medium'`
+  or `'hard'`: that level is dealt first, topped up from the nearest level
+  if the decks run short. A title's level is its own tag if it has one,
+  otherwise its length (one word easy, two or three medium, more hard)
+  shifted one step by an easy or hard deck. 402 when the balance is empty,
+  409 when the chosen decks have no titles.
 - `GET /charades/sessions/:id` — player session required, and the session
   must belong to the caller. Re-fetches a previously dealt session.
 - `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit

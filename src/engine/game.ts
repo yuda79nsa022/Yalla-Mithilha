@@ -10,6 +10,7 @@ import type { CharadesState as ClassicCharadesState } from './charades';
 import { isCharadesComplete as isClassicCharadesComplete } from './charades';
 import type { ModifiedCharadesState } from './modifiedCharades';
 import { isModifiedCharadesComplete } from './modifiedCharades';
+import { INACTIVITY_LIMIT_SECONDS } from './rules';
 
 export type GameMode = 'classic' | 'modified';
 export const GAME_MODES: readonly GameMode[] = ['classic', 'modified'];
@@ -35,4 +36,26 @@ export function charadesForPlayer(state: CharadesState | null, playerId: string 
   if (!state) return null;
   if (state.playerId === null) return state;
   return state.playerId === playerId ? state : null;
+}
+
+/**
+ * Ends a game early because nobody touched it for `INACTIVITY_LIMIT_SECONDS`
+ * outside the acting clock. The scores stand as they are — the play screen
+ * shows the final scoreboard straight away. A game that is already over is
+ * returned unchanged.
+ */
+export function endForInactivity(state: CharadesState): CharadesState {
+  if (state.lock !== 'unlocked' || isCharadesComplete(state)) return state;
+  return { ...state, endedReason: 'inactivity' };
+}
+
+/** Records a tap on the play screen, so a game reopened later knows how long it really sat idle. */
+export function markActivity(state: CharadesState, now: number): CharadesState {
+  return { ...state, lastActivityAt: now };
+}
+
+/** True when a live game's last recorded activity is older than the inactivity limit. */
+export function isIdleTooLong(state: CharadesState, now: number): boolean {
+  if (state.lock !== 'unlocked' || isCharadesComplete(state) || state.lastActivityAt === undefined) return false;
+  return now - state.lastActivityAt >= INACTIVITY_LIMIT_SECONDS * 1000;
 }

@@ -20,7 +20,7 @@ import type {
   RevealPayload,
   TitleRow,
 } from './types';
-import { DIFFICULTIES, effectiveDifficulty, isDifficulty } from './types';
+import { DIFFICULTIES, effectiveDifficulty, isDifficulty, type ClassicDifficulty } from './types';
 
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -311,6 +311,10 @@ ensureColumn('payments', 'provider_ref', 'provider_ref TEXT');
   }
 }
 ensureColumn('players', 'free_game_credits', 'free_game_credits INTEGER NOT NULL DEFAULT 0');
+// When the player was last emailed that their games are running low — NULL
+// while they have enough, or once a top-up re-arms it. See
+// claimLowBalanceNotice.
+ensureColumn('players', 'low_balance_notified_at', 'low_balance_notified_at INTEGER');
 
 // Lookup indexes for the hot paths: a wallet's balance is summed from the
 // ledger on every wallet fetch and game start, and SQLite doesn't index
@@ -1073,6 +1077,43 @@ export function grantCredits(playerId: string, amount: number): void {
     `INSERT INTO credit_transactions (id, player_id, kind, amount, created_at)
      VALUES (@id, @playerId, 'grant', @amount, @now)`
   ).run({ id: crypto.randomUUID(), playerId, amount, now: Date.now() });
+  rearmLowBalanceNotice(playerId);
+}
+
+/** Below this many games left (paid plus free), the player is warned and emailed. */
+export const LOW_BALANCE_THRESHOLD = 2;
+
+/** Every game the player can still start: paid credits plus unspent free signup games. */
+export function gamesLeft(playerId: string): number {
+  return creditBalance(playerId) + (getPlayerById(playerId)?.freeGameCredits ?? 0);
+}
+
+/**
+ * Claims the right to send this player's low-balance email: returns what
+ * the email needs when they are under `LOW_BALANCE_THRESHOLD`, have an
+ * email on file, and haven't been told yet during this dip — otherwise
+ * `null`. The conditional UPDATE is the lock, so two concurrent callers
+ * can never both get a non-null answer.
+ */
+export function claimLowBalanceNotice(playerId: string): { to: string; username: string; gamesLeft: number } | null {
+  const player = getPlayerById(playerId);
+  if (!player?.email) return null;
+  const left = gamesLeft(playerId);
+  if (left >= LOW_BALANCE_THRESHOLD) return null;
+  const claimed = db
+    .prepare('UPDATE players SET low_balance_notified_at = ? WHERE id = ? AND low_balance_notified_at IS NULL')
+    .run(Date.now(), playerId);
+  return claimed.changes === 1 ? { to: player.email, username: player.username, gamesLeft: left } : null;
+}
+
+/** Gives back a claim whose email could not be sent, so the next game tries again. */
+export function releaseLowBalanceNotice(playerId: string): void {
+  db.prepare('UPDATE players SET low_balance_notified_at = NULL WHERE id = ?').run(playerId);
+}
+
+/** Re-arms the low-balance email once a player is back at or over the threshold. */
+function rearmLowBalanceNotice(playerId: string): void {
+  if (gamesLeft(playerId) >= LOW_BALANCE_THRESHOLD) releaseLowBalanceNotice(playerId);
 }
 
 /**
@@ -1146,6 +1187,7 @@ export function confirmPayment(paymentId: string): { payment: PaymentRow; balanc
     }
   });
   tx.immediate();
+  rearmLowBalanceNotice(payment.playerId);
 
   return { payment: getPayment(paymentId)!, balance: creditBalance(payment.playerId) };
 }
@@ -1191,14 +1233,46 @@ const ROUNDS_PER_SESSION = 20;
  * in two different decks still only ever occupies one slot in a session (see
  * "never repeated in the same game" on `startGameSession`). Which deck goes
  * first, and which title comes out of each deck, are both random. Classic
- * mode only — ignores every title's difficulty entirely.
+ * mode only.
+ *
+ * `difficulty` other than `mixed` deals only titles at that level first;
+ * if the chosen decks hold fewer than `count` of them, the rest of the
+ * game is topped up from the nearest level (medium for easy or hard, then
+ * the far one), so a game still gets its full count of rounds rather than
+ * ending early.
  */
-function dealTitles(count: number, deckIds?: string[]): DealtTitle[] {
+function dealTitles(count: number, deckIds?: string[], difficulty: ClassicDifficulty = 'mixed'): DealtTitle[] {
+  const decks = shuffled(listPlayableDecks(deckIds));
+  if (difficulty === 'mixed') return dealRoundRobin(count, decks, () => true, new Set<string>());
+  const order =
+    difficulty === 'medium'
+      ? (['medium', 'easy', 'hard'] as const)
+      : difficulty === 'easy'
+        ? (['easy', 'medium', 'hard'] as const)
+        : (['hard', 'medium', 'easy'] as const);
   const seenText = new Set<string>();
-  let queues = shuffled(listPlayableDecks(deckIds))
+  const dealt: DealtTitle[] = [];
+  for (const level of order) {
+    if (dealt.length >= count) break;
+    dealt.push(
+      ...dealRoundRobin(count - dealt.length, decks, (deck, title) => effectiveDifficulty(deck.difficulty, title) === level, seenText)
+    );
+  }
+  return dealt;
+}
+
+/** The round-robin core of `dealTitles`: up to `count` titles passing `keep`, one deck at a time, skipping any text already in `seenText` (which it adds to). */
+function dealRoundRobin(
+  count: number,
+  decks: DeckWithTitles[],
+  keep: (deck: DeckWithTitles, title: DeckWithTitles['titles'][number]) => boolean,
+  seenText: Set<string>
+): DealtTitle[] {
+  let queues = decks
     .map((deck) => {
       const titles: DealtTitle[] = [];
       for (const title of deck.titles) {
+        if (!keep(deck, title)) continue;
         const text = title.text.trim();
         if (seenText.has(text)) continue;
         seenText.add(text);
@@ -1304,7 +1378,8 @@ export function startGameSession(
   playerId: string,
   sessionId: string,
   deckIds: string[] | undefined,
-  mode: GameMode
+  mode: GameMode,
+  difficulty: ClassicDifficulty = 'mixed'
 ): { session: GameSessionRow; balance: number } {
   const existing = getGameSession(sessionId);
   if (existing) {
@@ -1323,7 +1398,7 @@ export function startGameSession(
     titlesJson = JSON.stringify({ rounds, stacks });
     firstDeckId = firstDealt.deckId;
   } else {
-    const dealt = dealTitles(TITLES_PER_SESSION, deckIds);
+    const dealt = dealTitles(TITLES_PER_SESSION, deckIds, difficulty);
     if (dealt.length === 0) throw new NoTitlesAvailableError('no titles are available to deal yet');
     titlesJson = JSON.stringify(dealt);
     firstDeckId = dealt[0].deckId;

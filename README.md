@@ -89,6 +89,9 @@ complete           winner declared (or a tie)
   and it is wired to a no-op sink.
 - Settings has a one-tap wipe of everything stored locally, including the
   saved account session.
+- The email address given at sign-up is used for password resets and for
+  one "you're running low on games" notice when fewer than 2 games are
+  left — nothing else.
 
 ## Documentation
 

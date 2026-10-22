@@ -7,6 +7,7 @@ import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { goBack } from '../../src/platform/navigation';
 import type { GameMode } from '../../src/engine/game';
+import { CLASSIC_DIFFICULTIES, type ClassicDifficulty } from '../../src/engine/charades';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
 
 function ModePicker({ mode, onChange }: { mode: GameMode; onChange: (mode: GameMode) => void }) {
@@ -45,11 +46,48 @@ function ModePicker({ mode, onChange }: { mode: GameMode; onChange: (mode: GameM
   );
 }
 
+const DIFFICULTY_LABEL_KEY = {
+  mixed: 'charades.draft.difficultyMixed',
+  easy: 'charades.play.difficultyEasy',
+  medium: 'charades.play.difficultyMedium',
+  hard: 'charades.play.difficultyHard',
+} as const;
+
+function DifficultyPicker({ value, onChange }: { value: ClassicDifficulty; onChange: (next: ClassicDifficulty) => void }) {
+  const { t } = useApp();
+  return (
+    <View style={styles.difficultyRow} accessibilityRole="radiogroup">
+      {CLASSIC_DIFFICULTIES.map((level) => {
+        const selected = value === level;
+        return (
+          <Pressable
+            key={level}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={t(DIFFICULTY_LABEL_KEY[level])}
+            onPress={() => onChange(level)}
+            style={({ pressed }) => [
+              styles.difficultyChip,
+              { backgroundColor: selected ? colors.ink : colors.white },
+              pressed && styles.pressed,
+            ]}
+          >
+            <T variant="label" style={{ fontSize: 13 }} color={selected ? colors.white : colors.ink} numberOfLines={1}>
+              {t(DIFFICULTY_LABEL_KEY[level])}
+            </T>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function CharadesDraft() {
   const { t, lang, startCharadesDraft } = useApp();
   const [teamAName, setTeamAName] = useState('');
   const [teamBName, setTeamBName] = useState('');
   const [mode, setMode] = useState<GameMode>('classic');
+  const [difficulty, setDifficulty] = useState<ClassicDifficulty>('mixed');
   const [decks, setDecks] = useState<PlayableDeck[] | null>(null);
   const [decksError, setDecksError] = useState(false);
   const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>([]);
@@ -78,7 +116,7 @@ export default function CharadesDraft() {
 
   const confirmDraft = () => {
     if (!canConfirm) return;
-    startCharadesDraft(teamAName.trim(), teamBName.trim(), selectedDeckIds, mode);
+    startCharadesDraft(teamAName.trim(), teamBName.trim(), selectedDeckIds, mode, difficulty);
     router.push('/charades/checkout');
   };
 
@@ -107,6 +145,19 @@ export default function CharadesDraft() {
         </T>
         <Spacer size={spacing.sm} />
         <ModePicker mode={mode} onChange={setMode} />
+        <Spacer size={spacing.lg} />
+
+        <T variant="heading" style={{ fontSize: 18 }}>
+          {t('charades.draft.difficultyTitle')}
+        </T>
+        <Spacer size={spacing.sm} />
+        {mode === 'classic' ? (
+          <DifficultyPicker value={difficulty} onChange={setDifficulty} />
+        ) : (
+          <T variant="label" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
+            {t('charades.draft.difficultyModifiedNote')}
+          </T>
+        )}
         <Spacer size={spacing.lg} />
 
         <View style={styles.teamRow}>
@@ -198,13 +249,17 @@ const styles = StyleSheet.create({
   vsStrip: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: colors.ink },
   teamInput: {
     fontFamily: 'NotoKufiArabic_700Bold',
-    fontSize: 15,
+    // 16, not less: iOS Safari zooms into any input under 16px on focus,
+    // leaving the page zoomed and shifted after typing a team name.
+    fontSize: 16,
     padding: 8,
     borderWidth: 2,
     borderColor: colors.ink,
     backgroundColor: colors.white,
     color: colors.ink,
   },
+  difficultyRow: { flexDirection: 'row', gap: 8 },
+  difficultyChip: { flex: 1, borderWidth: 2, borderColor: colors.ink, paddingVertical: 10, alignItems: 'center' },
   decksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 });

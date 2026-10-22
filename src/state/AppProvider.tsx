@@ -1,6 +1,7 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { draftCharades, unlockCharades as unlockClassicCharades } from '../engine/charades';
-import { charadesForPlayer, type CharadesState, type GameMode } from '../engine/game';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { draftCharades, unlockCharades as unlockClassicCharades, type ClassicDifficulty } from '../engine/charades';
+import { charadesForPlayer, endForInactivity, markActivity, type CharadesState, type GameMode } from '../engine/game';
 import { draftModifiedCharades, unlockModifiedCharades, type CharadesDeal } from '../engine/modifiedCharades';
 import {
   DEFAULT_PREFERENCES,
@@ -24,6 +25,7 @@ import {
   PlayerAuthError,
   confirmPasswordReset as confirmPasswordResetApi,
   loginPlayer as loginPlayerApi,
+  refreshPlayerSession as refreshPlayerSessionApi,
   registerPlayer as registerPlayerApi,
   requestPasswordReset as requestPasswordResetApi,
 } from '../services/playerAuthApi';
@@ -42,6 +44,10 @@ import {
   type HomeContent,
   type PaymentStatus,
 } from '../services/walletApi';
+import { LOW_BALANCE_THRESHOLD, checkSession } from '../services/session';
+
+/** How often a signed-in app re-checks its session's expiry while open. */
+const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 /** Price-fetch failures just leave that mode's price at 0 — callers fall back to showing nothing rather than a stale number. */
 function fetchModePrices(setClassic: (fils: number) => void, setModified: (fils: number) => void) {
@@ -74,9 +80,22 @@ interface AppValue {
   /** The admin-editable home-screen tagline and write-up. `null` until the first successful fetch — callers fall back to the i18n default text until then. */
   homeContent: HomeContent | null;
   charades: CharadesState | null;
-  /** `deckIds` is the player's choice of which decks to play, made alongside the team names and the mode. */
-  startCharadesDraft: (teamAName: string, teamBName: string, deckIds: string[], mode: GameMode) => CharadesState;
+  /** `deckIds` is the player's choice of which decks to play, made alongside the team names and the mode; `difficulty` only applies to a classic game. */
+  startCharadesDraft: (
+    teamAName: string,
+    teamBName: string,
+    deckIds: string[],
+    mode: GameMode,
+    difficulty?: ClassicDifficulty
+  ) => CharadesState;
   updateCharades: (next: CharadesState) => void;
+  /**
+   * Records a tap on the play screen against the latest game state (never a
+   * stale copy, so it can't undo a score that landed in the same moment).
+   */
+  markCharadesActivity: (now: number) => void;
+  /** Ends the live game for inactivity, against the latest game state. */
+  endCharadesForInactivity: () => void;
   /**
    * Spends a credit and deals the drafted session's titles, from whichever
    * decks were chosen when the game was drafted. Requires a signed-in
@@ -104,6 +123,10 @@ interface AppValue {
    */
   walletBalance: number;
   freeGameCredits: number;
+  /** True once the wallet has been fetched for the signed-in player — until then the balance is a placeholder 0, not a real "empty". */
+  walletLoaded: boolean;
+  /** Signed in, wallet fetched, and fewer than `LOW_BALANCE_THRESHOLD` games left (paid plus free). */
+  lowBalance: boolean;
   walletBusy: boolean;
   walletError: string | null;
   refreshWallet: () => Promise<void>;
@@ -128,6 +151,14 @@ interface AppValue {
   registerPlayerAccount: (username: string, password: string, email: string) => Promise<boolean>;
   loginPlayerAccount: (username: string, password: string) => Promise<boolean>;
   logoutPlayerAccount: () => void;
+  /**
+   * True once the saved session ended on its own (expired, or refused by the
+   * server) rather than by signing out — the app asks the player to sign in
+   * again. A game in progress is kept on the device and comes back after
+   * signing in again as the same player.
+   */
+  sessionExpired: boolean;
+  dismissSessionExpired: () => void;
   /**
    * Step one of forgot-password. Always resolves `true` once the server
    * accepts the request, whether or not `username` matched a real account
@@ -164,6 +195,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [freeGameCredits, setFreeGameCredits] = useState(0);
+  const [walletLoaded, setWalletLoaded] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
 
@@ -176,13 +209,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
 
       setPrefsState({ ...storedPrefs, lang: storedPrefs.lang ?? deviceLanguage() });
+      // A token that ran out while the app was closed is over — ask for a
+      // fresh sign-in instead of showing a wallet the server will refuse.
+      const liveSession =
+        storedPlayerSession && checkSession(storedPlayerSession.token, Date.now()) === 'expired' ? null : storedPlayerSession;
+      if (storedPlayerSession && !liveSession) void clearPlayerSession(deviceStore);
+      // Nobody signed in, but a game is saved for a player — their session
+      // ended (here or in an earlier visit): ask them to sign back in to it.
+      if (!liveSession && (storedPlayerSession || storedCharades?.playerId)) setSessionExpired(true);
       // A game saved under a different player (or a paid one saved while
       // signed out) must never resurface for whoever happens to open the
-      // app next — see charadesForPlayer.
-      const allowedCharades = charadesForPlayer(storedCharades, storedPlayerSession?.id ?? null);
+      // app next — see charadesForPlayer. With nobody signed in it stays
+      // saved but hidden, so signing back in as its player resumes it
+      // (see restoreCharadesFor); a different player signing in clears it.
+      const allowedCharades = charadesForPlayer(storedCharades, liveSession?.id ?? null);
       setCharadesState(allowedCharades);
-      if (storedCharades && !allowedCharades) void clearCharades(deviceStore);
-      setPlayerSession(storedPlayerSession);
+      if (storedCharades && !allowedCharades && liveSession) void clearCharades(deviceStore);
+      setPlayerSession(liveSession);
       setReady(true);
 
       fetchModePrices(setGamePriceFils, setModifiedGamePriceFils);
@@ -194,11 +237,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Wallet state lives entirely on the server — nothing to show until a
       // saved player session proves there is an account to check. A failure
       // here just leaves it at 0; the checkout screen can retry.
-      if (storedPlayerSession) {
-        getWalletBalance(storedPlayerSession.token)
+      if (liveSession) {
+        getWalletBalance(liveSession.token)
           .then((w) => {
             setWalletBalance(w.balance);
             setFreeGameCredits(w.freeGameCredits);
+            setWalletLoaded(true);
           })
           .catch(() => undefined);
       }
@@ -221,6 +265,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCharadesState(null);
     setWalletBalance(0);
     setFreeGameCredits(0);
+    setWalletLoaded(false);
+    setSessionExpired(false);
     setWalletError(null);
     setPlayerSession(null);
     setPlayerAuthError(null);
@@ -232,22 +278,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     void saveCharades(deviceStore, next);
   }, []);
 
-  // Run whenever the signed-in identity changes (login, register, logout) so
-  // a game that belongs to someone else never lingers into the new identity
-  // — see charadesForPlayer.
-  const discardCharadesNotFor = useCallback((playerId: string | null) => {
+  const markCharadesActivity = useCallback((now: number) => {
     setCharadesState((current) => {
-      const allowed = charadesForPlayer(current, playerId);
-      if (current && !allowed) void clearCharades(deviceStore);
+      if (!current) return current;
+      const next = markActivity(current, now);
+      void saveCharades(deviceStore, next);
+      return next;
+    });
+  }, []);
+
+  const endCharadesForInactivity = useCallback(() => {
+    setCharadesState((current) => {
+      if (!current) return current;
+      const next = endForInactivity(current);
+      if (next !== current) {
+        void saveCharades(deviceStore, next);
+        track({ name: 'charades_ended_inactive' });
+      }
+      return next;
+    });
+  }, []);
+
+  // Run whenever someone signs in (login, register) so a game that belongs
+  // to someone else never lingers into the new identity — see
+  // charadesForPlayer — while a game this same player left behind when
+  // their session ended comes back.
+  const restoreCharadesFor = useCallback(async (playerId: string) => {
+    const saved = await loadCharades(deviceStore);
+    setCharadesState((current) => {
+      const candidate = current ?? saved;
+      const allowed = charadesForPlayer(candidate, playerId);
+      if (candidate && !allowed) void clearCharades(deviceStore);
       return allowed;
     });
   }, []);
 
   const startCharadesDraft = useCallback(
-    (teamAName: string, teamBName: string, deckIds: string[], mode: GameMode) => {
+    (teamAName: string, teamBName: string, deckIds: string[], mode: GameMode, difficulty: ClassicDifficulty = 'mixed') => {
       const next: CharadesState =
         mode === 'classic'
-          ? draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckIds)
+          ? draftCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckIds, difficulty)
           : draftModifiedCharades(teamAName, teamBName, undefined, playerSession?.id ?? null, deckIds);
       updateCharades(next);
       track({ name: 'charades_drafted' });
@@ -256,23 +326,81 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [updateCharades, playerSession]
   );
 
-  // A 401 on any of these means the stored token is dead — expired, or the
-  // server no longer recognises it — never a reason to keep retrying with
-  // the same token. Clearing the session here is what sends the player back
-  // to the sign-in screen instead of being stuck staring at a stale wallet
-  // balance and a raw "unauthorized" string forever.
+  // The session ended on its own — expired, or the server no longer
+  // recognises the token (password changed, account removed). Never a
+  // reason to keep retrying with the same token: the session is cleared and
+  // `sessionExpired` raises the "sign in again" prompt. Unlike signing out,
+  // the game in progress is kept, so signing back in picks it up again.
+  const expireSession = useCallback(() => {
+    setPlayerSession(null);
+    setWalletBalance(0);
+    setFreeGameCredits(0);
+    setWalletLoaded(false);
+    setSessionExpired(true);
+    void clearPlayerSession(deviceStore);
+    track({ name: 'player_session_expired' });
+  }, []);
+
+  const dismissSessionExpired = useCallback(() => setSessionExpired(false), []);
+
+  // A 401 on any wallet call means the stored token is dead.
   const handleWalletError = useCallback(
     (err: unknown): string => {
       if (err instanceof WalletError && err.status === 401) {
-        setPlayerSession(null);
-        setWalletBalance(0);
-        void clearPlayerSession(deviceStore);
+        expireSession();
         return t('account.sessionExpired');
       }
       return err instanceof WalletError ? err.message : 'could not reach the server';
     },
-    [t]
+    [t, expireSession]
   );
+
+  // Keeps an in-use session alive and notices one that ran out: checked when
+  // the player signs in, every few minutes while the app is open, and each
+  // time it comes back to the foreground (a phone left locked overnight). A
+  // token close to its expiry is swapped for a fresh one; an expired one —
+  // or one the server refuses — ends the session.
+  const sessionRef = useRef(playerSession);
+  sessionRef.current = playerSession;
+  const refreshing = useRef(false);
+  const checkSessionNow = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session || refreshing.current) return;
+    const verdict = checkSession(session.token, Date.now());
+    if (verdict === 'expired') {
+      expireSession();
+      return;
+    }
+    if (verdict !== 'refresh') return;
+    refreshing.current = true;
+    try {
+      const result = await refreshPlayerSessionApi(session.token);
+      // Ignore the answer if the player signed out or switched accounts meanwhile.
+      if (sessionRef.current?.id !== session.id || result.player.id !== session.id) return;
+      const next: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
+      setPlayerSession(next);
+      await savePlayerSession(deviceStore, next);
+    } catch (err) {
+      if (err instanceof PlayerAuthError && err.status === 401 && sessionRef.current?.id === session.id) expireSession();
+      // Anything else (offline, server down): keep the current token and try again next check.
+    } finally {
+      refreshing.current = false;
+    }
+  }, [expireSession]);
+
+  const signedInId = playerSession?.id ?? null;
+  useEffect(() => {
+    if (!signedInId) return;
+    void checkSessionNow();
+    const timer = setInterval(() => void checkSessionNow(), SESSION_CHECK_INTERVAL_MS);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void checkSessionNow();
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [signedInId, checkSessionNow]);
 
   const refreshWallet = useCallback(async () => {
     if (!playerSession) {
@@ -284,6 +412,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const w = await getWalletBalance(playerSession.token);
       setWalletBalance(w.balance);
       setFreeGameCredits(w.freeGameCredits);
+      setWalletLoaded(true);
     } catch (err) {
       if (err instanceof WalletError && err.status === 401) {
         setWalletError(handleWalletError(err));
@@ -301,7 +430,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           playerSession.token,
           charades.id,
           charades.deckIds,
-          charades.mode
+          charades.mode,
+          charades.mode === 'classic' ? charades.difficulty : undefined
         );
         // A spent credit is either the paid wallet or the free signup
         // bonus — re-fetch rather than guess client-side which one the
@@ -329,13 +459,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const { id } = await createRevealTokenApi(playerSession.token, charades.id, title, categoryAr, categoryEn, imageUrl);
         return id;
-      } catch {
-        // Scan-unavailable is a reasonable fallback for the handoff screen —
-        // not worth surfacing as a wallet error the way a failed charge is.
+      } catch (err) {
+        // A dead session has to be noticed here too — mid-game this is the
+        // only server call there is. Anything else falls back to "scan
+        // unavailable", not worth surfacing the way a failed charge is.
+        if (err instanceof WalletError && err.status === 401) expireSession();
         return null;
       }
     },
-    [charades, playerSession]
+    [charades, playerSession, expireSession]
   );
 
   const startTopUp = useCallback(async (mode: GameMode) => {
@@ -417,13 +549,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const result = await registerPlayerApi(username, password, email);
       const session: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
       setPlayerSession(session);
+      setSessionExpired(false);
       await savePlayerSession(deviceStore, session);
-      discardCharadesNotFor(session.id);
+      await restoreCharadesFor(session.id);
       track({ name: 'player_account_created' });
       getWalletBalance(session.token)
         .then((w) => {
           setWalletBalance(w.balance);
           setFreeGameCredits(w.freeGameCredits);
+          setWalletLoaded(true);
         })
         .catch(() => undefined);
       return true;
@@ -433,7 +567,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setPlayerAuthBusy(false);
     }
-  }, [discardCharadesNotFor]);
+  }, [restoreCharadesFor]);
 
   const loginPlayerAccount = useCallback(async (username: string, password: string) => {
     setPlayerAuthBusy(true);
@@ -442,13 +576,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const result = await loginPlayerApi(username, password);
       const session: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
       setPlayerSession(session);
+      setSessionExpired(false);
       await savePlayerSession(deviceStore, session);
-      discardCharadesNotFor(session.id);
+      await restoreCharadesFor(session.id);
       track({ name: 'player_logged_in' });
       getWalletBalance(session.token)
         .then((w) => {
           setWalletBalance(w.balance);
           setFreeGameCredits(w.freeGameCredits);
+          setWalletLoaded(true);
         })
         .catch(() => undefined);
       return true;
@@ -458,13 +594,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setPlayerAuthBusy(false);
     }
-  }, [discardCharadesNotFor]);
+  }, [restoreCharadesFor]);
 
   const logoutPlayerAccount = useCallback(() => {
     setPlayerSession(null);
     setPlayerAuthError(null);
     setWalletBalance(0);
     setFreeGameCredits(0);
+    setWalletLoaded(false);
+    setSessionExpired(false);
     setWalletError(null);
     void clearPlayerSession(deviceStore);
     // Logging out always ends whatever game was in progress — even an
@@ -518,11 +656,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     charades,
     startCharadesDraft,
     updateCharades,
+    markCharadesActivity,
+    endCharadesForInactivity,
     unlockCurrentCharades,
     quitCharades,
     mintRevealToken,
     walletBalance,
     freeGameCredits,
+    walletLoaded,
+    lowBalance: Boolean(playerSession) && walletLoaded && walletBalance + freeGameCredits < LOW_BALANCE_THRESHOLD,
     walletBusy,
     walletError,
     refreshWallet,
@@ -536,6 +678,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     registerPlayerAccount,
     loginPlayerAccount,
     logoutPlayerAccount,
+    sessionExpired,
+    dismissSessionExpired,
     requestPasswordReset,
     confirmPasswordReset,
   };

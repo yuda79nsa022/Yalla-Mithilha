@@ -1,9 +1,6 @@
 import {
   ASSIST_EXTRA_SECONDS,
   DIFFICULTY_POINTS,
-  SPEED_BONUS_POINTS,
-  SPEED_BONUS_WINDOW_SECONDS,
-  STEAL_POINTS,
   adjustScore,
   assistAvailable,
   awardRound,
@@ -11,14 +8,12 @@ import {
   consumeAssist,
   currentTeamIndex,
   draftModifiedCharades,
-  isDoubleRound,
   isModifiedCharadesComplete,
   pickDifficulty,
   pointsForGuess,
   revealLetters,
   skipRound,
   stackSizes,
-  stealRound,
   unlockModifiedCharades,
   type CharadesDeal,
   type CharadesTitle,
@@ -102,32 +97,11 @@ describe('stackSizes', () => {
   });
 });
 
-describe('isDoubleRound / roundMultiplier', () => {
-  it('is true only for each team’s final round', () => {
-    let state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(4), 'player-1');
-    const flags: boolean[] = [];
-    for (let i = 0; i < 4; i++) {
-      flags.push(isDoubleRound(state));
-      state = pickDifficulty(state, 'easy');
-      state = skipRound(state);
-    }
-    expect(flags).toEqual([false, false, true, true]);
-  });
-});
-
 describe('pointsForGuess', () => {
-  it('awards a level’s base points plus the speed bonus within the window', () => {
-    const state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(6), 'player-1');
-    expect(pointsForGuess(state, 'medium', SPEED_BONUS_WINDOW_SECONDS)).toBe(
-      DIFFICULTY_POINTS.medium + SPEED_BONUS_POINTS
-    );
-    expect(pointsForGuess(state, 'medium', SPEED_BONUS_WINDOW_SECONDS + 1)).toBe(DIFFICULTY_POINTS.medium);
-  });
-
-  it('doubles everything on a double round', () => {
-    let state = unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(2), 'player-1');
-    expect(isDoubleRound(state)).toBe(true);
-    expect(pointsForGuess(state, 'hard', 5)).toBe((DIFFICULTY_POINTS.hard + SPEED_BONUS_POINTS) * 2);
+  it('awards easy 2, medium 3 and hard 5 points', () => {
+    expect(pointsForGuess('easy')).toBe(2);
+    expect(pointsForGuess('medium')).toBe(3);
+    expect(pointsForGuess('hard')).toBe(5);
   });
 });
 
@@ -148,12 +122,11 @@ describe('awardRound / skipRound', () => {
   });
 });
 
-describe('stealRound', () => {
-  it('gives the other team STEAL_POINTS, never the acting team', () => {
+describe('ending early', () => {
+  it('is complete once ended for inactivity, even with a title in play', () => {
     const state = pickDifficulty(unlockModifiedCharades(draftModifiedCharades('A', 'B'), dealOf(6), 'player-1'), 'easy');
-    expect(currentTeamIndex(state)).toBe(0);
-    const stolen = stealRound(state);
-    expect(stolen.scores).toEqual([0, STEAL_POINTS]);
+    expect(isModifiedCharadesComplete(state)).toBe(false);
+    expect(isModifiedCharadesComplete({ ...state, endedReason: 'inactivity' })).toBe(true);
   });
 });
 

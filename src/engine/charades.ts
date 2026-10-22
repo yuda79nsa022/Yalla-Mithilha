@@ -18,7 +18,18 @@ export interface CharadesTitle {
   imageUrl?: string;
 }
 
+import { ROUND_SECONDS, type GameEndReason } from './rules';
+
 export type CharadesLock = 'locked' | 'unlocked';
+
+/**
+ * Which titles a classic game deals from, chosen when drafting. `mixed`
+ * deals across every level; a single level deals only that level's titles,
+ * topped up from the nearest other level if the chosen decks run short, so
+ * a game still gets its full 20 rounds.
+ */
+export type ClassicDifficulty = 'mixed' | 'easy' | 'medium' | 'hard';
+export const CLASSIC_DIFFICULTIES: readonly ClassicDifficulty[] = ['mixed', 'easy', 'medium', 'hard'];
 
 export interface CharadesState {
   mode: 'classic';
@@ -43,6 +54,12 @@ export interface CharadesState {
   playerId: string | null;
   /** Chosen when drafting, alongside the team names — which decks `unlockCharades` deals from. */
   deckIds: string[];
+  /** Chosen when drafting — which level of titles the server deals. Absent on games saved before it existed, meaning `mixed`. */
+  difficulty?: ClassicDifficulty;
+  /** Set when the game was ended early (see `endedReason` in `./game`); absent while it is still being played. */
+  endedReason?: GameEndReason;
+  /** Epoch ms of the last tap on the play screen — how a reopened game knows it sat idle past the limit. */
+  lastActivityAt?: number;
 }
 
 export function makeCharadesId(): string {
@@ -54,7 +71,8 @@ export function draftCharades(
   teamBName: string,
   id: string = makeCharadesId(),
   playerId: string | null = null,
-  deckIds: string[] = []
+  deckIds: string[] = [],
+  difficulty: ClassicDifficulty = 'mixed'
 ): CharadesState {
   return {
     mode: 'classic',
@@ -67,6 +85,7 @@ export function draftCharades(
     lock: 'locked',
     playerId,
     deckIds,
+    difficulty,
   };
 }
 
@@ -99,10 +118,19 @@ export function currentTeamIndex(state: CharadesState): 0 | 1 {
 }
 
 /**
- * `points` defaults to 1 for a plain correct guess, but the play screen
- * passes 2 or 1 depending on which minute of the round timer the guess
- * landed in (see `pointsForTimeLeft` in app/charades/play.tsx).
+ * A correct guess in the round's first minute is worth 2 points, its second
+ * minute 1 point. `elapsedSeconds` is how long the actor has actually been
+ * acting — measured on its own, never derived from the time left, so it
+ * stays right however the clock was changed. A guess only counts while the
+ * clock is still running: once the 2 minutes are up the move is over and
+ * the acting team scores nothing for it.
  */
+export function pointsForElapsed(elapsedSeconds: number): number {
+  if (elapsedSeconds >= ROUND_SECONDS) return 0;
+  return elapsedSeconds < ROUND_SECONDS / 2 ? 2 : 1;
+}
+
+/** `points` defaults to 1 for a plain correct guess; the play screen passes `pointsForElapsed`'s answer. */
 export function awardRound(state: CharadesState, team: 0 | 1, points: number = 1): CharadesState {
   const scores: [number, number] = [...state.scores];
   scores[team] += points;
@@ -124,5 +152,6 @@ export function adjustScore(state: CharadesState, team: 0 | 1, delta: number): C
 }
 
 export function isCharadesComplete(state: CharadesState): boolean {
-  return state.lock === 'unlocked' && state.index >= state.titles.length;
+  if (state.lock !== 'unlocked') return false;
+  return Boolean(state.endedReason) || state.index >= state.titles.length;
 }

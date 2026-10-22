@@ -25,13 +25,13 @@ function isPlayerAccount(value: unknown): value is PlayerAccount {
 }
 
 /** Shared by every call below: posts JSON, applies a timeout, and turns a non-2xx (or unreachable server) into a `PlayerAuthError`. Returns the parsed body as-is — callers that need a particular shape (a token+player pair, say) validate it themselves. */
-async function postJson(path: string, body: unknown, baseUrl: string, timeoutMs: number): Promise<unknown> {
+async function postJson(path: string, body: unknown, baseUrl: string, timeoutMs: number, token?: string): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${baseUrl}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -53,8 +53,14 @@ async function postJson(path: string, body: unknown, baseUrl: string, timeoutMs:
   }
 }
 
-async function postJsonForAuthResult(path: string, body: unknown, baseUrl: string, timeoutMs: number): Promise<PlayerAuthResult> {
-  const data = await postJson(path, body, baseUrl, timeoutMs);
+async function postJsonForAuthResult(
+  path: string,
+  body: unknown,
+  baseUrl: string,
+  timeoutMs: number,
+  token?: string
+): Promise<PlayerAuthResult> {
+  const data = await postJson(path, body, baseUrl, timeoutMs, token);
   const d = (data ?? {}) as Record<string, unknown>;
   if (typeof d.token !== 'string' || !isPlayerAccount(d.player)) {
     throw new PlayerAuthError('unexpected response from server', 0);
@@ -103,4 +109,18 @@ export async function confirmPasswordReset(
   timeoutMs = 8000
 ): Promise<void> {
   await postJson('/players/password-reset/confirm', { username, code, newPassword }, baseUrl, timeoutMs);
+}
+
+/**
+ * Swaps a still-valid session token for a fresh one, so an active player
+ * isn't signed out mid-game by the token's fixed lifetime. Throws
+ * `PlayerAuthError` with `status: 401` once the token is no longer good —
+ * the caller treats that as the session having ended.
+ */
+export function refreshPlayerSession(
+  token: string,
+  baseUrl: string = CATALOGUE_API_URL,
+  timeoutMs = 8000
+): Promise<PlayerAuthResult> {
+  return postJsonForAuthResult('/players/session/refresh', {}, baseUrl, timeoutMs, token);
 }

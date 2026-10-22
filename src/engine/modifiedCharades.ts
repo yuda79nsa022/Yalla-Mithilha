@@ -13,12 +13,10 @@
  * written prompt/answer pair — the title itself is both.
  *
  * Scoring, all in one place so the screens never invent a number:
- * - a guessed title scores its level's points (`DIFFICULTY_POINTS`), plus
- *   `SPEED_BONUS_POINTS` when guessed within the first
- *   `SPEED_BONUS_WINDOW_SECONDS` of the round;
- * - each team's final round counts double (`isDoubleRound`);
- * - when the timer runs out, the other team may steal with one guess for
- *   `STEAL_POINTS`;
+ * - a guessed title scores its level's points (`DIFFICULTY_POINTS`) —
+ *   easy 2, medium 3, hard 5 — however fast it was guessed (speed only
+ *   counts in the classic game);
+ * - a title not guessed in time scores nothing for anyone;
  * - each team has one of each assist (`ASSIST_KINDS`) per game, free to use.
  *
  * Kept entirely separate from `src/engine/charades.ts` (the classic game)
@@ -28,16 +26,13 @@
  * on).
  */
 
+import type { GameEndReason } from './rules';
+
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
 
 /** Points for a guessed title at each level — the spread is deliberately wide so hard picks can overturn a lead. */
-export const DIFFICULTY_POINTS: Record<Difficulty, number> = { easy: 1, medium: 3, hard: 5 };
-/** Extra point for a guess inside the first minute — keeps the time pressure the game always had. */
-export const SPEED_BONUS_POINTS = 1;
-export const SPEED_BONUS_WINDOW_SECONDS = 60;
-/** What the other team earns by guessing the title once the acting team's time has run out. */
-export const STEAL_POINTS = 1;
+export const DIFFICULTY_POINTS: Record<Difficulty, number> = { easy: 2, medium: 3, hard: 5 };
 
 export type AssistKind = 'firstLetters' | 'lastLetters' | 'extraTime';
 export const ASSIST_KINDS: readonly AssistKind[] = ['firstLetters', 'lastLetters', 'extraTime'];
@@ -97,6 +92,10 @@ export interface ModifiedCharadesState {
   deckIds: string[];
   /** Which assists each team has already spent this game — one of each per team. */
   assistsUsed: [AssistKind[], AssistKind[]];
+  /** Set when the game was ended early (see `endedReason` in `./game`); absent while it is still being played. */
+  endedReason?: GameEndReason;
+  /** Epoch ms of the last tap on the play screen — how a reopened game knows it sat idle past the limit. */
+  lastActivityAt?: number;
 }
 
 export function makeModifiedCharadesId(): string {
@@ -172,23 +171,9 @@ export function pickDifficulty(state: ModifiedCharadesState, difficulty: Difficu
   return { ...state, current, stacks: { ...state.stacks, [difficulty]: rest } };
 }
 
-/**
- * Each team's final round counts double: the last two rounds of the game
- * are one per team, since turns strictly alternate. Announced before the
- * level is picked, so a 10-point hard pick is a deliberate gamble.
- */
-export function isDoubleRound(state: ModifiedCharadesState): boolean {
-  return state.rounds >= 2 && state.index >= state.rounds - 2;
-}
-
-export function roundMultiplier(state: ModifiedCharadesState): number {
-  return isDoubleRound(state) ? 2 : 1;
-}
-
-/** Points on offer for guessing the title in play — base for the level, plus the speed bonus while it still applies, doubled on a double round. */
-export function pointsForGuess(state: ModifiedCharadesState, difficulty: Difficulty, elapsedSeconds: number): number {
-  const base = DIFFICULTY_POINTS[difficulty] + (elapsedSeconds <= SPEED_BONUS_WINDOW_SECONDS ? SPEED_BONUS_POINTS : 0);
-  return base * roundMultiplier(state);
+/** Points on offer for guessing a title — its level's points, the same in every round. */
+export function pointsForGuess(difficulty: Difficulty): number {
+  return DIFFICULTY_POINTS[difficulty];
 }
 
 /** Resolves the round in play: `team` guessed it for `points`. Clears the title in play and moves to the next round. */
@@ -201,16 +186,6 @@ export function awardRound(state: ModifiedCharadesState, team: 0 | 1, points: nu
 /** Resolves the round in play with nobody scoring. */
 export function skipRound(state: ModifiedCharadesState): ModifiedCharadesState {
   return { ...state, index: state.index + 1, current: null };
-}
-
-/**
- * Time ran out and the *other* team guessed it: they take `STEAL_POINTS`,
- * the acting team nothing, and the round is over. Never doubled — a steal
- * is a consolation, not a gamble.
- */
-export function stealRound(state: ModifiedCharadesState): ModifiedCharadesState {
-  const stealer = currentTeamIndex(state) === 0 ? 1 : 0;
-  return awardRound(state, stealer, STEAL_POINTS);
 }
 
 export function assistAvailable(state: ModifiedCharadesState, team: 0 | 1, kind: AssistKind): boolean {
@@ -255,9 +230,11 @@ export function adjustScore(state: ModifiedCharadesState, team: 0 | 1, delta: nu
   return { ...state, scores };
 }
 
-/** Over once every round is played, or sooner if every stack has run dry — never while a title is still in play. */
+/** Over once every round is played, or sooner if every stack has run dry — never while a title is still in play, unless the game was ended early. */
 export function isModifiedCharadesComplete(state: ModifiedCharadesState): boolean {
-  if (state.lock !== 'unlocked' || state.current !== null) return false;
+  if (state.lock !== 'unlocked') return false;
+  if (state.endedReason) return true;
+  if (state.current !== null) return false;
   const sizes = stackSizes(state);
   return state.index >= state.rounds || sizes.easy + sizes.medium + sizes.hard === 0;
 }
