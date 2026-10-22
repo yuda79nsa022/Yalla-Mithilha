@@ -142,8 +142,19 @@ export function Screen({
   scroll?: boolean;
   background?: string;
   style?: StyleProp<ViewStyle>;
-  /** Header bar: a back button or wordmark on the start side; on the end side any custom content, then the language toggle every header carries. */
-  header?: { title?: string; onBack?: () => void; end?: React.ReactNode; light?: boolean; titleColor?: string };
+  /**
+   * Header bar: on the start side optional `start` content (a logo) then a
+   * back button or wordmark; on the end side any custom content, then the
+   * language toggle every header carries.
+   */
+  header?: {
+    title?: string;
+    onBack?: () => void;
+    start?: React.ReactNode;
+    end?: React.ReactNode;
+    light?: boolean;
+    titleColor?: string;
+  };
   /** Pinned footer content (primary CTA) — always visible, never scrolls with the content above it. */
   footer?: React.ReactNode;
 }) {
@@ -159,6 +170,8 @@ export function Screen({
         <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {header ? (
         <View style={styles.headerBar}>
+          <View style={styles.headerStart}>
+          {header.start}
           {header.onBack ? (
             <Pressable
               accessibilityRole="button"
@@ -179,6 +192,7 @@ export function Screen({
               {header.title ?? t('app.name')}
             </T>
           )}
+          </View>
           <View style={styles.headerEnd}>
             {header.end}
             <LanguageToggle light={header.light} />
@@ -766,6 +780,7 @@ export function BigChoice({
 const styles = StyleSheet.create({
   pageOuter: { flex: 1, backgroundColor: colors.ground },
   screen: { flex: 1 },
+  headerStart: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerEnd: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   langToggle: { borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5 },
   screenInner: { flex: 1, padding: spacing.lg, gap: spacing.md },
