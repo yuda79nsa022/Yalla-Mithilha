@@ -143,30 +143,30 @@ export default function Home() {
       {isWide ? (
         // A wide window uses its whole width: the words and the account on
         // one side, the logo and categories on the other — so the home page
-        // fits a desktop screen without scrolling.
+        // fits a desktop screen without scrolling. The row fills the height
+        // between header and footer with both columns centred in it, so the
+        // spare space is shared evenly around the content instead of piling
+        // up in patches under the shorter column and at the bottom.
         <View style={[styles.heroRow, lang === 'en' && styles.heroRowEn]}>
           <View style={styles.heroTextCol}>
-            <T variant="heading" style={{ fontSize: 24 }}>
+            <T variant="title" style={[styles.wideTagline, lang === 'ar' && { lineHeight: 56 }]}>
               {tagline}
             </T>
             {!player ? (
-              <T variant="label" color={colors.neutral700} style={{ fontWeight: '500', fontSize: 12 }}>
+              <T variant="body" color={colors.neutral700} style={[styles.wideWriteup, lang === 'ar' && { lineHeight: 32 }]}>
                 {writeup}
               </T>
             ) : null}
             <Divider />
-            {accountSection}
+            {/* One block, so the column's gap doesn't also open up between every spacer inside it. */}
+            <View>{accountSection}</View>
           </View>
           <View style={styles.heroMediaCol}>
             <View style={styles.heroLogoWrap}>
               <Logo size="lg" />
             </View>
-            {!player ? (
-              <>
-                <Spacer size={spacing.md} />
-                <CategoryGrid />
-              </>
-            ) : null}
+            <Spacer size={spacing.md} />
+            <CategoryGrid />
           </View>
         </View>
       ) : (
@@ -213,9 +213,11 @@ const styles = StyleSheet.create({
   // On a phone the two labels don't fit side by side — stack them.
   authStack: { gap: spacing.sm },
   authButton: { flexGrow: 1, flexBasis: 0 },
-  heroRow: { flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 40 },
+  heroRow: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 64, paddingHorizontal: spacing.lg },
   heroRowEn: { flexDirection: 'row' },
-  heroTextCol: { flex: 1.15, gap: spacing.md },
+  heroTextCol: { flex: 1.15, gap: spacing.lg },
+  wideTagline: { fontSize: 36, lineHeight: 46 },
+  wideWriteup: { fontSize: 16, lineHeight: 28 },
   heroMediaCol: { flex: 1, justifyContent: 'center' },
   heroLogoWrap: { alignItems: 'center' },
   accountCard: { flexDirection: 'row', borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white },
