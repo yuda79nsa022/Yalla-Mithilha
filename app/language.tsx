@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
-import { Button, Divider, OptionCard, Screen, Spacer, T } from '../src/ui/components';
-import { Hero } from '../src/ui/Hero';
+import { Button, OptionCard, Screen, T } from '../src/ui/components';
+import { HeaderLogo } from '../src/ui/Logo';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { needsRestartForDirection } from '../src/platform';
@@ -20,14 +20,12 @@ export default function LanguageScreen() {
   const restartNeeded = prefs.lang !== null && needsRestartForDirection(lang);
 
   return (
-    <Screen scroll footer={<Button label={t('common.continue')} disabled={!prefs.lang} onPress={() => router.replace('/home')} />}>
-      <Spacer size={spacing.xl} />
-      <Hero />
-      <Spacer size={spacing.md} />
-      <Divider />
-      <Spacer size={spacing.md} />
+    <Screen
+      scroll
+      header={{ start: <HeaderLogo /> }}
+      footer={<Button label={t('common.continue')} disabled={!prefs.lang} onPress={() => router.replace('/home')} />}
+    >
       <T variant="title">{t('lang.title')}</T>
-      <Spacer />
       {/* title/subtitle here are deliberately not run through t(): each
           option previews the language it offers, in that language, so an
           Arabic speaker sees "العربية" and an English speaker sees
@@ -49,14 +47,11 @@ export default function LanguageScreen() {
         />
       </View>
 
+      {/* Being honest about the reload beats showing a half-mirrored screen. */}
       {restartNeeded ? (
-        <>
-          <Spacer />
-          {/* Being honest about the reload beats showing a half-mirrored screen. */}
-          <T variant="label" color={colors.purple}>
-            {t('lang.restartNotice')}
-          </T>
-        </>
+        <T variant="label" color={colors.purple}>
+          {t('lang.restartNotice')}
+        </T>
       ) : null}
     </Screen>
   );

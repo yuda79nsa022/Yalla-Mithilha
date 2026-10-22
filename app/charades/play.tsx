@@ -13,7 +13,7 @@ import {
   Spacer,
   T,
 } from '../../src/ui/components';
-import { Hero } from '../../src/ui/Hero';
+import { Logo } from '../../src/ui/Logo';
 import { cardShadow, colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useKeepAwake } from '../../src/platform/keepAwake';
@@ -467,7 +467,6 @@ function FinalScreen({ state }: { state: CharadesState }) {
           </T>
         </View>
       ) : null}
-      <Spacer size={spacing.lg} />
       <View style={styles.finalTop}>
         <View style={{ gap: 6, flex: 1 }}>
           <T variant="label" color={colors.green} style={{ fontSize: 15 }}>
@@ -478,9 +477,7 @@ function FinalScreen({ state }: { state: CharadesState }) {
           </T>
         </View>
       </View>
-      <Spacer size={spacing.lg} />
       <ScoreBlock teamAName={state.teamAName} teamAScore={scoreA} teamBName={state.teamBName} teamBScore={scoreB} big light />
-      <Spacer size={spacing.lg} />
       <LowBalanceBanner light />
     </Screen>
   );
@@ -546,7 +543,7 @@ function RoundRecap({
       }
     >
       <View style={[styles.resultBanner, { backgroundColor: scored ? colors.green : colors.mutedBg }]}>
-        <T style={{ fontFamily: fonts.displayBlack, fontSize: 48, lineHeight: 56, color: colors.ink, transform: [{ rotate: '-4deg' }] }}>
+        <T style={{ fontFamily: fonts.displayBlack, fontSize: 40, lineHeight: 46, color: colors.ink, transform: [{ rotate: '-4deg' }] }}>
           {scored ? t('charades.play.guessedIt') : t('charades.play.notGuessed')}
         </T>
         {scored ? (
@@ -557,7 +554,6 @@ function RoundRecap({
           </View>
         ) : null}
       </View>
-      <Spacer size={spacing.md} />
       <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
         {t('charades.play.answerReveal')}
       </T>
@@ -567,8 +563,7 @@ function RoundRecap({
       <T variant="body" style={{ fontSize: 13 }}>
         {category} · {formatTime(elapsed)}
       </T>
-      <Spacer size={spacing.md} />
-      <ScoreBlock teamAName={state.teamAName} teamAScore={previewScores[0]} teamBName={state.teamBName} teamBScore={previewScores[1]} />
+      <ScoreBlock teamAName={state.teamAName} teamAScore={previewScores[0]} teamBName={state.teamBName} teamBScore={previewScores[1]} compact />
     </Screen>
   );
 }
@@ -596,7 +591,7 @@ function HandoffScreen({
   const { t, lang } = useApp();
   const { height } = useWindowDimensions();
   const short = height < 700;
-  const qrSize = short ? 112 : height < 760 ? 128 : 168;
+  const qrSize = height < 640 ? 96 : short ? 112 : height < 760 ? 128 : 168;
   return (
     <Screen
       scroll
@@ -622,7 +617,7 @@ function HandoffScreen({
         >
           {teamName}
         </T>
-        <T variant="body" color={colors.white} style={{ fontSize: 14 }}>
+        <T variant="body" color={colors.white} style={{ fontSize: 14, lineHeight: lang === 'ar' ? 24 : 20 }}>
           {t('charades.play.handoffInstruction')}
         </T>
       </View>
@@ -848,8 +843,8 @@ function ClassicPlayScreen() {
     >
       <ActingClock timeLeft={clock.timeLeft} limit={clock.limit} />
       <QuitControl />
-      <View style={{ flex: 1, justifyContent: 'center' }}>
-        <Hero animateLogo />
+      <View style={styles.actingLogo}>
+        <Logo size="lg" animated />
       </View>
     </Screen>
   );
@@ -1132,8 +1127,8 @@ function ModifiedPlayScreen() {
       </View>
 
       <QuitControl />
-      <View style={{ flex: 1, justifyContent: 'center' }}>
-        <Hero animateLogo />
+      <View style={styles.actingLogo}>
+        <Logo size="lg" animated />
       </View>
     </Screen>
   );
@@ -1146,6 +1141,7 @@ export default function CharadesPlay() {
 
 const styles = StyleSheet.create({
   activityBoundary: { flex: 1 },
+  actingLogo: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   idleBanner: {
     position: 'absolute',
     top: 0,
@@ -1218,7 +1214,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   finalTop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  resultBanner: { padding: spacing.lg, gap: spacing.xl, borderBottomWidth: 2, borderBottomColor: colors.ink },
+  resultBanner: { padding: spacing.md, gap: spacing.md, borderBottomWidth: 2, borderBottomColor: colors.ink },
   resultTag: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingHorizontal: 12, paddingVertical: 4, transform: [{ rotate: '2deg' }] },
   difficultyRow: {
     borderWidth: 2,
