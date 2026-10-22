@@ -617,7 +617,7 @@ function HandoffScreen({
         >
           {teamName}
         </T>
-        <T variant="body" color={colors.white} style={{ fontSize: 14 }}>
+        <T variant="body" color={colors.white} style={{ fontSize: 14, lineHeight: lang === 'ar' ? 24 : 20 }}>
           {t('charades.play.handoffInstruction')}
         </T>
       </View>
