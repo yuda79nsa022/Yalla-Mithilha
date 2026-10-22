@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { Button, ConfirmModal, Divider, Field, Screen, Spacer, T, TextLink } from '../src/ui/components';
@@ -25,7 +25,9 @@ export default function Account() {
     requestPasswordReset,
     confirmPasswordReset,
   } = useApp();
-  const [mode, setMode] = useState<Mode>('signIn');
+  // `?mode=create` opens straight on the create-account form (Home's "Create account" button).
+  const { mode: initialMode } = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<Mode>(initialMode === 'create' ? 'create' : 'signIn');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');

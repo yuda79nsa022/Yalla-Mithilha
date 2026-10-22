@@ -83,11 +83,23 @@ export default function Home() {
             {t('charades.home.guestNotice')}
           </T>
           <Spacer size={spacing.sm} />
-          <Button
-            label={t('charades.checkout.signInButton')}
-            tone="secondary"
-            onPress={() => router.push('/account')}
-          />
+          <View style={width < 600 ? styles.authStack : styles.authRow}>
+            <Button
+              label={t('account.createAccount')}
+              accent={colors.purple}
+              showArrow={false}
+              style={width < 600 ? undefined : styles.authButton}
+              onPress={() => router.push('/account?mode=create')}
+            />
+            <Button
+              label={t('account.signIn')}
+              accent={colors.green}
+              textColor={colors.ink}
+              showArrow={false}
+              style={width < 600 ? undefined : styles.authButton}
+              onPress={() => router.push('/account')}
+            />
+          </View>
         </>
       )}
 
@@ -124,7 +136,9 @@ export default function Home() {
     <Screen
       scroll
       header={{ titleColor: colors.purple }}
-      footer={charades ? undefined : footer}
+      // A guest signs in or creates an account first (the two buttons in
+      // the account section) — starting a game is only offered once signed in.
+      footer={charades || !player ? undefined : footer}
     >
       {isWide ? (
         // A wide window uses its whole width: the words and the account on
@@ -195,6 +209,10 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
+  authRow: { flexDirection: 'row', gap: spacing.sm },
+  // On a phone the two labels don't fit side by side — stack them.
+  authStack: { gap: spacing.sm },
+  authButton: { flexGrow: 1, flexBasis: 0 },
   heroRow: { flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 40 },
   heroRowEn: { flexDirection: 'row' },
   heroTextCol: { flex: 1.15, gap: spacing.md },
