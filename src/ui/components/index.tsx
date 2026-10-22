@@ -22,7 +22,6 @@ import {
   ARABIC_LINE_HEIGHT_BOOST,
   FONT_BY_WEIGHT,
   HIT_SIZE,
-  backArrow,
   colors,
   endArrow,
   fonts,
@@ -34,6 +33,7 @@ import {
 } from '../theme';
 import { useApp } from '../../state/AppProvider';
 import { needsRestartForDirection } from '../../platform';
+import { Logo } from '../Logo';
 import { track } from '../../services/analytics';
 import type { Lang } from '../../engine/types';
 
@@ -144,17 +144,19 @@ export function Screen({
   background?: string;
   style?: StyleProp<ViewStyle>;
   /**
-   * Header bar: on the start side optional `start` content (a logo) then a
-   * back button or wordmark; on the end side any custom content, then the
-   * language toggle every header carries.
+   * The site's top bar. `site` (the default) is the full navigation bar —
+   * logo home, the main sections, account and language. `game` is for a game
+   * in progress: logo, the round, the language toggle and nothing that leaves
+   * the game. `minimal` is for the standalone QR reveal page: logo and
+   * language only. There are no back buttons anywhere — the bar is how you
+   * get around.
    */
   header?: {
+    variant?: 'site' | 'game' | 'minimal';
+    /** Shown beside the logo in the `game` bar — the round, the team up. */
     title?: string;
-    onBack?: () => void;
-    start?: React.ReactNode;
-    end?: React.ReactNode;
+    /** White text, for screens with a dark or purple background. */
     light?: boolean;
-    titleColor?: string;
   };
   /** Pinned footer content (primary CTA) — always visible, never scrolls with the content above it. */
   footer?: React.ReactNode;
@@ -171,37 +173,7 @@ export function Screen({
     <View style={[styles.pageOuter, { backgroundColor: background }]}>
       <SafeAreaView style={[styles.screen, { backgroundColor: background }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {header ? (
-        <View style={[styles.headerBar, width < 600 && styles.headerBarPhone]}>
-          <View style={styles.headerStart}>
-          {header.start}
-          {header.onBack ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('common.back')}
-              onPress={header.onBack}
-              style={styles.backButton}
-              hitSlop={8}
-            >
-              <T variant="label" color={header.light ? colors.white : colors.ink}>
-                {backArrow(lang)}
-              </T>
-              <T variant="label" color={header.light ? colors.white : colors.ink}>
-                {t('common.back')}
-              </T>
-            </Pressable>
-          ) : (
-            <T variant="heading" style={{ fontSize: 15 }} color={header.titleColor ?? (header.light ? colors.white : colors.ink)}>
-              {header.title ?? t('app.name')}
-            </T>
-          )}
-          </View>
-          <View style={styles.headerEnd}>
-            {header.end}
-            <LanguageToggle light={header.light} />
-          </View>
-        </View>
-      ) : null}
+        {header ? <SiteNav variant={header.variant ?? 'site'} title={header.title} light={header.light} /> : null}
       {scroll ? (
         <ScrollView
           style={styles.screen}
@@ -217,21 +189,192 @@ export function Screen({
         {footer ? (
           <View style={[styles.footer, { backgroundColor: background }]}>{footer}</View>
         ) : null}
-        <Copyright onDark={background === colors.ink || background === colors.purple} />
+        <Copyright onDark={background === colors.ink || background === colors.purple} showLinks={(header?.variant ?? 'site') === 'site'} />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
 }
 
-/** The copyright line at the foot of every screen — pinned below everything else, so it never adds scrolling of its own. */
-function Copyright({ onDark }: { onDark: boolean }) {
+/**
+ * The site footer — copyright, plus the About & privacy link on ordinary
+ * pages (not mid-game, where leaving should only ever be a deliberate "End
+ * game"). Pinned below everything else, so it never adds scrolling.
+ */
+function Copyright({ onDark, showLinks }: { onDark: boolean; showLinks: boolean }) {
   const { t } = useApp();
+  const color = onDark ? colors.white : colors.mutedText;
   return (
-    <View style={styles.copyright} accessibilityRole="text">
-      <T variant="label" align="center" color={onDark ? colors.white : colors.mutedText} style={{ fontSize: 11, lineHeight: 16, fontWeight: '500' }}>
+    <View style={styles.copyright}>
+      <T variant="label" align="center" color={color} style={styles.copyrightText}>
         {t('app.copyright', { year: new Date().getFullYear() })}
       </T>
+      {showLinks ? (
+        <Pressable accessibilityRole="link" onPress={() => router.navigate('/privacy')} hitSlop={6}>
+          <T variant="label" color={color} style={[styles.copyrightText, { textDecorationLine: 'underline' }]}>
+            {t('home.about')}
+          </T>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/* ------------------------------------------------------------ site nav */
+
+type NavLink = { key: string; label: string; href: string; active: boolean };
+
+/**
+ * The top bar every screen carries, like a game site's: the logo and name
+ * (home) on the start side; the main sections, the player's games left and
+ * account, and the language toggle on the end side. A phone keeps the logo
+ * and language toggle and folds the rest into a ☰ menu. During a game the
+ * bar shows only the logo, the round and the language toggle — nothing that
+ * would leave the game by accident.
+ */
+function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' | 'minimal'; title?: string; light?: boolean }) {
+  const { t, player, charades, walletLoaded, walletBalance, freeGameCredits } = useApp();
+  const pathname = usePathname();
+  const { width } = useWindowDimensions();
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const compact = width < 760;
+  const fg = light ? colors.white : colors.ink;
+  const brandColor = light ? colors.white : colors.purple;
+
+  const go = (href: string) => {
+    setMenuOpen(false);
+    if (pathname !== href) router.navigate(href as never);
+  };
+
+  const brandContent = (
+    <View style={styles.navBrand}>
+      <Logo size="sm" />
+      {!compact || variant !== 'game' ? (
+        <T variant="heading" color={brandColor} style={{ fontSize: 15 }} numberOfLines={1}>
+          {t('app.name')}
+        </T>
+      ) : null}
+    </View>
+  );
+
+  if (variant !== 'site') {
+    return (
+      <View style={[styles.headerBar, compact && styles.headerBarPhone]}>
+        <View style={styles.navStart}>
+          {brandContent}
+          {title ? (
+            <T variant="label" color={fg} style={{ fontSize: 14 }} numberOfLines={1}>
+              {title}
+            </T>
+          ) : null}
+        </View>
+        <LanguageToggle light={light} />
+      </View>
+    );
+  }
+
+  const playHref = charades ? (charades.lock === 'unlocked' ? '/charades/play' : '/charades/checkout') : '/charades/draft';
+  const links: NavLink[] = [
+    { key: 'home', label: t('nav.home'), href: '/home', active: pathname === '/home' || pathname === '/' },
+    { key: 'play', label: charades ? t('nav.resume') : t('nav.play'), href: playHref, active: pathname.startsWith('/charades') },
+    ...(player ? [{ key: 'buy', label: t('nav.buy'), href: '/buy', active: pathname === '/buy' }] : []),
+    { key: 'settings', label: t('nav.settings'), href: '/settings', active: pathname === '/settings' || pathname === '/privacy' },
+  ];
+  const gamesLeft = walletBalance + freeGameCredits;
+  const accountLabel = player ? player.username : t('account.signIn');
+
+  const accountButton = (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={player ? t('nav.account') : t('account.signIn')}
+      onPress={() => go('/account')}
+      style={({ pressed }) => [styles.navAccount, { borderColor: fg }, pathname === '/account' && styles.navAccountActive, pressed && styles.pressed]}
+    >
+      <T variant="label" color={pathname === '/account' ? colors.white : fg} style={{ fontSize: 13 }} numberOfLines={1}>
+        {accountLabel}
+      </T>
+      {player && walletLoaded ? (
+        <View style={styles.navBadge}>
+          <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
+            {t('nav.gamesLeft', { count: gamesLeft })}
+          </T>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+
+  return (
+    <View style={[styles.headerBar, compact && styles.headerBarPhone]}>
+      <Pressable accessibilityRole="link" accessibilityLabel={t('nav.home')} onPress={() => go('/home')} hitSlop={6}>
+        {brandContent}
+      </Pressable>
+      {compact ? (
+        <View style={styles.navEnd}>
+          <LanguageToggle light={light} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('nav.menu')}
+            accessibilityState={{ expanded: menuOpen }}
+            onPress={() => setMenuOpen(true)}
+            style={({ pressed }) => [styles.navMenuButton, { borderColor: fg }, pressed && styles.pressed]}
+          >
+            <T variant="heading" color={fg} style={{ fontSize: 18, lineHeight: 22 }}>
+              ☰
+            </T>
+          </Pressable>
+          <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+            <Pressable style={styles.navSheetBackdrop} onPress={() => setMenuOpen(false)} accessibilityLabel={t('nav.close')}>
+              <Pressable style={styles.navSheet} onPress={() => undefined}>
+                <View style={[styles.headerBar, styles.headerBarPhone]}>
+                  {brandContent}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('nav.close')}
+                    onPress={() => setMenuOpen(false)}
+                    style={({ pressed }) => [styles.navMenuButton, { borderColor: colors.ink }, pressed && styles.pressed]}
+                  >
+                    <T variant="heading" style={{ fontSize: 18, lineHeight: 22 }}>
+                      ✕
+                    </T>
+                  </Pressable>
+                </View>
+                {links.map((link) => (
+                  <Pressable
+                    key={link.key}
+                    accessibilityRole="link"
+                    accessibilityState={{ selected: link.active }}
+                    onPress={() => go(link.href)}
+                    style={({ pressed }) => [styles.navSheetItem, link.active && styles.navSheetItemActive, pressed && styles.pressed]}
+                  >
+                    <T variant="heading" color={link.active ? colors.white : colors.ink} style={{ fontSize: 18 }}>
+                      {link.label}
+                    </T>
+                  </Pressable>
+                ))}
+                <View style={styles.navSheetAccount}>{accountButton}</View>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        </View>
+      ) : (
+        <View style={styles.navEnd}>
+          {links.map((link) => (
+            <Pressable
+              key={link.key}
+              accessibilityRole="link"
+              accessibilityState={{ selected: link.active }}
+              onPress={() => go(link.href)}
+              style={({ pressed }) => [styles.navLink, link.active && { borderBottomColor: brandColor }, pressed && styles.pressed]}
+            >
+              <T variant="label" color={link.active ? brandColor : fg} style={{ fontSize: 14 }}>
+                {link.label}
+              </T>
+            </Pressable>
+          ))}
+          {accountButton}
+          <LanguageToggle light={light} />
+        </View>
+      )}
     </View>
   );
 }
@@ -841,9 +984,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerBarPhone: { paddingVertical: 10, paddingHorizontal: spacing.md },
+  navBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  navStart: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexShrink: 1 },
+  navEnd: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  navLink: { paddingVertical: 6, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  navAccount: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5, maxWidth: 260 },
+  navAccountActive: { backgroundColor: colors.ink },
+  navBadge: { backgroundColor: colors.purple, paddingHorizontal: 6, paddingVertical: 1 },
+  navMenuButton: { borderWidth: 2, width: 40, height: 36, alignItems: 'center', justifyContent: 'center' },
+  navSheetBackdrop: { flex: 1, backgroundColor: colors.overlay, alignItems: 'stretch' },
+  navSheet: { backgroundColor: colors.ground, borderBottomWidth: 2, borderBottomColor: colors.ink, paddingBottom: spacing.md },
+  navSheetItem: { paddingVertical: 14, paddingHorizontal: spacing.lg },
+  navSheetItemActive: { backgroundColor: colors.purple },
+  navSheetAccount: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, alignItems: 'flex-start' },
+  copyrightText: { fontSize: 11, lineHeight: 16, fontWeight: '500' },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   footer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-  copyright: { paddingHorizontal: 20, paddingBottom: 8, paddingTop: 2 },
+  copyright: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    paddingTop: 2,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    columnGap: spacing.md,
+  },
   button: {
     minHeight: HIT_SIZE,
     paddingHorizontal: spacing.lg,

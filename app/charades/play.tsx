@@ -432,7 +432,7 @@ function FinalScreen({ state }: { state: CharadesState }) {
     <Screen
       scroll
       background={colors.ink}
-      header={{ title: t('app.name'), light: true }}
+      header={{ light: true }}
       footer={
         <>
           <Button
@@ -527,7 +527,7 @@ function RoundRecap({
   return (
     <Screen
       scroll
-      header={{ title: t('app.name') }}
+      header={{ variant: 'game' }}
       footer={
         <>
           {!isLastRound ? (
@@ -599,7 +599,7 @@ function HandoffScreen({
     <Screen
       scroll
       background={colors.purple}
-      header={{ light: true, title: t('charades.play.round', { round, total }) }}
+      header={{ variant: 'game', light: true, title: t('charades.play.round', { round, total }) }}
       footer={<Button label={t('charades.play.startTimer')} tone="secondary" background={colors.white} forceShadow onPress={onStart} />}
     >
       <RoundProgress round={round} total={total} />
@@ -760,7 +760,7 @@ function ClassicPlayScreen() {
     return wrap(
       <Screen
         scroll
-        header={{ title: t('charades.play.round', { round: charades.index + 1, total }) }}
+        header={{ variant: 'game', title: t('charades.play.round', { round: charades.index + 1, total }) }}
         footer={
           <>
             <View style={styles.scoreHeaderRow}>
@@ -851,7 +851,7 @@ function ClassicPlayScreen() {
   return wrap(
     <Screen
       scroll
-      header={{ title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }) }}
+      header={{ variant: 'game', title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }) }}
       footer={<Button label={t('charades.play.endEarly')} tone="secondary" showArrow={false} onPress={clock.endEarly} />}
     >
       <ActingClock timeLeft={clock.timeLeft} limit={clock.limit} />
@@ -905,7 +905,7 @@ function ModifiedPlayScreen() {
   if (currentTitle === null) {
     const sizes = stackSizes(charades);
     return wrap(
-      <Screen scroll header={{ title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}>
+      <Screen scroll header={{ variant: 'game', title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}>
         <T variant="heading" color={teamColor}>
           {t('charades.play.turn', { team: teamName })}
         </T>
@@ -978,7 +978,7 @@ function ModifiedPlayScreen() {
     return wrap(
       <Screen
         scroll
-        header={{ title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}
+        header={{ variant: 'game', title: t('charades.play.round', { round: charades.index + 1, total: charades.rounds }) }}
         footer={
           <>
             <View style={styles.scoreHeaderRow}>
@@ -1100,7 +1100,7 @@ function ModifiedPlayScreen() {
   return wrap(
     <Screen
       scroll
-      header={{ title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }) }}
+      header={{ variant: 'game', title: t('charades.play.roundTeam', { round: charades.index + 1, team: teamName }) }}
       footer={<Button label={t('charades.play.endEarly')} tone="secondary" showArrow={false} onPress={clock.endEarly} />}
     >
       <ActingClock timeLeft={clock.timeLeft} limit={clock.limit} />

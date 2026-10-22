@@ -1,6 +1,5 @@
-import { router } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { colors, fonts } from './theme';
 import { T } from './components';
 import { useApp } from '../state/AppProvider';
@@ -190,16 +189,6 @@ export function Logo({ size = 'lg', animated = false }: { size?: Size; animated?
     );
   }
   return <Cube size={size} animated={animated} />;
-}
-
-/** The small cube for a screen's header, in place of the big hero — tapping it goes home. */
-export function HeaderLogo() {
-  const { t } = useApp();
-  return (
-    <Pressable accessibilityRole="link" accessibilityLabel={t('app.name')} onPress={() => router.replace('/home')} hitSlop={6}>
-      <Logo size="sm" />
-    </Pressable>
-  );
 }
 
 const styles = StyleSheet.create({

@@ -141,7 +141,7 @@ export default function Home() {
   return (
     <Screen
       scroll
-      header={{ titleColor: colors.purple }}
+      header={{}}
       // A guest signs in or creates an account first (the two buttons in
       // the account section) — starting a game is only offered once signed in.
       footer={charades || !player ? undefined : footer}

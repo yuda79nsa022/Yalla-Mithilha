@@ -2,10 +2,8 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { Button, CategoryTile, Screen, T } from '../../src/ui/components';
-import { HeaderLogo } from '../../src/ui/Logo';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
-import { goBack } from '../../src/platform/navigation';
 import type { GameMode } from '../../src/engine/game';
 import { CLASSIC_DIFFICULTIES, type ClassicDifficulty } from '../../src/engine/charades';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
@@ -282,7 +280,7 @@ export default function CharadesDraft() {
   return (
     <Screen
       scroll
-      header={{ start: <HeaderLogo />, onBack: () => goBack() }}
+      header={{}}
       footer={<Button label={t('charades.draft.confirm')} disabled={!canConfirm} onPress={confirmDraft} />}
     >
       {isWide ? (

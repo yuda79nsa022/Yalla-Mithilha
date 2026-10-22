@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Linking, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Button, ConfirmModal, Field, Screen, T, TextLink } from '../src/ui/components';
-import { HeaderLogo } from '../src/ui/Logo';
 import { colors } from '../src/ui/theme';
 import { goBack } from '../src/platform/navigation';
 import { useApp } from '../src/state/AppProvider';
@@ -57,13 +56,13 @@ export default function Account() {
     setAdminRedirecting(false);
     if (mode !== 'signIn') {
       const ok = await registerPlayerAccount(username.trim(), password, email.trim());
-      if (ok) router.back();
+      if (ok) goBack();
       return;
     }
 
     const ok = await loginPlayerAccount(username.trim(), password);
     if (ok) {
-      router.back();
+      goBack();
       return;
     }
 
@@ -121,7 +120,7 @@ export default function Account() {
     return (
       <Screen
         scroll
-        header={{ start: <HeaderLogo />, onBack: () => goBack() }}
+        header={{}}
         footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -258,7 +257,7 @@ export default function Account() {
   // above it, so the page fits a laptop-sized browser window without
   // scrolling (and the fields don't stretch across the whole screen).
   return (
-    <Screen scroll header={{ start: <HeaderLogo />, onBack: () => goBack() }} footer={footer}>
+    <Screen scroll header={{}} footer={footer}>
       {isWide ? (
         <View style={[styles.wideRow, lang === 'en' && styles.wideRowEn]}>
           <View style={styles.wideIntro}>

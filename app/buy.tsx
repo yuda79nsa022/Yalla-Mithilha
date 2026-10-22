@@ -5,7 +5,6 @@ import { Button, Screen, Spacer, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { useTopUp } from '../src/state/useTopUp';
-import { goBack } from '../src/platform/navigation';
 import { formatKwd } from '../src/services/walletApi';
 
 /**
@@ -30,7 +29,7 @@ export default function Buy() {
     return (
       <Screen
         scroll
-        header={{ onBack: () => goBack() }}
+        header={{}}
         footer={<Button label={t('charades.checkout.signInButton')} onPress={() => router.push('/account')} />}
       >
         <T variant="title" style={{ fontSize: 30 }}>
@@ -49,7 +48,7 @@ export default function Buy() {
   return (
     <Screen
       scroll
-      header={{ onBack: () => goBack() }}
+      header={{}}
       footer={
         draftWaiting ? <Button label={t('buy.backToGame')} onPress={() => router.replace('/charades/checkout')} /> : undefined
       }

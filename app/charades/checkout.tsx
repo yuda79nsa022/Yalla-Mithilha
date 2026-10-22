@@ -1,11 +1,9 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Screen, T } from '../../src/ui/components';
-import { HeaderLogo } from '../../src/ui/Logo';
+import { Button, Screen, T, TextLink } from '../../src/ui/components';
 import { colors, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
-import { goBack } from '../../src/platform/navigation';
 import { useTopUp } from '../../src/state/useTopUp';
 import { formatKwd } from '../../src/services/walletApi';
 
@@ -77,7 +75,7 @@ export default function CharadesCheckout() {
   return (
     <Screen
       scroll
-      header={{ start: <HeaderLogo />, onBack: () => goBack('/charades/draft') }}
+      header={{}}
       footer={<Button label={t('charades.checkout.start')} disabled={!canStart} busy={starting} onPress={start} />}
     >
       <T variant="title" style={{ fontSize: 30 }}>
@@ -86,6 +84,7 @@ export default function CharadesCheckout() {
       <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
         {t('charades.checkout.subtitle')}
       </T>
+      <TextLink label={t('charades.checkout.changeSetup')} onPress={() => router.replace('/charades/draft')} />
 
       <View style={styles.card}>
         <T variant="heading" color={colors.white}>
