@@ -554,15 +554,18 @@ function RoundRecap({
           </View>
         ) : null}
       </View>
-      <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
-        {t('charades.play.answerReveal')}
-      </T>
-      <T variant="heading" style={{ fontSize: 24 }}>
-        {title.text}
-      </T>
-      <T variant="body" style={{ fontSize: 13 }}>
-        {category} · {formatTime(elapsed)}
-      </T>
+      {/* One group, so the screen's gap doesn't also open up between these three lines. */}
+      <View style={{ gap: 2 }}>
+        <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
+          {t('charades.play.answerReveal')}
+        </T>
+        <T variant="heading" style={{ fontSize: 24 }}>
+          {title.text}
+        </T>
+        <T variant="body" style={{ fontSize: 13, lineHeight: lang === 'ar' ? 22 : 18 }}>
+          {category} · {formatTime(elapsed)}
+        </T>
+      </View>
       <ScoreBlock teamAName={state.teamAName} teamAScore={previewScores[0]} teamBName={state.teamBName} teamBScore={previewScores[1]} compact />
     </Screen>
   );
@@ -601,8 +604,8 @@ function HandoffScreen({
     >
       <RoundProgress round={round} total={total} />
       <ScoreBlock teamAName={state.teamAName} teamAScore={state.scores[0]} teamBName={state.teamBName} teamBScore={state.scores[1]} compact />
-      <View style={{ gap: spacing.sm }}>
-        <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 16 }}>
+      <View style={{ gap: short ? spacing.xs : spacing.sm }}>
+        <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 16, lineHeight: lang === 'ar' ? 24 : 22 }}>
           {t('charades.play.turnLabel')}
         </T>
         <T
@@ -669,6 +672,16 @@ function ActingClock({ timeLeft, limit }: { timeLeft: number; limit: number }) {
         onToggleMute={() => setPrefs({ musicMuted: !prefs.musicMuted })}
       />
     </>
+  );
+}
+
+/** Something to look at while the actor performs — the full logo, or just the cube on a short window. */
+function ActingLogo() {
+  const { height } = useWindowDimensions();
+  return (
+    <View style={styles.actingLogo}>
+      <Logo size={height < 700 ? 'md' : 'lg'} animated />
+    </View>
   );
 }
 
@@ -843,9 +856,7 @@ function ClassicPlayScreen() {
     >
       <ActingClock timeLeft={clock.timeLeft} limit={clock.limit} />
       <QuitControl />
-      <View style={styles.actingLogo}>
-        <Logo size="lg" animated />
-      </View>
+      <ActingLogo />
     </Screen>
   );
 }
@@ -1127,9 +1138,7 @@ function ModifiedPlayScreen() {
       </View>
 
       <QuitControl />
-      <View style={styles.actingLogo}>
-        <Logo size="lg" animated />
-      </View>
+      <ActingLogo />
     </Screen>
   );
 }
@@ -1214,7 +1223,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   finalTop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  resultBanner: { padding: spacing.md, gap: spacing.md, borderBottomWidth: 2, borderBottomColor: colors.ink },
+  resultBanner: { padding: spacing.md, gap: spacing.sm, borderBottomWidth: 2, borderBottomColor: colors.ink },
   resultTag: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingHorizontal: 12, paddingVertical: 4, transform: [{ rotate: '2deg' }] },
   difficultyRow: {
     borderWidth: 2,
