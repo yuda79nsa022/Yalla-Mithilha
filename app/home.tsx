@@ -157,7 +157,7 @@ export default function Home() {
           <View style={[styles.heroTextCol, height < 700 && { gap: spacing.md }]}>
             <T
               variant="title"
-              style={[styles.wideTagline, lang === 'ar' && { lineHeight: 56 }, height < 700 && { fontSize: 30, lineHeight: lang === 'ar' ? 46 : 38 }]}
+              style={[styles.wideTagline, lang === 'ar' && { lineHeight: 56 }, height < 700 && { fontSize: 30, lineHeight: lang === 'ar' ? 42 : 38 }]}
             >
               {tagline}
             </T>

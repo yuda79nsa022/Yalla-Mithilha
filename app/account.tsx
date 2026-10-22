@@ -124,7 +124,7 @@ export default function Account() {
         footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <T variant="title" style={width < 600 ? { fontSize: 24, lineHeight: lang === 'ar' ? 36 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
+          <T variant="title" style={width < 600 ? { fontSize: 24, lineHeight: lang === 'ar' ? 32 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
             {t('account.title')}
           </T>
         </View>
@@ -171,7 +171,7 @@ export default function Account() {
   const intro = (
     <>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <T variant="title" style={width < 600 ? { fontSize: 24, lineHeight: lang === 'ar' ? 36 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
+        <T variant="title" style={width < 600 ? { fontSize: 24, lineHeight: lang === 'ar' ? 32 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
           {title}
         </T>
       </View>

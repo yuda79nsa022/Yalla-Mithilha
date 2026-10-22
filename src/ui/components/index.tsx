@@ -163,8 +163,13 @@ export function Screen({
 }) {
   const { t, lang } = useApp();
   // A phone gets a little less padding than a desktop window, so more of each page fits on its screen.
-  const { width } = useWindowDimensions();
-  const inner = <View style={[styles.screenInner, width < 600 && styles.screenInnerPhone, style]}>{children}</View>;
+  // A short window (a laptop's browser, a small phone) also gets less top and bottom padding.
+  const { width, height } = useWindowDimensions();
+  const inner = (
+    <View style={[styles.screenInner, width < 600 && styles.screenInnerPhone, height < 700 && styles.screenInnerShort, style]}>
+      {children}
+    </View>
+  );
   return (
     // Genuinely fills the available viewport width at any screen size —
     // header, scroll body and pinned footer all stretch edge-to-edge
@@ -984,6 +989,7 @@ const styles = StyleSheet.create({
   langToggle: { borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5 },
   screenInner: { flex: 1, padding: spacing.lg, gap: spacing.md },
   screenInnerPhone: { padding: spacing.md, gap: 12 },
+  screenInnerShort: { paddingVertical: spacing.md },
   scrollContent: { flexGrow: 1 },
   headerBar: {
     flexDirection: 'row',

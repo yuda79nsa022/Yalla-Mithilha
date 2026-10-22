@@ -605,7 +605,7 @@ function HandoffScreen({
       <RoundProgress round={round} total={total} />
       <ScoreBlock teamAName={state.teamAName} teamAScore={state.scores[0]} teamBName={state.teamBName} teamBScore={state.scores[1]} compact />
       <View style={{ gap: short ? spacing.xs : spacing.sm }}>
-        <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 16, lineHeight: lang === 'ar' ? 24 : 22 }}>
+        <T variant="body" color={colors.white} style={{ fontWeight: '700', fontSize: 16, lineHeight: lang === 'ar' ? 22 : 20 }}>
           {t('charades.play.turnLabel')}
         </T>
         <T
@@ -620,7 +620,7 @@ function HandoffScreen({
         >
           {teamName}
         </T>
-        <T variant="body" color={colors.white} style={{ fontSize: 14, lineHeight: lang === 'ar' ? 24 : 20 }}>
+        <T variant="body" color={colors.white} style={{ fontSize: 14, lineHeight: lang === 'ar' ? 22 : 20 }}>
           {t('charades.play.handoffInstruction')}
         </T>
       </View>
