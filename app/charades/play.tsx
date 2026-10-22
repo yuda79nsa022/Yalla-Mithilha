@@ -594,7 +594,7 @@ function HandoffScreen({
   const { t, lang } = useApp();
   const { height } = useWindowDimensions();
   const short = height < 700;
-  const qrSize = height < 640 ? 96 : short ? 112 : height < 760 ? 128 : 168;
+  const qrSize = height < 640 ? 88 : short ? 104 : height < 760 ? 128 : 168;
   return (
     <Screen
       scroll
@@ -688,10 +688,13 @@ function ActingLogo() {
 /** The revealed title card, shown once the round's clock stops. */
 function TitleCard({ title, teamColor }: { title: CharadesTitle; teamColor: string }) {
   const { lang } = useApp();
+  const { height } = useWindowDimensions();
   const absoluteImageUrl = title.imageUrl ? `${CATALOGUE_API_URL}${title.imageUrl}` : undefined;
   return (
     <View style={[styles.titleCard, cardShadow(lang, teamColor)]}>
-      <T style={{ fontFamily: fonts.displayBlack, fontSize: 36, lineHeight: 44 }}>{title.text}</T>
+      <T style={height < 700 ? { fontFamily: fonts.displayBlack, fontSize: 30, lineHeight: 38 } : { fontFamily: fonts.displayBlack, fontSize: 36, lineHeight: 44 }}>
+        {title.text}
+      </T>
       {absoluteImageUrl ? (
         <Image source={{ uri: absoluteImageUrl }} style={{ width: '100%', height: 180 }} resizeMode="contain" accessibilityLabel={title.text} />
       ) : null}

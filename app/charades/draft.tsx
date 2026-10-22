@@ -150,7 +150,14 @@ export default function CharadesDraft() {
 
   const intro = (
     <View style={styles.section}>
-      <T variant="title" style={isPhone ? { fontSize: 24, lineHeight: lang === 'ar' ? 36 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
+      <T
+        variant="title"
+        style={
+          isPhone || height < 700
+            ? { fontSize: 24, lineHeight: lang === 'ar' ? 36 : 30 }
+            : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }
+        }
+      >
         {t('charades.draft.title')}
       </T>
       {!isPhone ? (

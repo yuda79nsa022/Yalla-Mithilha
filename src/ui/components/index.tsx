@@ -262,7 +262,8 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
 
   if (variant !== 'site') {
     return (
-      <View style={[styles.headerBar, compact && styles.headerBarPhone]}>
+      // Slimmer than the site bar — every pixel goes to the game.
+      <View style={[styles.headerBar, compact && styles.headerBarPhone, styles.headerBarGame]}>
         <View style={styles.navStart}>
           {brandContent}
           {title ? (
@@ -992,6 +993,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerBarPhone: { paddingVertical: 10, paddingHorizontal: spacing.md },
+  headerBarGame: { paddingVertical: 6 },
   navBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   navStart: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexShrink: 1 },
   navEnd: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

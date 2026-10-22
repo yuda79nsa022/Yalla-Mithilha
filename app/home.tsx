@@ -154,7 +154,7 @@ export default function Home() {
         // spare space is shared evenly around the content instead of piling
         // up in patches under the shorter column and at the bottom.
         <View style={[styles.heroRow, lang === 'en' && styles.heroRowEn]}>
-          <View style={styles.heroTextCol}>
+          <View style={[styles.heroTextCol, height < 700 && { gap: spacing.md }]}>
             <T
               variant="title"
               style={[styles.wideTagline, lang === 'ar' && { lineHeight: 56 }, height < 700 && { fontSize: 30, lineHeight: lang === 'ar' ? 46 : 38 }]}

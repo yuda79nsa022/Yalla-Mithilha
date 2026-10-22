@@ -218,13 +218,16 @@ export default function Account() {
             label={t('account.email')}
             value={email}
             onChangeText={setEmail}
-            placeholder={t('account.email')}
+            // On a phone the "why we need it" note is the box's placeholder, so the form fits the screen.
+            placeholder={width < 600 ? t('account.emailRequiredHint') : t('account.email')}
             keyboardType="email-address"
             maxLength={254}
           />
-          <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
-            {t('account.emailRequiredHint')}
-          </T>
+          {width >= 600 ? (
+            <T variant="label" color={colors.neutral700} style={{ fontSize: 12, fontWeight: '500' }}>
+              {t('account.emailRequiredHint')}
+            </T>
+          ) : null}
         </>
       ) : null}
 
