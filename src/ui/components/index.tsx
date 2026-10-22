@@ -87,14 +87,8 @@ export function T({
 
 /* ---------------------------------------------------------------- screen */
 
-/**
- * The widest the app's column gets. A phone uses its full width; a tablet or
- * desktop window gets the same phone-shaped column, centered, with the
- * screen's own background colour filling the rest — so every screen looks
- * and behaves the same on the web as in the app, instead of stretching rows
- * of buttons across a 1400px window.
- */
-export const MAX_CONTENT_WIDTH = 560;
+/** The widest a confirmation dialog gets — on a desktop window it stays dialog-sized instead of stretching across the screen. */
+export const MAX_DIALOG_WIDTH = 512;
 
 /**
  * The AR/EN switch every screen header carries. On native, flipping between
@@ -156,15 +150,15 @@ export function Screen({
   const { t, lang } = useApp();
   const inner = <View style={[styles.screenInner, style]}>{children}</View>;
   return (
-    // The background runs edge to edge at any width (so a wide window never
-    // shows a box floating in a differently-coloured void), while header,
-    // body and footer share one centered, phone-width column — see
-    // MAX_CONTENT_WIDTH.
+    // Genuinely fills the available viewport width at any screen size —
+    // header, scroll body and pinned footer all stretch edge-to-edge
+    // together, so there's no centered column with dead margins on a wide
+    // desktop window.
     <View style={[styles.pageOuter, { backgroundColor: background }]}>
       <SafeAreaView style={[styles.screen, { backgroundColor: background }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {header ? (
-        <View style={[styles.headerBar, styles.column]}>
+        <View style={styles.headerBar}>
           {header.onBack ? (
             <Pressable
               accessibilityRole="button"
@@ -192,22 +186,19 @@ export function Screen({
         </View>
       ) : null}
       {scroll ? (
-        // The ScrollView itself spans the full width, so a wheel or swipe
-        // anywhere on a wide window scrolls it — only its content is
-        // narrowed to the column.
         <ScrollView
           style={styles.screen}
-          contentContainerStyle={[styles.scrollContent, styles.column]}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
           {inner}
         </ScrollView>
       ) : (
-        <View style={[styles.screen, styles.column]}>{inner}</View>
+        <View style={styles.screen}>{inner}</View>
       )}
         {footer ? (
-          <View style={[styles.footer, styles.column, { backgroundColor: background }]}>{footer}</View>
+          <View style={[styles.footer, { backgroundColor: background }]}>{footer}</View>
         ) : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -775,7 +766,6 @@ export function BigChoice({
 const styles = StyleSheet.create({
   pageOuter: { flex: 1, backgroundColor: colors.ground },
   screen: { flex: 1 },
-  column: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
   headerEnd: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   langToggle: { borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5 },
   screenInner: { flex: 1, padding: spacing.lg, gap: spacing.md },
@@ -886,7 +876,7 @@ const styles = StyleSheet.create({
     borderColor: colors.ink,
     padding: spacing.lg,
     width: '100%',
-    maxWidth: MAX_CONTENT_WIDTH - 2 * spacing.lg,
+    maxWidth: MAX_DIALOG_WIDTH,
     alignSelf: 'center',
   },
 });
