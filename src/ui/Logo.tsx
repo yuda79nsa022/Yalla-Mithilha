@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
-import { colors, fonts } from './theme';
+import { colors } from './theme';
 import { T } from './components';
 import { useApp } from '../state/AppProvider';
 
-type Size = 'lg' | 'md' | 'sm';
+/** `xs` is the phone header's: the bar has the least room there. */
+type Size = 'lg' | 'md' | 'sm' | 'xs';
 
-const CUBE_FACE: Record<Size, number> = { lg: 100, md: 44, sm: 32 };
+const CUBE_FACE: Record<Size, number> = { lg: 100, md: 44, sm: 32, xs: 26 };
 
 /**
  * `perspective`, `transform-style` and a `translateZ` transform op aren't
@@ -145,76 +146,74 @@ function Cube({ size, animated = false }: { size: Size; animated?: boolean }) {
     </Animated.View>
   );
 }
-/** The stacked "بس! / بدون كلام / BAS BEDOON KALAM" wordmark next to the cube, RTL. */
-function Wordmark() {
-  return (
-    <View style={styles.wordmark}>
-      <View style={styles.bassRow}>
-        <T variant="display" style={styles.bass}>
-          بس
-        </T>
-        <T variant="display" color={colors.purple} style={styles.bang}>
-          !
-        </T>
-      </View>
-      <T variant="title" style={styles.bedoon} numberOfLines={1}>
-        بدون كلام
-      </T>
-      <View style={styles.tag}>
-        <T
-          style={{ fontFamily: fonts.display, fontSize: 11, letterSpacing: 1.5, color: colors.white }}
-          numberOfLines={1}
-        >
-          BAS BEDOON KALAM
-        </T>
-      </View>
-    </View>
-  );
-}
-
 /** Height of an admin-uploaded logo at each size — about the cube's own footprint. */
-const CUSTOM_LOGO_HEIGHT: Record<Size, number> = { lg: 120, md: 48, sm: 36 };
+const CUSTOM_LOGO_HEIGHT: Record<Size, number> = { lg: 120, md: 48, sm: 36, xs: 30 };
 
 /**
- * The brand mark: a 3D purple cube with a frustrated, zipped-mouth face,
- * plus the stacked wordmark. `lg` is the home hero (cube + wordmark), `md`
- * is a page-title accessory (cube only, no steam/wordmark), `sm` is for
- * favicon/app-icon rendering (cube only). Once an admin uploads a logo it
- * replaces the cube everywhere, and a renamed app shows its own name in
- * place of the built-in wordmark.
+ * The built-in brand logo — cube and "بس! بدون كلام / BAS BEDOON KALAM"
+ * wordmark in one transparent image, the same in English and Arabic. Also
+ * served to the admin tool as server/public/brand-logo.png.
+ */
+const BRAND_LOGO = require('../../assets/images/brand-logo.png');
+const BRAND_LOGO_ASPECT = 1368 / 799;
+const BRAND_LOGO_HEIGHT: Record<Size, number> = { lg: 150, md: 72, sm: 48, xs: 36 };
+
+/**
+ * Whether the logo already spells out the app's name — true for the built-in
+ * brand image, so the header doesn't print the name a second time beside it.
+ */
+export function useLogoShowsName(): boolean {
+  const { t, appName, logoUrl } = useApp();
+  return !logoUrl && appName === t('app.name');
+}
+
+/**
+ * The brand mark. By default the built-in brand image (cube + wordmark) at
+ * every size: `lg` for the splash and home hero, `md` beside the game,
+ * `sm` in the header. An admin-uploaded logo replaces it everywhere. An app
+ * renamed without a logo of its own falls back to the plain cube with its
+ * new name, since the brand image spells out the original one.
  */
 export function Logo({ size = 'lg', animated = false }: { size?: Size; animated?: boolean }) {
-  const { lang, t, appName, logoUrl } = useApp();
+  const { lang, appName, logoUrl } = useApp();
+  const showsName = useLogoShowsName();
+  const translateY = useBob(animated && (showsName || Boolean(logoUrl)));
+
+  if (showsName) {
+    const height = BRAND_LOGO_HEIGHT[size];
+    return (
+      <Animated.View style={animated ? { transform: [{ translateY }] } : undefined}>
+        <Image
+          source={BRAND_LOGO}
+          accessibilityLabel={appName}
+          resizeMode="contain"
+          style={{ height, width: Math.round(height * BRAND_LOGO_ASPECT) }}
+        />
+      </Animated.View>
+    );
+  }
+
   const mark = logoUrl ? (
-    <Image
-      source={{ uri: logoUrl }}
-      accessibilityLabel={appName}
-      resizeMode="contain"
-      style={{ height: CUSTOM_LOGO_HEIGHT[size], width: CUSTOM_LOGO_HEIGHT[size] * 1.6 }}
-    />
+    <Animated.View style={animated ? { transform: [{ translateY }] } : undefined}>
+      <Image
+        source={{ uri: logoUrl }}
+        accessibilityLabel={appName}
+        resizeMode="contain"
+        style={{ height: CUSTOM_LOGO_HEIGHT[size], width: CUSTOM_LOGO_HEIGHT[size] * 1.6 }}
+      />
+    </Animated.View>
   ) : (
     <Cube size={size} animated={animated} />
   );
-  const builtInName = appName === t('app.name');
-  if (size === 'lg') {
-    if (logoUrl || !builtInName) {
-      return (
-        <View style={[styles.row, lang === 'en' && styles.rowReversed]}>
-          {mark}
-          <T variant="title" style={styles.customName}>
-            {appName}
-          </T>
-        </View>
-      );
-    }
-    return (
-      <View style={[styles.row, lang === 'en' && styles.rowReversed]}>
-        <Cube size="lg" animated={animated} />
-        <Wordmark />
-      </View>
-    );
-  }
-  return mark;
+  if (size !== 'lg') return mark;
+  return (
+    <View style={[styles.row, lang === 'en' && styles.rowReversed]}>
+      {mark}
+      <T variant="title" style={styles.customName}>
+        {appName}
+      </T>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -228,18 +227,5 @@ const styles = StyleSheet.create({
   zipBar: { position: 'absolute', backgroundColor: colors.ink },
   zipTooth: { position: 'absolute', backgroundColor: colors.white },
   zipPull: { position: 'absolute', backgroundColor: colors.ink },
-  wordmark: { gap: 2 },
   customName: { flexShrink: 1 },
-  bassRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  bass: { fontSize: 50, lineHeight: 58, transform: [{ rotate: '-6deg' }] },
-  bang: { fontSize: 50, lineHeight: 58, transform: [{ rotate: '4deg' }] },
-  bedoon: { fontSize: 32, lineHeight: 40, transform: [{ rotate: '2deg' }] },
-  tag: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    backgroundColor: colors.ink,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    transform: [{ rotate: '-2deg' }],
-  },
 });

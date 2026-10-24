@@ -34,7 +34,7 @@ import {
 } from '../theme';
 import { useApp } from '../../state/AppProvider';
 import { isRtlLayout, needsRestartForDirection } from '../../platform';
-import { Logo } from '../Logo';
+import { Logo, useLogoShowsName } from '../Logo';
 import { track } from '../../services/analytics';
 import type { Lang } from '../../engine/types';
 
@@ -310,10 +310,12 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
     if (pathname !== href) router.navigate(href as never);
   };
 
+  // The built-in logo already spells out the name; anything else gets it beside the mark.
+  const logoShowsName = useLogoShowsName();
   const brandContent = (
     <View style={[styles.navBrand, mirror]}>
-      <Logo size="sm" />
-      {!compact ? (
+      <Logo size={compact ? 'xs' : 'sm'} />
+      {!compact && !logoShowsName ? (
         <T variant="heading" color={brandColor} style={{ fontSize: 15 }} numberOfLines={1}>
           {appName}
         </T>
