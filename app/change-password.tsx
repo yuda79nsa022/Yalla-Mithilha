@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Button, ButtonRow, Field, PageTitle, Screen, T } from '../src/ui/components';
 import { colors } from '../src/ui/theme';
@@ -14,11 +13,8 @@ export default function ChangePassword() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  if (!player) {
-    // Only a signed-in player has a password to change.
-    router.replace('/account');
-    return null;
-  }
+  // A guest never gets here — SignInGuard (app/_layout.tsx) sends them to sign in first.
+  if (!player) return null;
 
   const localError = next && next.length < 8 ? t('password.tooShort') : confirm && next !== confirm ? t('password.mismatch') : null;
   const canSubmit = Boolean(current && next.length >= 8 && next === confirm) && !busy;

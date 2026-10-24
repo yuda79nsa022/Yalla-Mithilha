@@ -1,5 +1,5 @@
-import { Redirect, router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Redirect, router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Button, ButtonRow, PageTitle, Screen, T, TextLink } from '../../src/ui/components';
 import { colors, spacing } from '../../src/ui/theme';
@@ -56,20 +56,8 @@ export default function CharadesCheckout() {
     if (player) void refreshWallet();
   }, [player, refreshWallet]);
 
-  // A guest lands here with nothing to configure — skip straight to sign-in
-  // instead of showing an explanatory stop first. `useFocusEffect` (not a
-  // plain `useEffect`) is required: React Navigation keeps this screen
-  // mounted after navigating away from it, so a plain effect's unchanged
-  // dependencies would never refire if the guest hit "back" from the account
-  // screen without signing in — leaving a blank screen stuck in the stack.
-  // `replace` (not `push`) drops checkout from the stack entirely, so that
-  // "back" is exactly the screen that led here (draft or home), not another
-  // visit to this same dead end.
-  useFocusEffect(
-    useCallback(() => {
-      if (charades && charades.lock !== 'unlocked' && !player) router.replace('/account');
-    }, [charades, player])
-  );
+  // A guest never gets here — SignInGuard (app/_layout.tsx) sends them to
+  // sign in first, and back here afterwards.
 
   // A payment started from the Buy-more screen also comes back through
   // here (the gateway's return route only knows this one address) — with no
