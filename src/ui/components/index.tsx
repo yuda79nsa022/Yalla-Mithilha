@@ -33,7 +33,7 @@ import {
   type,
 } from '../theme';
 import { useApp } from '../../state/AppProvider';
-import { needsRestartForDirection } from '../../platform';
+import { isRtlLayout, needsRestartForDirection } from '../../platform';
 import { Logo } from '../Logo';
 import { track } from '../../services/analytics';
 import type { Lang } from '../../engine/types';
@@ -96,8 +96,21 @@ export const MAX_DIALOG_WIDTH = 512;
 export const CONTENT_MAX_WIDTH = 640;
 export const WIDE_MAX_WIDTH = 1100;
 
-/** The pinned footer (primary action) is the same width on every screen — a button never stretches across a desktop window. */
-export const FOOTER_MAX_WIDTH = 480;
+/**
+ * Where a page's actions go — the one placement rule for every page, dialog
+ * and the admin tool alike: bottom-right in English, bottom-left in Arabic,
+ * with the primary action outermost and any secondary/cancel beside it on the
+ * inside. `align` is the cross-axis alignment that puts a block on that side;
+ * `row` is the direction that puts a ButtonRow's last child (its primary)
+ * outermost. Native mirrors flex itself once the app runs RTL; web never does
+ * (see needsRestartForDirection), so both cases are worked out here.
+ */
+export function useActionLayout(): { align: 'flex-start' | 'flex-end'; row: 'row' | 'row-reverse' } {
+  const { lang } = useApp();
+  const rtlEngine = Platform.OS !== 'web' && Boolean(isRtlLayout());
+  const mirrored = (lang === 'ar') !== rtlEngine;
+  return { align: mirrored ? 'flex-start' : 'flex-end', row: mirrored ? 'row-reverse' : 'row' };
+}
 
 /**
  * The AR/EN switch every screen header carries. On native, flipping between
@@ -177,10 +190,10 @@ export function Screen({
   /** Pinned footer content (primary CTA) — always visible, never scrolls with the content above it. */
   footer?: React.ReactNode;
 }) {
-  const { t, lang } = useApp();
   // A phone gets a little less padding than a desktop window, so more of each page fits on its screen.
   // A short window (a laptop's browser, a small phone) also gets less top and bottom padding.
   const { width, height } = useWindowDimensions();
+  const actions = useActionLayout();
   const inner = (
     <View
       style={[
@@ -216,8 +229,18 @@ export function Screen({
         <View style={styles.screen}>{inner}</View>
       )}
         {footer ? (
+          // The action bar: the same column as the page above it, its
+          // actions on the end side (see useActionLayout).
           <View style={[styles.footer, { backgroundColor: background }]}>
-            <View style={styles.footerInner}>{footer}</View>
+            <View
+              style={[
+                styles.footerInner,
+                { maxWidth: wide ? WIDE_MAX_WIDTH : CONTENT_MAX_WIDTH, alignItems: actions.align },
+                width < 600 && styles.footerInnerPhone,
+              ]}
+            >
+              {footer}
+            </View>
           </View>
         ) : null}
         <Copyright onDark={background === colors.ink || background === colors.purple} showLinks={(header?.variant ?? 'site') === 'site'} />
@@ -233,7 +256,7 @@ export function Screen({
  * game"). Pinned below everything else, so it never adds scrolling.
  */
 function Copyright({ onDark, showLinks }: { onDark: boolean; showLinks: boolean }) {
-  const { t } = useApp();
+  const { t, appName } = useApp();
   const { width } = useWindowDimensions();
   const color = onDark ? colors.white : colors.mutedText;
   // On a phone the link lives in the ☰ menu instead, keeping this one line.
@@ -241,7 +264,7 @@ function Copyright({ onDark, showLinks }: { onDark: boolean; showLinks: boolean 
   return (
     <View style={styles.copyright}>
       <T variant="label" align="center" color={color} style={styles.copyrightText}>
-        {t('app.copyright', { year: new Date().getFullYear() })}
+        {t('app.copyright', { year: new Date().getFullYear(), name: appName })}
       </T>
       {showLinks ? (
         <Pressable accessibilityRole="link" onPress={() => router.navigate('/privacy')} hitSlop={6}>
@@ -269,7 +292,7 @@ type NavLink = { key: string; label: string; href: string; active: boolean };
  * would leave the game by accident.
  */
 function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' | 'minimal'; title?: string; light?: boolean }) {
-  const { t, player, charades, walletLoaded, walletBalance, freeGameCredits, logoutPlayerAccount } = useApp();
+  const { t, appName, player, charades, walletLoaded, walletBalance, freeGameCredits, logoutPlayerAccount } = useApp();
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const [confirmingLogout, setConfirmingLogout] = React.useState(false);
@@ -278,17 +301,21 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
   const compact = width < 760;
   const fg = light ? colors.white : colors.ink;
   const brandColor = light ? colors.white : colors.purple;
+  // The bar reads in the page's direction: brand on the start side (right in
+  // Arabic), the sections, account and language toggle on the end side.
+  const { row } = useActionLayout();
+  const mirror = { flexDirection: row };
 
   const go = (href: string) => {
     if (pathname !== href) router.navigate(href as never);
   };
 
   const brandContent = (
-    <View style={styles.navBrand}>
+    <View style={[styles.navBrand, mirror]}>
       <Logo size="sm" />
       {!compact ? (
         <T variant="heading" color={brandColor} style={{ fontSize: 15 }} numberOfLines={1}>
-          {t('app.name')}
+          {appName}
         </T>
       ) : null}
     </View>
@@ -297,8 +324,8 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
   if (variant !== 'site') {
     return (
       // Slimmer than the site bar — every pixel goes to the game.
-      <View style={[styles.headerBar, compact && styles.headerBarPhone, styles.headerBarGame]}>
-        <View style={styles.navStart}>
+      <View style={[styles.headerBar, mirror, compact && styles.headerBarPhone, styles.headerBarGame]}>
+        <View style={[styles.navStart, mirror]}>
           {brandContent}
           {title ? (
             <T variant="label" color={fg} style={{ fontSize: 14 }} numberOfLines={1}>
@@ -317,8 +344,7 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
     { key: 'home', label: t('nav.home'), href: '/home', active: pathname === '/home' || pathname === '/' },
     { key: 'play', label: charades ? t('nav.resume') : t('nav.play'), href: playHref, active: pathname.startsWith('/charades') },
     { key: 'settings', label: t('nav.settings'), href: '/settings', active: pathname === '/settings' },
-    // The footer carries this link on a wide window; on a phone it joins the icons.
-    ...(compact ? [{ key: 'privacy', label: t('home.about'), href: '/privacy', active: pathname === '/privacy' }] : []),
+    // About & privacy: the footer link on a wide window, Settings' own menu on a phone.
     // A signed-in player gets the username dropdown below instead.
     ...(player ? [] : [{ key: 'account', label: t('account.signIn'), href: '/account', active: pathname === '/account' }]),
   ];
@@ -341,11 +367,11 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
   };
 
   return (
-    <View style={[styles.headerBar, compact && styles.headerBarPhone]}>
+    <View style={[styles.headerBar, mirror, compact && styles.headerBarPhone]}>
       <Pressable accessibilityRole="link" accessibilityLabel={t('nav.home')} onPress={() => go('/home')} hitSlop={6}>
         {brandContent}
       </Pressable>
-      <View style={[styles.navEnd, compact && { gap: spacing.sm }]}>
+      <View style={[styles.navEnd, mirror, { gap: compact ? spacing.xs : spacing.sm }]}>
         {links.map((link) => (
           <Pressable
             key={link.key}
@@ -355,12 +381,20 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
             onPress={() => go(link.href)}
             style={({ pressed }) => [
               styles.navIconButton,
+              // A wide window names each section beside its icon — the same tabs as the admin tool's.
+              !compact && styles.navTab,
+              !compact && mirror,
               { borderColor: link.active ? brandColor : 'transparent' },
               link.active && { backgroundColor: brandColor },
               pressed && styles.pressed,
             ]}
           >
             <NavIcon name={link.key} color={link.active ? (light ? colors.ink : colors.white) : fg} />
+            {!compact ? (
+              <T variant="label" color={link.active ? (light ? colors.ink : colors.white) : fg} style={{ fontSize: 14 }} numberOfLines={1}>
+                {link.label}
+              </T>
+            ) : null}
           </Pressable>
         ))}
         {player ? (
@@ -372,19 +406,25 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
               onPress={openAccountMenu}
               style={({ pressed }) => [
                 styles.navAccount,
+                mirror,
                 { borderColor: accountMenuActive ? brandColor : fg },
                 accountMenuActive && { backgroundColor: brandColor },
                 pressed && styles.pressed,
               ]}
             >
-              <T
-                variant="label"
-                color={accountMenuActive ? (light ? colors.ink : colors.white) : fg}
-                style={{ fontSize: 13, maxWidth: compact ? 70 : 140 }}
-                numberOfLines={1}
-              >
-                {player.username}
-              </T>
+              {compact ? (
+                // A phone has no room for the name — the account icon stands in, the menu says who.
+                <NavIcon name="account" color={accountMenuActive ? (light ? colors.ink : colors.white) : fg} />
+              ) : (
+                <T
+                  variant="label"
+                  color={accountMenuActive ? (light ? colors.ink : colors.white) : fg}
+                  style={{ fontSize: 13, maxWidth: 140 }}
+                  numberOfLines={1}
+                >
+                  {player.username}
+                </T>
+              )}
               {walletLoaded ? (
                 <View style={styles.navBadge}>
                   <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
@@ -398,7 +438,7 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
             </Pressable>
           </View>
         ) : null}
-        {player ? (
+        {player && !compact ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('account.logout')}
@@ -438,6 +478,21 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
                   </T>
                 </Pressable>
               ))}
+              {compact ? (
+                // On a phone, log out lives here rather than as its own header icon.
+                <Pressable
+                  accessibilityRole="menuitem"
+                  onPress={() => {
+                    closeAccountMenu();
+                    setConfirmingLogout(true);
+                  }}
+                  style={({ pressed }) => [styles.accountDropdownItem, styles.accountDropdownLogout, pressed && styles.pressed]}
+                >
+                  <T variant="label" color={colors.red} style={{ fontSize: 15 }}>
+                    {t('account.logout')}
+                  </T>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
         </Pressable>
@@ -499,15 +554,16 @@ function NavIcon({ name, color }: { name: string; color: string }) {
 /** One label size for every button on every screen — the Create account / Sign in size. */
 const BUTTON_LABEL_SIZE = 17;
 
-/** Buttons side by side (Cancel + Save, Create account + Sign in …), equal width, same height. */
+/**
+ * A group of actions (Cancel + Save, Skip + Award …), always on the end
+ * side — see useActionLayout. Children go in reading order with the primary
+ * last: it lands outermost (far right in English, far left in Arabic).
+ * Every action on every page goes through this or the Screen footer, so
+ * none of them ever sits anywhere else.
+ */
 export function ButtonRow({ children }: { children: React.ReactNode }) {
-  return (
-    <View style={styles.buttonPair}>
-      {React.Children.map(children, (child) =>
-        React.isValidElement(child) ? <View style={styles.buttonPairItem}>{child}</View> : child
-      )}
-    </View>
-  );
+  const actions = useActionLayout();
+  return <View style={[styles.buttonPair, { flexDirection: actions.row, alignSelf: actions.align }]}>{children}</View>;
 }
 
 export function Button({
@@ -548,6 +604,7 @@ export function Button({
   forceShadow?: boolean;
 }) {
   const { lang } = useApp();
+  const { row } = useActionLayout();
   const [pressed, setPressed] = React.useState(false);
   // Every button — whatever the screen — is the same size: HIT_SIZE tall, one
   // label size. The filled look (ink border + hard shadow) is the Create
@@ -585,7 +642,7 @@ export function Button({
       {busy ? (
         <ActivityIndicator color={fg} />
       ) : (
-        <View style={styles.buttonRow}>
+        <View style={[styles.buttonRow, { flexDirection: row }]}>
           <T variant="heading" color={fg} style={{ fontSize: BUTTON_LABEL_SIZE }}>
             {label}
           </T>
@@ -850,6 +907,37 @@ export function TextLink({ label, onPress }: { label: string; onPress: () => voi
   );
 }
 
+/**
+ * One row of a page's own menu (Settings, Profile) — a place to go, not an
+ * action, so it is a full-width list row rather than a button; a page's
+ * actions stay in its footer.
+ */
+export function MenuItem({ label, value, onPress }: { label: string; value?: string; onPress: () => void }) {
+  const { lang } = useApp();
+  // Reading order: the label first, the arrow at the far end.
+  const { row } = useActionLayout();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={value ? `${label}: ${value}` : label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.menuItem, { flexDirection: row }, pressed && { backgroundColor: colors.mutedBg }]}
+    >
+      <T variant="label" style={{ fontSize: 16, flex: 1 }} numberOfLines={1}>
+        {label}
+      </T>
+      {value ? (
+        <T variant="label" color={colors.neutral700} style={{ fontSize: 14, fontWeight: '500' }} numberOfLines={1}>
+          {value}
+        </T>
+      ) : null}
+      <T variant="heading" color={colors.purple} style={{ fontSize: 18 }}>
+        {endArrow(lang)}
+      </T>
+    </Pressable>
+  );
+}
+
 /** A square-cornered outline pill — used for the "EN"/"عربي" language toggle and small tags. */
 export function Pill({ text, color = colors.ink }: { text: string; color?: string }) {
   return (
@@ -1001,9 +1089,10 @@ export function ConfirmModal({
             </>
           ) : null}
           <Spacer size={spacing.lg} />
-          <Button label={confirmLabel} tone={destructive ? 'danger' : 'primary'} onPress={onConfirm} showArrow={false} />
-          <Spacer size={spacing.sm} />
-          <Button label={cancelLabel} tone="ghost" onPress={onCancel} showArrow={false} />
+          <ButtonRow>
+            <Button label={cancelLabel} tone="secondary" onPress={onCancel} showArrow={false} />
+            <Button label={confirmLabel} tone={destructive ? 'danger' : 'primary'} onPress={onConfirm} showArrow={false} />
+          </ButtonRow>
         </View>
       </View>
     </Modal>
@@ -1045,7 +1134,9 @@ export function LowBalanceBanner({ light = false }: { light?: boolean }) {
         {t('wallet.lowBanner', { count: walletBalance + freeGameCredits })}
       </T>
       <Spacer size={spacing.sm} />
-      <Button label={t('wallet.buyMore')} accent={colors.red} onPress={() => router.push('/buy')} />
+      <ButtonRow>
+        <Button label={t('wallet.buyMore')} accent={colors.red} onPress={() => router.push('/buy')} />
+      </ButtonRow>
     </View>
   );
 }
@@ -1157,7 +1248,9 @@ const styles = StyleSheet.create({
   },
   accountDropdownItem: { paddingVertical: 12, paddingHorizontal: spacing.md },
   accountDropdownItemActive: { backgroundColor: colors.purple },
+  accountDropdownLogout: { borderTopWidth: 2, borderTopColor: colors.mutedBg },
   navIconButton: { borderWidth: 2, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  navTab: { width: 'auto', flexDirection: 'row', gap: 8, paddingHorizontal: 12 },
   navIconBadge: { position: 'absolute', top: -6, right: -6, minWidth: 16, height: 16, paddingHorizontal: 3, backgroundColor: colors.purple, alignItems: 'center', justifyContent: 'center' },
   navMenuButton: { borderWidth: 2, width: 40, height: 36, alignItems: 'center', justifyContent: 'center' },
   navSheetBackdrop: { flex: 1, backgroundColor: colors.overlay, alignItems: 'stretch' },
@@ -1167,7 +1260,7 @@ const styles = StyleSheet.create({
   navSheetAccount: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, alignItems: 'flex-start' },
   copyrightText: { fontSize: 11, lineHeight: 16, fontWeight: '500' },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  footer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  footer: { paddingTop: 16, paddingBottom: 8, borderTopWidth: 2, borderTopColor: colors.mutedBg },
   copyright: {
     paddingHorizontal: 20,
     paddingBottom: 8,
@@ -1179,15 +1272,17 @@ const styles = StyleSheet.create({
   },
   button: {
     minHeight: HIT_SIZE,
+    minWidth: 128,
+    maxWidth: '100%',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
-  buttonPair: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
-  buttonPairItem: { flex: 1, flexBasis: 0 },
-  footerInner: { width: '100%', maxWidth: FOOTER_MAX_WIDTH, alignSelf: 'center' },
+  buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  buttonPair: { gap: spacing.sm, flexWrap: 'wrap', maxWidth: '100%' },
+  footerInner: { width: '100%', alignSelf: 'center', paddingHorizontal: spacing.lg, gap: spacing.sm },
+  footerInnerPhone: { paddingHorizontal: spacing.md },
   bigChoice: {
     flex: 1,
     minHeight: 110,
@@ -1258,6 +1353,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
     alignSelf: 'flex-start',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: HIT_SIZE,
+    paddingHorizontal: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.white,
   },
   textLink: {
     alignSelf: 'flex-start',

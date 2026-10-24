@@ -5,6 +5,7 @@ import QRCode from 'react-native-qrcode-svg';
 import Svg, { Path } from 'react-native-svg';
 import {
   Button,
+  ButtonRow,
   ConfirmModal,
   LowBalanceBanner,
   RoundProgress,
@@ -434,17 +435,7 @@ function FinalScreen({ state }: { state: CharadesState }) {
       background={colors.ink}
       header={{ light: true }}
       footer={
-        <>
-          <Button
-            label={t('charades.play.newGame')}
-            shadowColor={colors.white}
-            borderColor={colors.white}
-            onPress={() => {
-              quitCharades();
-              router.replace('/charades/draft');
-            }}
-          />
-          <Spacer size={spacing.sm} />
+        <ButtonRow>
           <Button
             label={t('charades.play.home')}
             tone="secondary"
@@ -456,7 +447,16 @@ function FinalScreen({ state }: { state: CharadesState }) {
               router.replace('/home');
             }}
           />
-        </>
+          <Button
+            label={t('charades.play.newGame')}
+            shadowColor={colors.white}
+            borderColor={colors.white}
+            onPress={() => {
+              quitCharades();
+              router.replace('/charades/draft');
+            }}
+          />
+        </ButtonRow>
       }
     >
       {state.endedReason === 'inactivity' ? (
@@ -803,21 +803,19 @@ function ClassicPlayScreen() {
                 />
               </>
             ) : (
-              <View style={styles.actingFooterGrid}>
-                <Button
-                  label={t('charades.play.award', { team: teamName })}
-                  showArrow={false}
-                  style={{ flex: 2 }}
-                  onPress={() => setPending({ round, kind: 'award', team: teamIndex, points: pointsForElapsed(clock.elapsed) })}
-                />
+              <ButtonRow>
                 <Button
                   label={t('charades.play.skip')}
                   tone="secondary"
                   showArrow={false}
-                  style={{ flex: 1 }}
                   onPress={() => setPending({ round, kind: 'skip', team: teamIndex, points: 0 })}
                 />
-              </View>
+                <Button
+                  label={t('charades.play.award', { team: teamName })}
+                  showArrow={false}
+                  onPress={() => setPending({ round, kind: 'award', team: teamIndex, points: pointsForElapsed(clock.elapsed) })}
+                />
+              </ButtonRow>
             )}
           </>
         }
@@ -1015,29 +1013,32 @@ function ModifiedPlayScreen() {
                     : t('charades.play.noStealsLeft')}
                 </T>
                 <Spacer size={spacing.xs} />
-                <View style={styles.actingFooterGrid}>
-                  <Button
-                    label={t('charades.play.stealAward', { team: stealerName })}
-                    showArrow={false}
-                    disabled={!stealAllowed}
-                    style={{ flex: 2 }}
-                    onPress={() => setPending({ round, kind: 'steal', team: stealerIndex, points: STEAL_POINTS })}
-                  />
+                <ButtonRow>
                   <Button
                     label={t('charades.play.noSteal')}
                     tone="secondary"
                     showArrow={false}
-                    style={{ flex: 1 }}
                     onPress={() => setPending({ round, kind: 'skip', team: teamIndex, points: 0 })}
                   />
-                </View>
+                  <Button
+                    label={t('charades.play.stealAward', { team: stealerName })}
+                    showArrow={false}
+                    disabled={!stealAllowed}
+                    onPress={() => setPending({ round, kind: 'steal', team: stealerIndex, points: STEAL_POINTS })}
+                  />
+                </ButtonRow>
               </>
             ) : (
-              <View style={styles.actingFooterGrid}>
+              <ButtonRow>
+                <Button
+                  label={t('charades.play.skip')}
+                  tone="secondary"
+                  showArrow={false}
+                  onPress={() => setPending({ round, kind: 'skip', team: teamIndex, points: 0 })}
+                />
                 <Button
                   label={t('charades.play.award', { team: teamName })}
                   showArrow={false}
-                  style={{ flex: 2 }}
                   onPress={() =>
                     setPending({
                       round,
@@ -1047,14 +1048,7 @@ function ModifiedPlayScreen() {
                     })
                   }
                 />
-                <Button
-                  label={t('charades.play.skip')}
-                  tone="secondary"
-                  showArrow={false}
-                  style={{ flex: 1 }}
-                  onPress={() => setPending({ round, kind: 'skip', team: teamIndex, points: 0 })}
-                />
-              </View>
+              </ButtonRow>
             )}
           </>
         }
@@ -1185,7 +1179,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scoreHeaderRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.md },
+  scoreHeaderRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.md, alignSelf: 'stretch' },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.4 },
   categoryChipRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -1198,7 +1192,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     transform: [{ rotate: '-1.5deg' }],
   },
-  actingFooterGrid: { flexDirection: 'row', gap: spacing.sm },
   quitLink: { alignSelf: 'center', paddingVertical: spacing.sm },
   timerBlock: { gap: 6, paddingBottom: spacing.md, borderBottomWidth: 2, borderBottomColor: colors.ink },
   timerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },

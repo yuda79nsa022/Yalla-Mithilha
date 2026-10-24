@@ -4,7 +4,8 @@ import helmet from 'helmet';
 import multer from 'multer';
 import path from 'path';
 import { requireAdminSession } from './auth';
-import { TITLE_IMAGES_DIR } from './db';
+import { BRANDING_DIR, TITLE_IMAGES_DIR } from './db';
+import { adminBrandingRouter } from './routes/adminBranding';
 import { adminDecksRouter } from './routes/adminDecks';
 import { adminPlayersRouter } from './routes/adminPlayers';
 import { adminUsersRouter } from './routes/adminUsers';
@@ -55,6 +56,7 @@ export function createApp(): express.Express {
   app.use('/admin/users', requireAdminSession, adminUsersRouter);
   app.use('/admin/players', requireAdminSession, adminPlayersRouter);
   app.use('/admin', requireAdminSession, auditLogRouter);
+  app.use('/admin', requireAdminSession, adminBrandingRouter);
   app.use('/admin', requireAdminSession, adminDecksRouter);
 
   // The admin tool logs in at runtime and holds its session token in the
@@ -67,6 +69,8 @@ export function createApp(): express.Express {
   // since both the player app and the reveal page (opened by a plain camera
   // scan, no session at all) need to display them with no auth of their own.
   app.use('/title-images', express.static(TITLE_IMAGES_DIR));
+  // The admin-uploaded logo — public for the same reason: every page shows it.
+  app.use('/branding', express.static(BRANDING_DIR));
 
   // The player app is a client-side-routed single-page app: one JS bundle,
   // one index.html, every route (/home, /account, ...) rendered by
@@ -92,6 +96,7 @@ export function createApp(): express.Express {
       req.path.startsWith('/admin') ||
       req.path.startsWith('/players') ||
       req.path.startsWith('/title-images') ||
+      req.path.startsWith('/branding') ||
       req.path === '/health' ||
       !req.accepts('html')
     ) {

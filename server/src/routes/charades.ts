@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express';
-import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFilsForMode, getGameSession, getHomeContent, getPayment, getPlayerById, listGameSessionsForPlayer, listPaymentsForPlayer, listPublicDecks, setPaymentProviderRef, startGameSession } from '../db';
+import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFilsForMode, getGameSession, getHomeContent, getPayment, getPlayerById, listGameSessionsForPlayer, listPaymentsForPlayer, listPublicDecks, setPaymentProviderRef, startGameSession, getBranding } from '../db';
 import { isGameMode, type GameMode } from '../types';
 import { requirePlayerSession } from '../auth';
 import { handleError } from '../errors';
@@ -41,6 +41,11 @@ charadesRouter.get('/price', (req, res) => {
 /** Every deck a player can choose from when drafting a game — public, since drafting never requires being signed in. */
 charadesRouter.get('/decks', (_req, res) => {
   res.json(listPublicDecks());
+});
+
+/** The admin-set app name, logo and timezone — public, since every page (a guest's included) shows them. */
+charadesRouter.get('/branding', (_req, res) => {
+  res.json(getBranding());
 });
 
 /** The home screen's admin-editable tagline and write-up — public, since a guest sees the home screen before signing in. */
@@ -197,11 +202,11 @@ const GATEWAY_ID = /^[0-9]{1,30}$/;
  */
 charadesRouter.get('/checkout/myfatoorah/return', paymentGatewayLimiter, async (req, res) => {
   const gatewayPaymentId = typeof req.query.paymentId === 'string' ? req.query.paymentId : '';
-  let target = '/charades/checkout?result=error';
+  let target = `${PAYMENT_DONE_PATH}?result=error`;
   if (GATEWAY_ID.test(gatewayPaymentId)) {
     try {
       const { payment, outcome } = await settleFromProvider({ paymentId: gatewayPaymentId });
-      if (payment) target = `/charades/checkout?payment=${encodeURIComponent(payment.id)}&result=${outcome}`;
+      if (payment) target = `${PAYMENT_DONE_PATH}?payment=${encodeURIComponent(payment.id)}&result=${outcome}`;
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('payment return: gateway lookup failed', err);
@@ -209,6 +214,54 @@ charadesRouter.get('/checkout/myfatoorah/return', paymentGatewayLimiter, async (
   }
   res.redirect(303, target);
 });
+
+const PAYMENT_DONE_PATH = '/charades/checkout/myfatoorah/done';
+const PAYMENT_ID = /^[0-9a-f-]{1,64}$/i;
+const PAYMENT_RESULTS = new Set(['paid', 'pending', 'failed', 'error']);
+
+/**
+ * Where the return route lands. The app opens MyFatoorah in a popup, so this
+ * normally runs inside that popup: it hands the result to the game window
+ * (postMessage to its opener, plus a BroadcastChannel for browsers that cut
+ * the opener link on the way through the gateway) and closes itself. Opened
+ * any other way — popups blocked, so the whole tab went to the gateway — it
+ * just continues to the checkout screen. The result is only a hint either
+ * way: the app re-checks the payment with the server before believing it.
+ */
+charadesRouter.get('/checkout/myfatoorah/done', (req, res) => {
+  const payment = typeof req.query.payment === 'string' && PAYMENT_ID.test(req.query.payment) ? req.query.payment : null;
+  const result = typeof req.query.result === 'string' && PAYMENT_RESULTS.has(req.query.result) ? req.query.result : 'error';
+  const target = `/charades/checkout?${payment ? `payment=${encodeURIComponent(payment)}&` : ''}result=${result}`;
+  // Both values were checked against fixed patterns above; escaping `<` as
+  // well keeps the inline JSON inert whatever changes later.
+  const data = JSON.stringify({ type: 'myfatoorah-result', payment, result, target }).replace(/</g, '\\u003c');
+  const { appNameAr, appNameEn } = getBranding();
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(appNameEn)}</title>
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F3F2F2;color:#201E1D;font-family:system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
+.card{background:#fff;border:2px solid #201E1D;box-shadow:6px 6px 0 #201E1D;padding:24px;max-width:420px}
+a{display:inline-block;margin-top:16px;background:#8038D1;color:#fff;border:2px solid #201E1D;padding:10px 20px;font-weight:700;text-decoration:none}</style></head>
+<body><div class="card"><p id="msg">${escapeHtml(appNameAr)} — ${escapeHtml(appNameEn)}</p><p><a id="back" href="${target}">متابعة · Continue</a></p></div>
+<script>
+(function () {
+  var data = ${data};
+  var signalled = false;
+  try { if (window.opener && window.opener !== window) { window.opener.postMessage(data, location.origin); signalled = true; } } catch (e) {}
+  try { var bc = new BroadcastChannel('myfatoorah'); bc.postMessage(data); bc.close(); } catch (e) {}
+  var popup = signalled;
+  try { var since = Number(localStorage.getItem('myfatoorahPopup')); popup = popup || (since > 0 && Date.now() - since < 30 * 60 * 1000); } catch (e) {}
+  if (!popup) { location.replace(data.target); return; }
+  window.close();
+  document.getElementById('msg').textContent = 'تم — ارجع إلى نافذة اللعبة · Done — return to the game window';
+})();
+</script></body></html>`);
+});
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+}
 
 /**
  * MyFatoorah's server-to-server notification — a backup for a player who

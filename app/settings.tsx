@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Button, ConfirmModal, Divider, PageTitle, Screen, T } from '../src/ui/components';
+import { Button, ButtonRow, ConfirmModal, MenuItem, PageTitle, Screen, T } from '../src/ui/components';
 import { colors } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
@@ -15,25 +15,31 @@ export default function Settings() {
     setWiped(true);
   };
 
+  // Places to go are menu rows; the page's one action sits in the footer like every other page's.
   return (
-    <Screen scroll header={{}}>
+    <Screen
+      scroll
+      header={{}}
+      footer={
+        <ButtonRow>
+          <Button label={t('settings.reset')} tone="danger" showArrow={false} onPress={() => setConfirmingReset(true)} />
+        </ButtonRow>
+      }
+    >
       <PageTitle>{t('settings.title')}</PageTitle>
 
-      <Button
-        label={`${t('settings.language')} — ${prefs.lang === 'ar' ? 'العربية' : 'English'}`}
-        tone="secondary"
+      <MenuItem
+        label={t('settings.language')}
+        value={prefs.lang === 'ar' ? 'العربية' : 'English'}
         onPress={() => router.push('/language')}
       />
-
-      <Button
-        label={player ? t('account.loggedInAs', { username: player.username }) : t('account.title')}
-        tone="secondary"
+      <MenuItem
+        label={t('account.title')}
+        value={player ? player.username : undefined}
         onPress={() => router.push('/account')}
       />
+      <MenuItem label={t('home.about')} onPress={() => router.push('/privacy')} />
 
-      <Divider />
-      <Button label={t('home.about')} tone="secondary" onPress={() => router.push('/privacy')} />
-      <Button label={t('settings.reset')} tone="danger" showArrow={false} onPress={() => setConfirmingReset(true)} />
       {wiped ? (
         <T variant="label" color={colors.green}>
           {t('settings.resetDone')}

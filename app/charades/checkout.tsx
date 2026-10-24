@@ -1,11 +1,18 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Button, PageTitle, Screen, T, TextLink } from '../../src/ui/components';
+import { Button, ButtonRow, PageTitle, Screen, T, TextLink } from '../../src/ui/components';
 import { colors, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
-import { useTopUp } from '../../src/state/useTopUp';
+import { useTopUp, type PaymentNotice } from '../../src/state/useTopUp';
 import { formatKwd } from '../../src/services/walletApi';
+
+const NOTICE_KEY = {
+  paid: 'payment.starting',
+  pending: 'charades.checkout.paymentNotCompleted',
+  failed: 'charades.checkout.paymentFailed',
+  error: 'charades.checkout.paymentError',
+} as const satisfies Record<PaymentNotice, string>;
 
 export default function CharadesCheckout() {
   const {
@@ -22,8 +29,25 @@ export default function CharadesCheckout() {
     unlockCurrentCharades,
   } = useApp();
   const [starting, setStarting] = useState(false);
-  const { busy: toppingUp, notice: paymentNotice, topUp: topUpFor, simulateFailure: simulateFailureFor, returnedPaymentId, returnedResult } =
-    useTopUp();
+
+  const start = async () => {
+    setStarting(true);
+    const unlocked = await unlockCurrentCharades();
+    setStarting(false);
+    if (unlocked) router.push('/charades/play');
+  };
+
+  // The game only ever starts once the server says MyFatoorah was paid.
+  const {
+    busy: toppingUp,
+    waiting,
+    notice: paymentNotice,
+    topUp: topUpFor,
+    cancelWaiting,
+    simulateFailure: simulateFailureFor,
+    returnedPaymentId,
+    returnedResult,
+  } = useTopUp({ onPaid: () => void start() });
 
   useEffect(() => {
     if (player) void refreshWallet();
@@ -62,22 +86,31 @@ export default function CharadesCheckout() {
   const hasFreeGame = freeGameCredits > 0;
   const canStart = hasFreeGame || walletBalance >= 1;
 
-  const topUp = () => topUpFor(mode);
-  const simulateFailure = () => simulateFailureFor(mode);
-
-  const start = async () => {
-    setStarting(true);
-    const unlocked = await unlockCurrentCharades();
-    setStarting(false);
-    if (unlocked) router.push('/charades/play');
-  };
+  // One action, always in the same place: start when there's a game to
+  // spend, otherwise pay for one (MyFatoorah opens in a popup, and the game
+  // starts by itself once the payment is confirmed).
+  const footer = waiting ? (
+    <ButtonRow>
+      <Button label={t('payment.cancel')} tone="secondary" showArrow={false} onPress={cancelWaiting} />
+      <Button label={t('charades.checkout.price', { price: formatKwd(priceFils) })} busy onPress={() => undefined} />
+    </ButtonRow>
+  ) : canStart ? (
+    <ButtonRow>
+      <Button label={t('charades.checkout.start')} busy={starting} onPress={start} />
+    </ButtonRow>
+  ) : (
+    <ButtonRow>
+      <Button
+        label={t('charades.checkout.price', { price: formatKwd(priceFils) })}
+        disabled={priceFils <= 0}
+        busy={toppingUp || walletBusy || starting}
+        onPress={() => void topUpFor(mode)}
+      />
+    </ButtonRow>
+  );
 
   return (
-    <Screen
-      scroll
-      header={{}}
-      footer={<Button label={t('charades.checkout.start')} disabled={!canStart} busy={starting} onPress={start} />}
-    >
+    <Screen scroll header={{}} footer={footer}>
       <PageTitle>{t('charades.checkout.title')}</PageTitle>
       <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
         {t('charades.checkout.subtitle')}
@@ -96,24 +129,19 @@ export default function CharadesCheckout() {
         </T>
       ) : null}
 
-      <Button
-        label={t('charades.checkout.price', { price: formatKwd(priceFils) })}
-        tone="secondary"
-        busy={toppingUp || walletBusy}
-        onPress={topUp}
-      />
+      {!canStart && !waiting ? (
+        <T variant="label" color={colors.neutral700}>
+          {t('charades.checkout.payToPlay')}
+        </T>
+      ) : null}
 
-      {paymentNotice ? (
+      {waiting ? (
+        <T variant="label" color={colors.purple}>
+          {t('payment.waiting')}
+        </T>
+      ) : paymentNotice ? (
         <T variant="label" color={paymentNotice === 'paid' ? colors.purple : colors.red}>
-          {t(
-            paymentNotice === 'paid'
-              ? 'charades.checkout.paymentReceived'
-              : paymentNotice === 'pending'
-                ? 'charades.checkout.paymentNotCompleted'
-                : paymentNotice === 'failed'
-                  ? 'charades.checkout.paymentFailed'
-                  : 'charades.checkout.paymentError'
-          )}
+          {t(NOTICE_KEY[paymentNotice])}
         </T>
       ) : null}
 
@@ -128,10 +156,11 @@ export default function CharadesCheckout() {
           <T variant="label" color={colors.neutral700}>
             {t('charades.checkout.devNotice')}
           </T>
-          <Button label={t('charades.checkout.simulateFailure')} tone="ghost" showArrow={false} onPress={simulateFailure} />
+          <ButtonRow>
+            <Button label={t('charades.checkout.simulateFailure')} tone="ghost" showArrow={false} onPress={() => void simulateFailureFor(mode)} />
+          </ButtonRow>
         </>
       ) : null}
-
     </Screen>
   );
 }

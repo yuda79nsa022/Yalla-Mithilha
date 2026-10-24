@@ -268,6 +268,35 @@ that calls the settings route below. The player app fetches
 strings if the fetch fails or hasn't completed yet — see `homeContent` in
 `src/state/AppProvider.tsx`.
 
+## Branding
+
+The app's name (in both languages), its logo and its timezone are admin
+settings too — Settings → Branding in the admin tool, stored in the same
+single `settings` row (`app_name_ar`/`app_name_en`/`logo_path`/`timezone`).
+Both portals read them: the player app fetches `GET /charades/branding` on
+startup (falling back to its bundled name and built-in cube logo until then)
+and uses them in its header, home hero, copyright line and browser tab; the
+admin tool uses the same values in its own header and footer. Every date
+either portal shows is formatted in that timezone (default `Asia/Kuwait`),
+not the viewer's device's. An uploaded logo (`.png`/`.jpg`/`.webp`, 2 MB
+max — no SVG, since it's served from this same origin) is written to
+`DATA_DIR/branding/` and served publicly at `/branding/*`; replacing or
+removing it deletes the old file.
+
+## Admin lists: search, sort, pages
+
+Decks, players, admins and the audit log all take `?q=&page=&pageSize=&sort=
+&dir=` and answer `{ items, total, page, pageSize }` (`pagedList` in
+`src/db.ts`, `parseListQuery` in `src/validate.ts`). `q` is a plain-text,
+case-insensitive substring match (`%` and `_` are literal) over each list's
+own columns — deck id and both names; player username and email; admin
+username; audit actor, action, target and the before/after snapshots.
+`sort` must be one of that list's keys (`DECK_SORTS`, `PLAYER_SORTS`,
+`ADMIN_SORTS`, `AUDIT_SORTS`), so no caller-supplied text ever names a
+column; `pageSize` is 1–100 (default 20). A request without `page` gets the
+old unpaged array, unchanged, for any caller that predates paging. A paged
+deck carries a `titleCount` instead of its full title list.
+
 ## Audit log
 
 Every sensitive admin action — deck create/update/delete, title import/
@@ -350,6 +379,15 @@ own errors rather than throwing.
   must belong to the caller. Re-fetches a previously dealt session.
 - `GET /admin/audit-log` — bearer-token protected. Read-only; see "Audit
   log" above.
+- `GET /charades/branding` — public. `{ appNameAr, appNameEn, logoPath,
+  timezone }` — see "Branding" above.
+- `GET/PUT /admin/settings/branding` — bearer-token protected. `PUT` takes
+  any subset of `{ appNameAr, appNameEn, timezone }` (names 1–60 characters,
+  timezone an IANA name the server's `Intl` knows).
+- `PUT /admin/settings/branding/logo` — multipart: a `logo` file, or
+  `removeLogo: 'true'` to go back to the built-in logo.
+- `GET /admin/decks`, `/admin/players`, `/admin/users`, `/admin/audit-log`
+  with `?page=` — searched, sorted and paged; see "Admin lists" above.
 
 ## App integration
 
@@ -394,6 +432,27 @@ reveal page has no API access of its own to fetch it separately) and
 renders above the title; the round-end "answer reveal" screen everyone sees
 on the shared
 screen shows the same picture, since the round is already over by then.
+
+### Paying in a popup
+
+On the web, tapping "One game — 1.500 KD" (checkout) or "Pay" (Buy more)
+opens MyFatoorah's page in a popup over the game rather than navigating the
+whole tab away (`src/state/useTopUp.ts` in the main project). The popup is
+opened synchronously inside the tap, before the checkout request, so
+browsers don't block it; the invoice URL is loaded into it once the server
+returns one. MyFatoorah sends the popup back to
+`/charades/checkout/myfatoorah/return` exactly as before, which settles the
+payment with MyFatoorah and redirects to `/charades/checkout/myfatoorah/
+done`: a tiny page that posts the (unverified) result to the game window —
+`postMessage` to its opener, plus a `BroadcastChannel('myfatoorah')` in case
+the browser cut the opener link on the way through the gateway — and closes
+itself. The game window treats that only as a nudge to ask the server
+(`POST /charades/checkout/:id/refresh`), and also asks every 10 seconds
+while the popup is open. Only a server-confirmed "paid" lets the game start
+— the checkout screen then starts it by itself. If popups are blocked the
+whole tab goes to MyFatoorah instead and the done page simply continues to
+the checkout screen, which re-checks the payment the same way. Native
+builds open the device browser and check on returning to the app.
 
 ## Deployment
 

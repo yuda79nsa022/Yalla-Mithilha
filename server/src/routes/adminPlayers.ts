@@ -1,14 +1,19 @@
 import { Router } from 'express';
-import { deletePlayer, getPlayerById, listPlayers, recordAudit, updatePlayer } from '../db';
+import { PLAYER_SORTS, deletePlayer, getPlayerById, listPlayers, recordAudit, searchPlayers, updatePlayer } from '../db';
 import { hashPassword } from '../auth';
 import { handleError } from '../errors';
-import { parseUpdatePlayerBody } from '../validate';
+import { parseListQuery, parseUpdatePlayerBody } from '../validate';
 
 export const adminPlayersRouter = Router();
 
-/** Real player accounts (as opposed to guest play) — admin can list, rename, reset password, and remove. */
-adminPlayersRouter.get('/', (_req, res) => {
-  res.json(listPlayers());
+/** Real player accounts (as opposed to guest play) — admin can list, rename, reset password, and remove. `?page=` searches, sorts and pages (see parseListQuery). */
+adminPlayersRouter.get('/', (req, res) => {
+  try {
+    const query = parseListQuery(req.query, Object.keys(PLAYER_SORTS), 'asc');
+    res.json(query ? searchPlayers(query) : listPlayers());
+  } catch (err) {
+    handleError(err, res);
+  }
 });
 
 adminPlayersRouter.put('/:id', async (req, res) => {

@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
-import { Button, CategoryTile, PageTitle, Screen, T } from '../../src/ui/components';
+import { Button, ButtonRow, CategoryTile, PageTitle, Screen, T } from '../../src/ui/components';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import type { GameMode } from '../../src/engine/game';
@@ -227,7 +227,9 @@ export default function CharadesDraft() {
           <T variant="label" color={colors.red}>
             {t('charades.draft.decksError')}
           </T>
-          <Button label={t('charades.draft.decksRetry')} tone="secondary" showArrow={false} onPress={loadDecks} />
+          <ButtonRow>
+            <Button label={t('charades.draft.decksRetry')} tone="secondary" showArrow={false} onPress={loadDecks} />
+          </ButtonRow>
         </>
       ) : decks === null ? (
         <T variant="label" color={colors.neutral700}>

@@ -3,120 +3,200 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bas Bedoon Kalam — Charades Admin</title>
+<title>Bas Bedoon Kalam — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Noto+Kufi+Arabic:wght@400;500;700;900&display=swap" />
 <style>
-  /* Same tokens and rules as the player app (src/ui/theme.ts):
-     - one centred column, so nothing runs edge to edge on a wide window
-     - buttons: primary = purple, secondary = outlined, danger = red outline;
-       every button has the ink border + hard shadow, and they are all the
-       same height (small ones only inside table rows)
-     - actions live in a bar at the bottom of each card: secondary / danger on
-       the start side, the card's one primary on the end side */
+  /* The player app's own design system (src/ui/theme.ts + components), so
+     both portals look like one product:
+     - same tokens: ink rules, square corners, hard offset shadows, purple primary
+     - same header: logo + app name on the start side, the sections as
+       icon + label tabs (active = solid purple), the account and a red
+       log-out icon on the end side; same one-line copyright footer
+     - same buttons: 56px tall, 17px bold label; primary purple with the ink
+       shadow, secondary outlined, danger red outline. Small ones only inside
+       table and title rows.
+     - same placement rule: every card's actions sit in its bottom bar on the
+       end side (bottom-right — this tool is English), primary outermost,
+       secondary/danger beside it. Dialogs too. */
   :root {
     color-scheme: light;
     --ink: #201E1D; --ground: #F3F2F2; --white: #FFFFFF;
-    --purple: #8038D1; --purple700: #6928B0; --red: #EC3013;
-    --muted-bg: #E4E2E2; --muted: #5B5654;
-    --column: 960px;
+    --purple: #8038D1; --purple700: #6928B0; --purpleTop: #A473EE; --purpleSide: #591F97;
+    --green: #6FDB55; --red: #EC3013;
+    --muted-bg: #E4E2E2; --muted-text: #8A8583; --neutral700: #5B5654;
+    --overlay: rgba(32, 30, 29, 0.72);
+    --column: 1100px;
+    --font: 'Noto Kufi Arabic', system-ui, sans-serif;
+    --display: 'Archivo', system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; margin: 0; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 1.45; }
-
-  /* ---- header: same column as the page */
-  header { background: var(--ink); color: var(--white); }
-  .bar { max-width: var(--column); margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  header h1 { font-size: 18px; margin: 0; letter-spacing: 0.2px; }
-  nav { display: flex; gap: 8px; flex-wrap: wrap; }
-  nav button { background: transparent; color: var(--white); border-color: rgba(255,255,255,0.4); box-shadow: none; min-height: 36px; padding: 4px 14px; }
-  nav button:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
-  nav button.active { background: var(--purple); border-color: var(--purple); }
-  .headerRight { display: flex; align-items: center; gap: 12px; font-size: 13px; color: rgba(255,255,255,0.85); }
-  .headerRight button { background: transparent; color: var(--white); border-color: rgba(255,255,255,0.5); box-shadow: none; min-height: 36px; padding: 4px 14px; }
-
-  main { max-width: var(--column); margin: 24px auto; padding: 0 16px 64px; }
-
-  /* ---- cards and page headings */
-  .card { background: var(--white); border: 2px solid var(--ink); padding: 20px; margin-bottom: 20px; }
-  .card h2 { font-size: 24px; line-height: 1.25; margin: 0 0 4px; }
-  .card h3 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; }
-  .gate { max-width: 420px; margin: 48px auto; }
-
-  /* ---- tables */
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--muted-bg); font-size: 14px; vertical-align: middle; }
-  th { color: var(--muted); font-weight: 600; }
-  td.rowActions { white-space: nowrap; text-align: right; }
-  td.rowActions button { margin-left: 6px; }
-
-  /* ---- buttons: one look. Primary purple, secondary outlined, danger red outline. */
-  button {
-    cursor: pointer; font: inherit; font-size: 15px; font-weight: 700;
-    min-height: 44px; padding: 8px 20px; border-radius: 0;
-    border: 2px solid var(--ink); background: var(--purple); color: var(--white);
-    box-shadow: 4px 4px 0 var(--ink);
-    transition: transform 60ms, box-shadow 60ms;
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font); font-weight: 500; background: var(--ground); color: var(--ink);
+    font-size: 15px; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column;
   }
-  button:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
-  button.secondary { background: var(--white); color: var(--ink); border-color: var(--ink); }
-  button.danger { background: var(--white); color: var(--red); border-color: var(--red); box-shadow: 4px 4px 0 var(--red); }
-  button.link { background: none; border: none; box-shadow: none; min-height: 0; padding: 0; color: var(--muted); font-weight: 400; text-decoration: underline; }
-  /* Small buttons: only for the Open / Rename / Delete controls inside table and title rows. */
-  button.sm { min-height: 32px; padding: 3px 12px; font-size: 13px; box-shadow: 3px 3px 0 var(--ink); }
-  button.sm.danger { box-shadow: 3px 3px 0 var(--red); }
-  button:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
-
-  /* ---- the action bar at the bottom of a card (and the top-right "New deck" bar) */
-  .actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 16px; }
-  .actions .start { margin-right: auto; display: flex; gap: 12px; flex-wrap: wrap; }   /* secondary / danger side */
-  .inlineActions { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 4px; }
-
-  /* ---- forms */
-  input, select, textarea { font: inherit; padding: 8px 10px; border: 2px solid var(--ink); border-radius: 0; width: 100%; background: var(--white); min-height: 40px; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); box-shadow: 3px 3px 0 var(--purple); }
-  input[type="file"] { padding: 6px 8px; }
-  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
-  .field { margin-bottom: 12px; }
-  .row { display: flex; gap: 12px; }
-  .row > * { flex: 1; min-width: 0; }
-  .row > .noGrow { flex: 0 0 auto; }
-  .headRow { display: flex; gap: 12px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
-  .headRow > :first-child { flex: 1; min-width: 220px; }
-  [dir="rtl"] { text-align: right; }
-  .muted { color: var(--muted); font-size: 13px; }
-  .error { color: var(--red); }
   .hidden { display: none !important; }
-  a.back { color: var(--purple700); text-decoration: underline; font-size: 14px; cursor: pointer; display: inline-block; margin-bottom: 12px; }
-  p.muted { margin: 4px 0 12px; }
-  p.muted:empty { margin: 0; }
+
+  /* ---- header: the player app's site bar */
+  header.site .bar { max-width: var(--column); margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--purple); min-width: 0; }
+  .brand img { height: 36px; width: auto; max-width: 120px; object-fit: contain; }
+  .brandName { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+  .brandTag { font-family: var(--display); font-size: 11px; letter-spacing: 1.5px; color: var(--white); background: var(--ink); padding: 2px 8px; transform: rotate(-2deg); }
+  .cubeWrap { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; perspective: 800px; }
+  .cube { width: 24px; height: 24px; position: relative; transform-style: preserve-3d; transform: rotateX(-22deg) rotateY(-32deg); }
+  .cube span { position: absolute; inset: 0; }
+  .cube .front { background: var(--purple); transform: translateZ(12px); }
+  .cube .front::before { content: ''; position: absolute; left: 22%; right: 22%; top: 36%; height: 2px; background: var(--white); box-shadow: 0 0 0 0 transparent; }
+  .cube .front::after { content: ''; position: absolute; left: 18%; right: 18%; bottom: 24%; height: 3px; background: var(--ink); }
+  .cube .side { background: var(--purpleSide); transform: rotateY(90deg) translateZ(12px); }
+  .cube .top { background: var(--purpleTop); transform: rotateX(90deg) translateZ(12px); }
+
+  nav#mainNav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .navTab {
+    display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px;
+    border: 2px solid transparent; background: transparent; color: var(--ink);
+    font: inherit; font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+  .navTab:hover { border-color: var(--ink); }
+  .navTab.active { background: var(--purple); border-color: var(--purple); color: var(--white); }
+  .navTab svg, .iconBtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+  .account { display: flex; align-items: center; gap: 12px; }
+  .chip { border: 2px solid var(--ink); padding: 5px 12px; font-weight: 700; font-size: 13px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .iconBtn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid transparent; background: transparent; cursor: pointer; color: var(--red); padding: 0; }
+  .iconBtn:hover { border-color: var(--red); }
+
+  /* ---- footer: the player app's copyright line */
+  footer.site { margin-top: auto; padding: 8px 20px 12px; text-align: center; font-size: 11px; color: var(--muted-text); }
+
+  main { width: 100%; max-width: var(--column); margin: 8px auto 0; padding: 0 20px 48px; }
+
+  /* ---- page title + cards */
+  .pageHead { margin: 16px 0 20px; }
+  .pageHead h1 { font-size: 30px; line-height: 38px; font-weight: 900; margin: 0; }
+  .pageHead p { margin: 4px 0 0; color: var(--neutral700); font-size: 14px; }
+  .card { background: var(--white); border: 2px solid var(--ink); padding: 24px; margin-bottom: 24px; }
+  .card h2 { font-size: 22px; line-height: 30px; font-weight: 700; margin: 0 0 4px; }
+  .card > p.lead { margin: 0 0 16px; color: var(--neutral700); font-size: 14px; }
+  .gate { max-width: 480px; margin: 48px auto; }
+  a.back { color: var(--purple700); font-weight: 700; font-size: 14px; cursor: pointer; display: inline-block; margin: 16px 0 0; border-bottom: 2px solid var(--purple700); text-decoration: none; }
+
+  /* ---- buttons: one look, the player app's */
+  .btn {
+    cursor: pointer; font: inherit; font-weight: 700; font-size: 17px; line-height: 1.2;
+    min-height: 56px; min-width: 128px; padding: 12px 24px; border-radius: 0;
+    border: 2px solid var(--ink); background: var(--purple); color: var(--white);
+    box-shadow: 6px 6px 0 var(--ink); transition: transform 60ms, box-shadow 60ms;
+  }
+  .btn:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 3px 3px 0 var(--ink); }
+  .btn.secondary { background: transparent; color: var(--ink); box-shadow: none; }
+  .btn.danger { background: transparent; color: var(--red); border-color: var(--red); box-shadow: none; }
+  .btn.secondary:hover:not(:disabled) { background: var(--muted-bg); }
+  .btn.danger:hover:not(:disabled) { background: #FDEBE8; }
+  .btn:disabled { background: var(--muted-bg); color: var(--muted-text); border-color: var(--muted-text); box-shadow: none; cursor: default; }
+  /* Small: only the per-row controls inside a table or the title list. */
+  .btn.sm { min-height: 36px; min-width: 0; padding: 4px 12px; font-size: 14px; box-shadow: 3px 3px 0 var(--ink); }
+  .btn.sm.secondary, .btn.sm.danger { box-shadow: none; }
+
+  /* ---- the action bar: bottom of every card and dialog, end side (right) */
+  .actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--muted-bg); }
+  .actions.withPager { justify-content: space-between; }
+  .actions .end { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+  .result { margin: 12px 0 0; font-size: 14px; font-weight: 700; color: var(--purple); }
+  .result.error { color: var(--red); }
+  .result:empty { display: none; }
+
+  /* ---- fields: the player app's Field */
+  label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  input, select, textarea {
+    font: inherit; font-size: 16px; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 0;
+    width: 100%; background: var(--white); color: var(--ink); min-height: 56px;
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  input[type="file"] { min-height: 0; padding: 12px; font-size: 14px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); box-shadow: 3px 3px 0 var(--purple); }
+  .field { margin-bottom: 16px; }
+  .hint { margin: 6px 0 0; font-size: 12px; color: var(--neutral700); }
+  .row { display: flex; gap: 16px; }
+  .row > * { flex: 1; min-width: 0; }
+  [dir="rtl"] { text-align: right; }
+  .imageField { display: flex; align-items: center; gap: 12px; }
+  .imageField img { width: 56px; height: 56px; object-fit: contain; background: var(--muted-bg); border: 2px solid var(--ink); flex: 0 0 auto; }
+
+  /* ---- list toolbar, table, pager */
+  .toolbar { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar .search { flex: 1; min-width: 220px; }
+  .toolbar .size { width: 140px; }
+  .tableWrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--muted-bg); font-size: 14px; vertical-align: middle; }
+  th { font-size: 13px; color: var(--neutral700); font-weight: 700; white-space: nowrap; border-bottom-color: var(--ink); }
+  th button.sort { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  th button.sort:hover { color: var(--purple700); }
+  th button.sort .arrow { font-size: 11px; color: var(--muted-text); }
+  th button.sort.on { color: var(--ink); }
+  th button.sort.on .arrow { color: var(--purple); }
+  td.rowActions { white-space: nowrap; text-align: right; }
+  td.rowActions .btn { margin-left: 8px; }
+  td.muted, .muted { color: var(--neutral700); }
+  td.empty { text-align: center; color: var(--neutral700); padding: 24px; }
+  .pager { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--neutral700); flex-wrap: wrap; }
+  .pager .btn.sm { min-width: 44px; }
+  .badge { display: inline-block; border: 2px solid var(--ink); padding: 0 8px; font-size: 12px; font-weight: 700; }
+  .badge.en { border-color: var(--purple); color: var(--purple); }
 
   /* ---- a title's row in the deck editor */
-  .titleRow { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--muted-bg); flex-wrap: wrap; }
+  .titleRow { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 2px solid var(--muted-bg); flex-wrap: wrap; }
   .titleRow img { width: 40px; height: 40px; object-fit: cover; background: var(--muted-bg); flex: 0 0 auto; }
-  .titleRow input[data-title-text] { flex: 1; min-width: 160px; }
-  .titleRow select { width: 130px; font-size: 13px; }
-  .titleRow input[type="file"] { width: 170px; font-size: 12px; }
+  .titleRow input[data-title-text] { flex: 1; min-width: 160px; min-height: 40px; padding: 6px 10px; }
+  .titleRow select { width: 140px; min-height: 40px; padding: 6px 10px; font-size: 14px; }
+  .titleRow input[type="file"] { width: 190px; font-size: 12px; padding: 6px; }
+  .titleRow .rowEnd { display: flex; gap: 8px; margin-left: auto; }
+  #titleRows { max-height: 560px; overflow-y: auto; }
 
-  @media (max-width: 700px) {
-    .row { flex-direction: column; }
+  /* ---- dialog: the player app's ConfirmModal */
+  .backdrop { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 50; }
+  .dialog { background: var(--white); border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); padding: 24px; width: 100%; max-width: 512px; }
+  .dialog h2 { font-size: 22px; line-height: 30px; margin: 0 0 8px; font-weight: 700; }
+  .dialog p { margin: 0 0 16px; color: var(--neutral700); }
+
+  /* ---- toast */
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--white); padding: 10px 18px; font-weight: 700; font-size: 14px; z-index: 60; border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--purple); max-width: calc(100% - 32px); }
+  .toast.error { background: var(--red); box-shadow: 4px 4px 0 var(--ink); }
+
+  @media (max-width: 760px) {
+    .navTab .label, .brandName { display: none; }
+    header.site .bar { padding: 10px 16px; row-gap: 8px; }
+    /* Phone: logo and account on the first line, the sections as one full-width row under them. */
+    nav#mainNav { order: 3; width: 100%; justify-content: space-between; }
+    main { padding: 0 16px 32px; }
+    .row { flex-direction: column; gap: 0; }
     .card { padding: 16px; }
-    td.rowActions { white-space: normal; }
+    .pageHead h1 { font-size: 24px; line-height: 30px; }
   }
 </style>
 </head>
 <body>
 
-<header>
+<header class="site">
  <div class="bar">
-  <h1>Charades Admin</h1>
-  <nav id="mainNav" class="hidden">
-    <button id="navDecks" class="active">Decks</button>
-    <button id="navPlayers">Players</button>
-    <button id="navAdmins">Admins</button>
-    <button id="navAuditLog">Audit log</button>
+  <a class="brand" id="brandHome" href="#">
+    <span id="brandMark" class="cubeWrap"><span class="cube"><span class="front"></span><span class="side"></span><span class="top"></span></span></span>
+    <span class="brandName" id="brandName">Bas Bedoon Kalam</span>
+    <span class="brandTag">ADMIN</span>
+  </a>
+  <nav id="mainNav" class="hidden" aria-label="Sections">
+    <button class="navTab" data-tab="decks"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="14"/><path d="M7 3h14v14"/></svg><span class="label">Decks</span></button>
+    <button class="navTab" data-tab="players"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><span class="label">Players</span></button>
+    <button class="navTab" data-tab="admins"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span class="label">Admins</span></button>
+    <button class="navTab" data-tab="auditLog"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg><span class="label">Audit log</span></button>
+    <button class="navTab" data-tab="settings"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span class="label">Settings</span></button>
   </nav>
-  <div class="headerRight">
-    <span id="whoami"></span>
-    <button id="logoutBtn" class="hidden secondary">Log out</button>
+  <div class="account hidden" id="accountBox">
+    <span class="chip" id="whoami"></span>
+    <button class="iconBtn" id="logoutBtn" title="Log out" aria-label="Log out"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
   </div>
  </div>
 </header>
@@ -124,203 +204,197 @@
 <main>
   <div id="gate" class="card gate">
     <h2>Sign in</h2>
-    <div class="field">
-      <label for="usernameInput">Username</label>
-      <input id="usernameInput" type="text" autocomplete="username" />
-    </div>
-    <div class="field">
-      <label for="passwordInput">Password</label>
-      <input id="passwordInput" type="password" autocomplete="current-password" />
-    </div>
-    <p id="gateError" class="muted error hidden"></p>
-    <div class="actions"><button id="signInBtn">Sign in</button></div>
-    <p class="muted">No account yet? Ask another admin to add one, or run <code>npm run create-admin</code> on the server.</p>
+    <p class="lead">Admin accounts only. No account yet? Ask another admin to add one, or run <code>npm run create-admin</code> on the server.</p>
+    <div class="field"><label for="usernameInput">Username</label><input id="usernameInput" type="text" autocomplete="username" /></div>
+    <div class="field"><label for="passwordInput">Password</label><input id="passwordInput" type="password" autocomplete="current-password" /></div>
+    <p id="gateError" class="result error"></p>
+    <div class="actions"><button class="btn" id="signInBtn">Sign in</button></div>
   </div>
 
   <div id="app" class="hidden">
 
-    <div id="decksSection">
+    <section id="decksSection">
       <div id="deckListView">
-        <div class="card">
-          <div class="headRow">
-            <div>
-              <h2>Decks</h2>
-              <p class="muted" style="margin:0">Charades decks — a pool of titles to act out. Any deck with at least one title is playable.</p>
-            </div>
-            <button id="newDeckBtn">+ New deck</button>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Game prices</h3>
-          <p class="muted">What one game costs a player, deducted from their wallet once they start playing — set separately for each game mode.</p>
-          <div class="row">
-            <div class="field"><label>Lite price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
-            <div class="field"><label>Pro price (KD)</label><input id="modifiedGamePriceInput" type="number" step="0.001" min="0.001" /></div>
-          </div>
-          <p id="gamePriceResult" class="muted"></p>
-          <p id="modifiedGamePriceResult" class="muted"></p>
-          <div class="actions"><button id="savePricesBtn">Save prices</button></div>
-        </div>
-        <div class="card">
-          <h3>Home page content</h3>
-          <p class="muted">The tagline and explanatory paragraph shown on the player app's home screen, in both languages.</p>
-          <div class="row">
-            <div class="field"><label>Tagline (English)</label><input id="homeTaglineEn" /></div>
-            <div class="field"><label>Tagline (Arabic)</label><input id="homeTaglineAr" dir="rtl" /></div>
-          </div>
-          <div class="row">
-            <div class="field"><label>Write-up (English)</label><textarea id="homeWriteupEn" rows="4"></textarea></div>
-            <div class="field"><label>Write-up (Arabic)</label><textarea id="homeWriteupAr" dir="rtl" rows="4"></textarea></div>
-          </div>
-          <p id="homeContentResult" class="muted"></p>
-          <div class="actions"><button id="saveHomeContentBtn">Save home content</button></div>
-        </div>
-        <div class="card">
-          <table>
-            <thead>
-              <tr><th>ID</th><th>Name</th><th>Language</th><th>Difficulty</th><th>Titles</th><th></th></tr>
-            </thead>
-            <tbody id="deckRows"></tbody>
-          </table>
-        </div>
+        <div class="pageHead"><h1>Decks</h1><p>A pool of titles to act out. Any deck with at least one title is playable.</p></div>
+        <div class="card" id="decksList"></div>
       </div>
 
       <div id="deckEditView" class="hidden">
-        <a class="back" id="deckBackLink">&larr; Back to decks</a>
+        <a class="back" id="deckBackLink">&larr; All decks</a>
+        <div class="pageHead"><h1 id="deckEditTitle"></h1></div>
         <div class="card">
-          <h2 id="deckEditTitle"></h2>
+          <h2>Deck details</h2>
           <div class="row">
-            <div class="field"><label>id</label><input id="dId" disabled /></div>
+            <div class="field"><label for="dId">ID</label><input id="dId" /><p class="hint">Lower-case letters, numbers and dashes. Can't be changed later.</p></div>
           </div>
           <div class="row">
-            <div class="field"><label>Name (Arabic)</label><input id="dNameAr" dir="rtl" /></div>
-            <div class="field"><label>Name (English)</label><input id="dNameEn" /></div>
+            <div class="field"><label for="dNameEn">Name (English)</label><input id="dNameEn" /></div>
+            <div class="field"><label for="dNameAr">Name (Arabic)</label><input id="dNameAr" dir="rtl" /></div>
           </div>
           <div class="row">
             <div class="field">
-              <label>Language</label>
+              <label for="dLanguage">Language</label>
               <select id="dLanguage">
                 <option value="ar">Arabic — Kuwaiti, Khaleeji, Egyptian content</option>
                 <option value="en">English — Hollywood, American content</option>
               </select>
             </div>
             <div class="field">
-              <label>Difficulty (default for every title in this deck — Pro mode only)</label>
+              <label for="dDifficulty">Difficulty (default for every title — Pro mode only)</label>
               <select id="dDifficulty">
                 <option value="easy">Easy — 1 point (everyday words, things everyone knows)</option>
                 <option value="medium">Medium — 3 points (recent series and films)</option>
                 <option value="hard">Hard — 5 points (classics, long or obscure titles)</option>
               </select>
-              <p class="muted" style="margin:6px 0 0">A title over four words is bumped one level up automatically. A single title can override this via its own edit form, or an "easy / medium / hard" column when importing.</p>
+              <p class="hint">A title over four words is bumped one level up automatically. A single title can override this below, or with an "easy / medium / hard" column when importing.</p>
             </div>
           </div>
-          <div class="row">
-            <div class="field">
-              <label>Deck picture (shown next to this deck on the player's deck picker)</label>
-              <div style="display:flex;align-items:center;gap:10px">
-                <img id="deckImagePreview" src="" alt="" style="width:56px;height:56px;object-fit:cover;background:#E4E2E2;flex:0 0 auto;visibility:hidden" />
-                <input id="deckImageFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
-              </div>
+          <div class="field" id="deckImageField">
+            <label for="deckImageFile">Deck picture (shown next to this deck on the player's deck picker)</label>
+            <div class="imageField">
+              <img id="deckImagePreview" alt="" />
+              <input id="deckImageFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
             </div>
           </div>
-          <div class="inlineActions">
-            <button id="uploadDeckImageBtn" class="secondary">Upload picture</button>
-            <button id="removeDeckImageBtn" class="secondary hidden">Remove picture</button>
-          </div>
-          <p id="deckImageResult" class="muted"></p>
+          <p id="deckResult" class="result"></p>
           <div class="actions">
-            <div class="start"><button class="danger" id="deleteDeckBtn">Delete deck</button></div>
-            <button id="saveDeckBtn">Save deck</button>
+            <button class="btn danger" id="deleteDeckBtn">Delete deck</button>
+            <button class="btn secondary" id="removeDeckImageBtn">Remove picture</button>
+            <button class="btn secondary" id="cancelDeckBtn">Cancel</button>
+            <button class="btn" id="saveDeckBtn">Save deck</button>
           </div>
         </div>
 
-        <div class="card">
-          <h3>Add a title</h3>
-          <p class="muted">Add one title by hand, with an optional picture — quicker than building a whole import file for a single addition.</p>
-          <div class="row">
-            <div class="field"><label>Title</label><input id="newTitleText" dir="rtl" /></div>
-            <div class="field"><label>Picture (optional)</label><input id="newTitleImage" type="file" accept=".png,.jpg,.jpeg,.webp" /></div>
+        <div id="deckContent">
+          <div class="card">
+            <h2>Add a title</h2>
+            <p class="lead">One title by hand, with an optional picture — quicker than an import file for a single addition.</p>
+            <div class="row">
+              <div class="field"><label for="newTitleText">Title</label><input id="newTitleText" dir="rtl" /></div>
+              <div class="field"><label for="newTitleImage">Picture (optional)</label><input id="newTitleImage" type="file" accept=".png,.jpg,.jpeg,.webp" /></div>
+            </div>
+            <p id="addTitleResult" class="result"></p>
+            <div class="actions"><button class="btn" id="addTitleBtn">Add title</button></div>
           </div>
-          <p id="addTitleResult" class="muted"></p>
-          <div class="actions"><button id="addTitleBtn">Add title</button></div>
-        </div>
 
-        <div class="card">
-          <h3>Import titles</h3>
-          <p class="muted">Upload a .docx, .xlsx or .pdf list of names — every non-duplicate title is added to this deck directly. No size limit, so the whole list goes in at once. In a .docx or .xlsx table, a cell that reads "easy"/"medium"/"hard" (or "سهل"/"متوسط"/"صعب") sets that row's own difficulty, overriding the deck's default for that one title.</p>
-          <input id="importFile" type="file" accept=".docx,.xlsx,.pdf" />
-          <p id="importResult" class="muted"></p>
-          <div class="actions"><button id="importBtn">Import</button></div>
-        </div>
-
-        <div class="card">
-          <h3>Import titles with pictures</h3>
-          <p class="muted">Two files: a .xlsx with two or three columns (title, image filename, optional difficulty — row 1 is a header and is skipped), and a .zip containing those image files (.png/.jpg/.webp, 5 MB max each). Titles are matched to pictures by filename; a title whose filename isn't found still gets added, just without a picture. A third-column value of "easy"/"medium"/"hard" (or the Arabic equivalent) sets that title's own difficulty.</p>
-          <div class="row">
-            <div class="field"><label>Manifest (.xlsx)</label><input id="imageManifestFile" type="file" accept=".xlsx" /></div>
-            <div class="field"><label>Images (.zip)</label><input id="imageZipFile" type="file" accept=".zip" /></div>
+          <div class="card">
+            <h2>Import titles</h2>
+            <p class="lead">A .docx, .xlsx or .pdf list — every non-duplicate title is added to this deck. In a .docx or .xlsx table, a cell reading "easy"/"medium"/"hard" (or "سهل"/"متوسط"/"صعب") sets that row's own difficulty.</p>
+            <div class="field"><label for="importFile">File</label><input id="importFile" type="file" accept=".docx,.xlsx,.pdf" /></div>
+            <p id="importResult" class="result"></p>
+            <div class="actions"><button class="btn" id="importBtn">Import</button></div>
           </div>
-          <p id="importWithImagesResult" class="muted"></p>
-          <div class="actions"><button id="importWithImagesBtn">Import with pictures</button></div>
+
+          <div class="card">
+            <h2>Import titles with pictures</h2>
+            <p class="lead">A .xlsx with two or three columns (title, image filename, optional difficulty — row 1 is a header) and a .zip of those images (.png/.jpg/.webp, 5 MB max each). A title whose picture isn't found is still added, without one.</p>
+            <div class="row">
+              <div class="field"><label for="imageManifestFile">Manifest (.xlsx)</label><input id="imageManifestFile" type="file" accept=".xlsx" /></div>
+              <div class="field"><label for="imageZipFile">Images (.zip)</label><input id="imageZipFile" type="file" accept=".zip" /></div>
+            </div>
+            <p id="importWithImagesResult" class="result"></p>
+            <div class="actions"><button class="btn" id="importWithImagesBtn">Import with pictures</button></div>
+          </div>
+
+          <div class="card">
+            <h2>Titles (<span id="titleCount">0</span>)</h2>
+            <div class="toolbar"><div class="search"><label for="titleFilter">Filter</label><input id="titleFilter" type="search" placeholder="Type to filter this deck's titles" /></div></div>
+            <div id="titleRows"></div>
+          </div>
         </div>
+      </div>
+    </section>
 
-        <div class="card">
-          <h3>Titles (<span id="titleCount">0</span>)</h3>
-          <div id="titleRows" style="max-height:520px;overflow-y:auto"></div>
-        </div>
-      </div>
-    </div>
+    <section id="playersSection" class="hidden">
+      <div class="pageHead"><h1>Players</h1><p>Everyone who created an account in the app.</p></div>
+      <div class="card" id="playersList"></div>
+    </section>
 
-    <div id="playersSection" class="hidden">
-      <div class="card">
-        <h2>Player accounts</h2>
-        <p class="muted" style="margin:0">People who created an optional account in the app. Guest play never appears here.</p>
-      </div>
-      <div class="card">
-        <table>
-          <thead><tr><th>Username</th><th>Email</th><th>Created</th><th></th></tr></thead>
-          <tbody id="playerRows"></tbody>
-        </table>
-      </div>
-    </div>
+    <section id="adminsSection" class="hidden">
+      <div class="pageHead"><h1>Admins</h1><p>Everyone here can manage decks, players, settings and other admins.</p></div>
+      <div class="card" id="adminsList"></div>
+    </section>
 
-    <div id="adminsSection" class="hidden">
+    <section id="auditLogSection" class="hidden">
+      <div class="pageHead"><h1>Audit log</h1><p>Every sensitive change, who made it, and what changed. Read-only on purpose.</p></div>
+      <div class="card" id="auditList"></div>
+    </section>
+
+    <section id="settingsSection" class="hidden">
+      <div class="pageHead"><h1>Settings</h1><p>Branding, prices and the home page — shown to every player.</p></div>
+
       <div class="card">
-        <h2>Admin accounts</h2>
-        <p class="muted" style="margin:0">Everyone here can manage categories, tiles and other admins.</p>
-      </div>
-      <div class="card">
-        <table>
-          <thead><tr><th>Username</th><th>Created</th><th></th></tr></thead>
-          <tbody id="adminRows"></tbody>
-        </table>
-      </div>
-      <div class="card">
-        <h3>Add an admin</h3>
+        <h2>Branding</h2>
+        <p class="lead">The app's name and logo in the header of every page (player app and this tool), and the timezone every date is shown in.</p>
         <div class="row">
-          <div class="field"><label>Username</label><input id="newAdminUsername" /></div>
-          <div class="field"><label>Password (8+ characters)</label><input id="newAdminPassword" type="password" /></div>
+          <div class="field"><label for="appNameEn">App name (English)</label><input id="appNameEn" maxlength="60" /></div>
+          <div class="field"><label for="appNameAr">App name (Arabic)</label><input id="appNameAr" dir="rtl" maxlength="60" /></div>
         </div>
-        <p id="addAdminError" class="muted error hidden"></p>
-        <div class="actions"><button id="addAdminBtn">Add admin</button></div>
+        <div class="row">
+          <div class="field">
+            <label for="timezoneSelect">Timezone</label>
+            <select id="timezoneSelect"></select>
+          </div>
+          <div class="field">
+            <label for="logoFile">Logo (.png, .jpg or .webp, 2 MB max)</label>
+            <div class="imageField">
+              <img id="logoPreview" alt="" />
+              <input id="logoFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
+            </div>
+          </div>
+        </div>
+        <p id="brandingResult" class="result"></p>
+        <div class="actions">
+          <button class="btn secondary" id="removeLogoBtn">Use the built-in logo</button>
+          <button class="btn" id="saveBrandingBtn">Save branding</button>
+        </div>
       </div>
-    </div>
 
-    <div id="auditLogSection" class="hidden">
       <div class="card">
-        <h2>Audit log</h2>
-        <p class="muted" style="margin:0">Every sensitive change, who made it, and what changed. Read-only — there is no edit or delete here on purpose.</p>
+        <h2>Game prices</h2>
+        <p class="lead">What one game costs a player, per game mode.</p>
+        <div class="row">
+          <div class="field"><label for="gamePriceInput">Lite price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
+          <div class="field"><label for="modifiedGamePriceInput">Pro price (KD)</label><input id="modifiedGamePriceInput" type="number" step="0.001" min="0.001" /></div>
+        </div>
+        <p id="pricesResult" class="result"></p>
+        <div class="actions"><button class="btn" id="savePricesBtn">Save prices</button></div>
       </div>
+
       <div class="card">
-        <table>
-          <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
-          <tbody id="auditRows"></tbody>
-        </table>
+        <h2>Home page content</h2>
+        <p class="lead">The tagline and paragraph on the player app's home screen, in both languages.</p>
+        <div class="row">
+          <div class="field"><label for="homeTaglineEn">Tagline (English)</label><input id="homeTaglineEn" /></div>
+          <div class="field"><label for="homeTaglineAr">Tagline (Arabic)</label><input id="homeTaglineAr" dir="rtl" /></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="homeWriteupEn">Write-up (English)</label><textarea id="homeWriteupEn" rows="4"></textarea></div>
+          <div class="field"><label for="homeWriteupAr">Write-up (Arabic)</label><textarea id="homeWriteupAr" dir="rtl" rows="4"></textarea></div>
+        </div>
+        <p id="homeContentResult" class="result"></p>
+        <div class="actions"><button class="btn" id="saveHomeContentBtn">Save home content</button></div>
       </div>
-    </div>
+    </section>
 
   </div>
 </main>
+
+<footer class="site"><span id="copyright"></span></footer>
+
+<div id="dialog" class="backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+  <div class="dialog">
+    <h2 id="dialogTitle"></h2>
+    <p id="dialogBody"></p>
+    <div id="dialogFields"></div>
+    <p id="dialogError" class="result error"></p>
+    <div class="actions">
+      <button class="btn secondary" id="dialogCancel">Cancel</button>
+      <button class="btn" id="dialogConfirm">OK</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast hidden" role="status"></div>
 
 <script>
 // The player app's own sign-in form (app/account.tsx) tries an admin login
@@ -343,10 +417,25 @@
 
 let token = sessionStorage.getItem('adminSessionToken') || '';
 let currentUsername = sessionStorage.getItem('adminUsername') || '';
+let branding = { appNameEn: 'Bas Bedoon Kalam', appNameAr: 'بس بدون كلام', logoPath: null, timezone: 'Asia/Kuwait' };
 let currentDeckId = null;
 let currentDeck = null;
 
 const $ = (id) => document.getElementById(id);
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/** Every date in this tool is shown in the admin-set timezone (Settings → Branding), same as the player app. */
+function formatDate(ts, withTime) {
+  const options = withTime ? { dateStyle: 'medium', timeStyle: 'short' } : { dateStyle: 'medium' };
+  try {
+    return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: branding.timezone }).format(ts);
+  } catch {
+    return new Intl.DateTimeFormat('en-GB', options).format(ts);
+  }
+}
 
 function api(path, opts = {}) {
   return fetch(path, {
@@ -368,28 +457,136 @@ function api(path, opts = {}) {
   });
 }
 
+function jsonBody(method, body) {
+  return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+}
+
+/* ------------------------------------------------------------ feedback */
+
+let toastTimer = null;
+function toast(message, isError) {
+  const el = $('toast');
+  el.textContent = message;
+  el.classList.toggle('error', Boolean(isError));
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), isError ? 6000 : 3000);
+}
+
+function setResult(id, message, isError) {
+  $(id).textContent = message || '';
+  $(id).classList.toggle('error', Boolean(isError));
+}
+
+/** Runs `fn` with `btn` disabled and relabelled, restoring both afterwards. */
+async function withBusy(btn, busyLabel, fn) {
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = busyLabel;
+  try {
+    return await fn();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+/**
+ * The one dialog — confirmations and small forms alike — in place of the
+ * browser's own prompt/confirm/alert, so every question looks like the rest
+ * of the product. Resolves the fields' values (or `{}`) on confirm, `null`
+ * on cancel. `onConfirm` may throw to keep it open with the error shown.
+ */
+function openDialog({ title, body = '', fields = [], confirmLabel = 'Save', destructive = false, onConfirm }) {
+  return new Promise((resolve) => {
+    $('dialogTitle').textContent = title;
+    $('dialogBody').textContent = body;
+    $('dialogBody').classList.toggle('hidden', !body);
+    $('dialogFields').innerHTML = fields.map((f, i) => `
+      <div class="field">
+        <label for="dlgField${i}">${escapeHtml(f.label)}</label>
+        <input id="dlgField${i}" type="${f.type || 'text'}" value="${escapeHtml(f.value || '')}" ${f.autocomplete ? `autocomplete="${f.autocomplete}"` : ''} />
+      </div>`).join('');
+    setResult('dialogError', '');
+    const confirmBtn = $('dialogConfirm');
+    confirmBtn.textContent = confirmLabel;
+    confirmBtn.className = destructive ? 'btn danger' : 'btn';
+    $('dialog').classList.remove('hidden');
+    const first = $('dialogFields').querySelector('input');
+    (first || confirmBtn).focus();
+
+    const values = () => Object.fromEntries(fields.map((f, i) => [f.name, $('dlgField' + i).value]));
+    const close = (result) => {
+      $('dialog').classList.add('hidden');
+      confirmBtn.onclick = null;
+      $('dialogCancel').onclick = null;
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    };
+    const confirm = async () => {
+      const v = values();
+      if (!onConfirm) return close(v);
+      try {
+        await withBusy(confirmBtn, 'Saving…', () => onConfirm(v));
+        close(v);
+      } catch (e) {
+        if (e.message !== 'signed out') setResult('dialogError', e.message, true);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') close(null);
+      if (e.key === 'Enter' && e.target.tagName === 'INPUT') confirm();
+    };
+    confirmBtn.onclick = confirm;
+    $('dialogCancel').onclick = () => close(null);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+/* ------------------------------------------------------------ branding */
+
+function applyBranding() {
+  $('brandName').textContent = branding.appNameEn;
+  document.title = branding.appNameEn + ' — Admin';
+  $('copyright').textContent = `© ${new Date().getFullYear()} ${branding.appNameEn}. All rights reserved.`;
+  $('brandMark').innerHTML = branding.logoPath
+    ? `<img src="${escapeHtml(branding.logoPath)}" alt="${escapeHtml(branding.appNameEn)}" />`
+    : '<span class="cube"><span class="front"></span><span class="side"></span><span class="top"></span></span>';
+  $('brandMark').className = branding.logoPath ? '' : 'cubeWrap';
+}
+
+async function loadBranding() {
+  try {
+    const res = await fetch('/charades/branding');
+    if (res.ok) branding = await res.json();
+  } catch {
+    // keep the built-in defaults
+  }
+  applyBranding();
+}
+
+/* ------------------------------------------------------------ sign-in */
+
 async function signIn() {
   const username = $('usernameInput').value.trim();
   const password = $('passwordInput').value;
+  setResult('gateError', '');
   try {
-    const res = await fetch('/admin/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+    const data = await withBusy($('signInBtn'), 'Signing in…', async () => {
+      const res = await fetch('/admin/auth/login', jsonBody('POST', { username, password }));
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'sign-in failed');
+      }
+      return res.json();
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || 'sign-in failed');
-    }
-    const data = await res.json();
     token = data.token;
     currentUsername = data.user.username;
     sessionStorage.setItem('adminSessionToken', token);
     sessionStorage.setItem('adminUsername', currentUsername);
     enterApp();
   } catch (e) {
-    $('gateError').textContent = e.message;
-    $('gateError').classList.remove('hidden');
+    setResult('gateError', e.message, true);
   }
 }
 
@@ -403,7 +600,7 @@ function signOut() {
 
 async function enterApp() {
   try {
-    await api('/admin/decks');
+    await api('/admin/settings/branding');
   } catch (e) {
     // Stored token is stale/invalid — fall back to the sign-in form.
     signOut();
@@ -412,199 +609,221 @@ async function enterApp() {
   $('gate').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('mainNav').classList.remove('hidden');
-  $('logoutBtn').classList.remove('hidden');
-  $('whoami').textContent = 'signed in as ' + currentUsername;
-  showDecksSection();
+  $('accountBox').classList.remove('hidden');
+  $('whoami').textContent = currentUsername;
+  showTab('decks');
 }
 
-const TABS = ['decks', 'players', 'admins', 'auditLog'];
+/* ------------------------------------------------------------ tabs */
 
-function showTab(tab, onShow) {
-  TABS.forEach((t) => {
-    const isActive = t === tab;
-    $(t + 'Section').classList.toggle('hidden', !isActive);
-    $('nav' + t[0].toUpperCase() + t.slice(1)).classList.toggle('active', isActive);
+const TABS = ['decks', 'players', 'admins', 'auditLog', 'settings'];
+const lists = {};
+
+function showTab(tab) {
+  TABS.forEach((t) => $(t + 'Section').classList.toggle('hidden', t !== tab));
+  document.querySelectorAll('.navTab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  if (tab === 'decks') showDeckList();
+  else if (tab === 'settings') loadSettings();
+  else lists[tab].load();
+}
+
+/* ------------------------------------------------------------ lists */
+
+/**
+ * One searchable, sortable, paged list — the same for decks, players,
+ * admins and the audit log. The server does the work (`?q=&page=&pageSize=
+ * &sort=&dir=`, see parseListQuery); this only keeps the controls' state.
+ * `primary` is the list's own action, bottom-right like every other card's.
+ */
+function createList({ mount, endpoint, columns, defaultSort, defaultDir, row, empty, searchPlaceholder, primary, bind }) {
+  const state = { q: '', page: 1, pageSize: 20, sort: defaultSort, dir: defaultDir, items: [], total: 0 };
+  const el = $(mount);
+  el.innerHTML = `
+    <div class="toolbar">
+      <div class="search"><label for="${mount}Search">Search</label><input id="${mount}Search" type="search" placeholder="${escapeHtml(searchPlaceholder)}" /></div>
+      <div class="size"><label for="${mount}Size">Per page</label>
+        <select id="${mount}Size"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></div>
+    </div>
+    <div class="tableWrap"><table>
+      <thead><tr>${columns.map((c) => c.sort
+        ? `<th><button class="sort" data-sort="${c.sort}">${escapeHtml(c.label)} <span class="arrow"></span></button></th>`
+        : `<th>${escapeHtml(c.label)}</th>`).join('')}</tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="actions withPager">
+      <div class="pager">
+        <span class="info"></span>
+        <button class="btn secondary sm prev" aria-label="Previous page">&lsaquo; Prev</button>
+        <span class="pageNo"></span>
+        <button class="btn secondary sm next" aria-label="Next page">Next &rsaquo;</button>
+      </div>
+      ${primary ? `<div class="end"><button class="btn" id="${mount}Primary">${escapeHtml(primary.label)}</button></div>` : ''}
+    </div>`;
+  const tbody = el.querySelector('tbody');
+
+  async function load() {
+    const params = new URLSearchParams({ page: state.page, pageSize: state.pageSize, sort: state.sort, dir: state.dir });
+    if (state.q) params.set('q', state.q);
+    let data;
+    try {
+      data = await api(endpoint + '?' + params);
+    } catch (e) {
+      if (e.message !== 'signed out') toast('Could not load: ' + e.message, true);
+      return;
+    }
+    const lastPage = Math.max(1, Math.ceil(data.total / state.pageSize));
+    if (state.page > lastPage) { state.page = lastPage; return load(); }
+    state.items = data.items;
+    state.total = data.total;
+    tbody.innerHTML = data.items.length
+      ? data.items.map(row).join('')
+      : `<tr><td class="empty" colspan="${columns.length}">${escapeHtml(state.q ? 'Nothing matches "' + state.q + '".' : empty)}</td></tr>`;
+    const from = data.total ? (state.page - 1) * state.pageSize + 1 : 0;
+    const to = Math.min(data.total, state.page * state.pageSize);
+    el.querySelector('.info').textContent = `${from}–${to} of ${data.total}`;
+    el.querySelector('.pageNo').textContent = `Page ${state.page} of ${lastPage}`;
+    el.querySelector('.prev').disabled = state.page <= 1;
+    el.querySelector('.next').disabled = state.page >= lastPage;
+    el.querySelectorAll('button.sort').forEach((b) => {
+      const on = b.dataset.sort === state.sort;
+      b.classList.toggle('on', on);
+      b.querySelector('.arrow').textContent = on ? (state.dir === 'asc' ? '▲' : '▼') : '↕';
+    });
+    if (bind) bind(tbody, state.items);
+  }
+
+  let debounce = null;
+  $(mount + 'Search').addEventListener('input', (e) => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => { state.q = e.target.value.trim(); state.page = 1; load(); }, 300);
   });
-  onShow();
+  $(mount + 'Size').addEventListener('change', (e) => { state.pageSize = Number(e.target.value); state.page = 1; load(); });
+  el.querySelector('.prev').addEventListener('click', () => { state.page -= 1; load(); });
+  el.querySelector('.next').addEventListener('click', () => { state.page += 1; load(); });
+  el.querySelectorAll('button.sort').forEach((b) => b.addEventListener('click', () => {
+    if (state.sort === b.dataset.sort) state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+    else { state.sort = b.dataset.sort; state.dir = b.dataset.sort === 'created' ? 'desc' : 'asc'; }
+    state.page = 1;
+    load();
+  }));
+  if (primary) $(mount + 'Primary').addEventListener('click', primary.onClick);
+  return { load };
 }
 
-function showDecksSection() {
-  showTab('decks', showDeckList);
-}
+/* ------------------------------------------------------------ decks */
 
-function showPlayersSection() {
-  showTab('players', renderPlayers);
-}
+lists.decks = createList({
+  mount: 'decksList',
+  endpoint: '/admin/decks',
+  searchPlaceholder: 'Search by ID or name, English or Arabic',
+  defaultSort: 'id',
+  defaultDir: 'asc',
+  empty: 'No decks yet.',
+  columns: [
+    { label: 'ID', sort: 'id' },
+    { label: 'Name', sort: 'name' },
+    { label: 'Language', sort: 'language' },
+    { label: 'Difficulty', sort: 'difficulty' },
+    { label: 'Titles', sort: 'titles' },
+    { label: '' },
+  ],
+  row: (d) => `<tr>
+      <td>${escapeHtml(d.id)}</td>
+      <td>${escapeHtml(d.nameEn)}<br /><bdi class="muted" dir="rtl">${escapeHtml(d.nameAr)}</bdi></td>
+      <td><span class="badge ${d.language === 'en' ? 'en' : ''}">${d.language === 'en' ? 'English' : 'Arabic'}</span></td>
+      <td>${escapeHtml(d.difficulty || 'medium')}</td>
+      <td>${d.titleCount}</td>
+      <td class="rowActions"><button class="btn secondary sm" data-open="${escapeHtml(d.id)}">Open</button></td>
+    </tr>`,
+  primary: { label: 'New deck', onClick: () => openDeck(null) },
+  bind: (tbody) => tbody.querySelectorAll('[data-open]').forEach((btn) => btn.addEventListener('click', () => openDeck(btn.dataset.open))),
+});
 
-function showAdminsSection() {
-  showTab('admins', renderAdmins);
-}
-
-function showAuditLogSection() {
-  showTab('auditLog', renderAuditLog);
-}
-
-async function showDeckList() {
+function showDeckList() {
   $('deckEditView').classList.add('hidden');
   $('deckListView').classList.remove('hidden');
-  const [decks, price, modifiedPrice, homeContent] = await Promise.all([
-    api('/admin/decks'),
-    api('/admin/settings/game-price'),
-    api('/admin/settings/modified-game-price'),
-    api('/admin/settings/home-content'),
-  ]);
-  $('gamePriceInput').value = (price.fils / 1000).toFixed(3);
-  $('gamePriceResult').textContent = '';
-  $('modifiedGamePriceInput').value = (modifiedPrice.fils / 1000).toFixed(3);
-  $('modifiedGamePriceResult').textContent = '';
-  $('homeTaglineEn').value = homeContent.taglineEn;
-  $('homeTaglineAr').value = homeContent.taglineAr;
-  $('homeWriteupEn').value = homeContent.writeupEn;
-  $('homeWriteupAr').value = homeContent.writeupAr;
-  $('homeContentResult').textContent = '';
-
-  const rows = decks.map((d) => `<tr>
-      <td>${escapeHtml(d.id)}</td>
-      <td>${escapeHtml(d.nameEn)} <span class="muted">/ ${escapeHtml(d.nameAr)}</span></td>
-      <td>${d.language === 'en' ? 'English' : 'Arabic'}</td>
-      <td>${escapeHtml(d.difficulty || 'medium')}</td>
-      <td>${d.titles.length}</td>
-      <td class="rowActions"><button class="secondary sm" data-open="${escapeHtml(d.id)}">Open</button></td>
-    </tr>`).join('');
-  $('deckRows').innerHTML = rows || '<tr><td colspan="6" class="muted">No decks yet.</td></tr>';
-  $('deckRows').querySelectorAll('[data-open]').forEach((btn) => {
-    btn.addEventListener('click', () => openDeck(btn.dataset.open));
-  });
-}
-
-async function saveGamePrice() {
-  const kd = parseFloat($('gamePriceInput').value);
-  if (!Number.isFinite(kd) || kd <= 0) { alert('Enter a price greater than zero'); return; }
-  try {
-    const result = await api('/admin/settings/game-price', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fils: Math.round(kd * 1000) }),
-    });
-    $('gamePriceInput').value = (result.fils / 1000).toFixed(3);
-    $('gamePriceResult').textContent = 'Saved.';
-  } catch (e) {
-    alert('Could not save price: ' + e.message);
-  }
-}
-
-async function saveModifiedGamePrice() {
-  const kd = parseFloat($('modifiedGamePriceInput').value);
-  if (!Number.isFinite(kd) || kd <= 0) { alert('Enter a price greater than zero'); return; }
-  try {
-    const result = await api('/admin/settings/modified-game-price', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fils: Math.round(kd * 1000) }),
-    });
-    $('modifiedGamePriceInput').value = (result.fils / 1000).toFixed(3);
-    $('modifiedGamePriceResult').textContent = 'Saved.';
-  } catch (e) {
-    alert('Could not save price: ' + e.message);
-  }
-}
-
-async function savePrices() {
-  await saveGamePrice();
-  await saveModifiedGamePrice();
-}
-
-async function saveHomeContent() {
-  try {
-    const result = await api('/admin/settings/home-content', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        taglineEn: $('homeTaglineEn').value,
-        taglineAr: $('homeTaglineAr').value,
-        writeupEn: $('homeWriteupEn').value,
-        writeupAr: $('homeWriteupAr').value,
-      }),
-    });
-    $('homeTaglineEn').value = result.taglineEn;
-    $('homeTaglineAr').value = result.taglineAr;
-    $('homeWriteupEn').value = result.writeupEn;
-    $('homeWriteupAr').value = result.writeupAr;
-    $('homeContentResult').textContent = 'Saved.';
-  } catch (e) {
-    alert('Could not save home content: ' + e.message);
-  }
+  lists.decks.load();
 }
 
 function newDeckDraft() {
-  return { id: '', nameAr: '', nameEn: '', language: 'ar', difficulty: 'medium', titles: [] };
+  return { id: '', nameAr: '', nameEn: '', language: 'ar', difficulty: 'medium', imagePath: null, titles: [] };
 }
 
 async function openDeck(id) {
-  currentDeckId = id;
-  currentDeck = id ? await api('/admin/decks/' + encodeURIComponent(id)) : newDeckDraft();
-  renderDeckEdit();
+  try {
+    currentDeckId = id;
+    currentDeck = id ? await api('/admin/decks/' + encodeURIComponent(id)) : newDeckDraft();
+    $('titleFilter').value = '';
+    renderDeckEdit();
+    window.scrollTo(0, 0);
+  } catch (e) {
+    if (e.message !== 'signed out') toast('Could not open deck: ' + e.message, true);
+  }
+}
+
+function deckUrl(suffix = '') {
+  return '/admin/decks/' + encodeURIComponent(currentDeckId) + suffix;
 }
 
 function renderDeckEdit() {
   $('deckListView').classList.add('hidden');
   $('deckEditView').classList.remove('hidden');
   const d = currentDeck;
-  $('deckEditTitle').textContent = currentDeckId ? 'Edit deck' : 'New deck';
+  const isNew = !currentDeckId;
+  $('deckEditTitle').textContent = isNew ? 'New deck' : d.nameEn || d.id;
   $('dId').value = d.id;
-  $('dId').disabled = Boolean(currentDeckId);
+  $('dId').disabled = !isNew;
   $('dNameAr').value = d.nameAr;
   $('dNameEn').value = d.nameEn;
   $('dLanguage').value = d.language;
   $('dDifficulty').value = d.difficulty || 'medium';
-  $('deleteDeckBtn').classList.toggle('hidden', !currentDeckId);
-
+  $('deleteDeckBtn').classList.toggle('hidden', isNew);
+  $('cancelDeckBtn').classList.toggle('hidden', !isNew);
+  $('saveDeckBtn').textContent = isNew ? 'Create deck' : 'Save deck';
   $('deckImagePreview').src = d.imagePath || '';
   $('deckImagePreview').style.visibility = d.imagePath ? 'visible' : 'hidden';
   $('deckImageFile').value = '';
-  $('deckImageResult').textContent = '';
-  $('uploadDeckImageBtn').disabled = !currentDeckId;
   $('removeDeckImageBtn').classList.toggle('hidden', !d.imagePath);
-
+  // Pictures and titles need the deck to exist first.
+  $('deckImageField').classList.toggle('hidden', isNew);
+  $('deckContent').classList.toggle('hidden', isNew);
+  setResult('deckResult', '');
+  setResult('addTitleResult', '');
+  setResult('importResult', '');
+  setResult('importWithImagesResult', '');
   $('newTitleText').value = '';
   $('newTitleImage').value = '';
-  $('addTitleResult').textContent = '';
-  $('addTitleBtn').disabled = !currentDeckId;
-
-  $('importResult').textContent = '';
   $('importFile').value = '';
-  $('importBtn').disabled = !currentDeckId;
-  $('importWithImagesResult').textContent = '';
   $('imageManifestFile').value = '';
   $('imageZipFile').value = '';
-  $('importWithImagesBtn').disabled = !currentDeckId;
+  renderTitles();
+}
 
-  $('titleCount').textContent = d.titles.length;
-  $('titleRows').innerHTML = d.titles.map((t) => `
+function renderTitles() {
+  const filter = $('titleFilter').value.trim().toLowerCase();
+  const titles = currentDeck.titles.filter((t) => !filter || t.text.toLowerCase().includes(filter));
+  $('titleCount').textContent = filter ? `${titles.length} of ${currentDeck.titles.length}` : currentDeck.titles.length;
+  $('titleRows').innerHTML = titles.map((t) => `
     <div class="titleRow">
       <img src="${t.imagePath ? escapeHtml(t.imagePath) : ''}" alt="" style="${t.imagePath ? '' : 'visibility:hidden'}" />
-      <input dir="rtl" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" />
-      <select data-title-difficulty="${escapeHtml(t.id)}" title="Overrides the deck's default difficulty for this title only">
+      <input dir="rtl" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" aria-label="Title" />
+      <select data-title-difficulty="${escapeHtml(t.id)}" aria-label="Difficulty" title="Overrides the deck's default difficulty for this title only">
         <option value="" ${!t.difficulty ? 'selected' : ''}>Deck default</option>
         <option value="easy" ${t.difficulty === 'easy' ? 'selected' : ''}>Easy</option>
         <option value="medium" ${t.difficulty === 'medium' ? 'selected' : ''}>Medium</option>
         <option value="hard" ${t.difficulty === 'hard' ? 'selected' : ''}>Hard</option>
       </select>
-      <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" />
-      ${t.imagePath ? `<button class="secondary sm" data-remove-image="${escapeHtml(t.id)}">Remove picture</button>` : ''}
-      <button class="sm" data-save-title="${escapeHtml(t.id)}">Save</button>
-      <button class="danger sm" data-remove-title="${escapeHtml(t.id)}">Remove</button>
+      <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" aria-label="Picture" />
+      <div class="rowEnd">
+        <button class="btn danger sm" data-remove-title="${escapeHtml(t.id)}">Remove</button>
+        ${t.imagePath ? `<button class="btn secondary sm" data-remove-image="${escapeHtml(t.id)}">Remove picture</button>` : ''}
+        <button class="btn sm" data-save-title="${escapeHtml(t.id)}">Save</button>
+      </div>
     </div>
-  `).join('') || '<p class="muted">No titles yet — import a list below.</p>';
-  $('titleRows').querySelectorAll('[data-remove-title]').forEach((btn) => {
-    btn.addEventListener('click', () => removeTitle(btn.dataset.removeTitle));
-  });
-  $('titleRows').querySelectorAll('[data-save-title]').forEach((btn) => {
-    btn.addEventListener('click', () => saveTitleEdit(btn.dataset.saveTitle));
-  });
-  $('titleRows').querySelectorAll('[data-remove-image]').forEach((btn) => {
-    btn.addEventListener('click', () => removeTitleImage(btn.dataset.removeImage));
-  });
-}
-
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  `).join('') || `<p class="muted">${filter ? 'No title matches.' : 'No titles yet — add or import some above.'}</p>`;
+  $('titleRows').querySelectorAll('[data-remove-title]').forEach((btn) => btn.addEventListener('click', () => removeTitle(btn.dataset.removeTitle)));
+  $('titleRows').querySelectorAll('[data-save-title]').forEach((btn) => btn.addEventListener('click', () => saveTitleEdit(btn.dataset.saveTitle, btn)));
+  $('titleRows').querySelectorAll('[data-remove-image]').forEach((btn) => btn.addEventListener('click', () => removeTitleImage(btn.dataset.removeImage)));
 }
 
 async function saveDeck() {
@@ -614,368 +833,489 @@ async function saveDeck() {
     language: $('dLanguage').value,
     difficulty: $('dDifficulty').value,
   };
-  try {
-    if (currentDeckId) {
-      currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId), {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-    } else {
-      const id = $('dId').value.trim();
-      currentDeck = await api('/admin/decks', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...body }),
-      });
-      currentDeckId = id;
+  await withBusy($('saveDeckBtn'), 'Saving…', async () => {
+    try {
+      if (currentDeckId) {
+        currentDeck = await api(deckUrl(), jsonBody('PUT', body));
+        const file = $('deckImageFile').files[0];
+        if (file) {
+          const form = new FormData();
+          form.append('image', file);
+          currentDeck = await api(deckUrl('/image'), { method: 'PUT', body: form });
+        }
+      } else {
+        const id = $('dId').value.trim();
+        currentDeck = await api('/admin/decks', jsonBody('POST', { id, ...body }));
+        currentDeckId = id;
+      }
+      renderDeckEdit();
+      setResult('deckResult', 'Saved.');
+    } catch (e) {
+      if (e.message !== 'signed out') setResult('deckResult', 'Could not save: ' + e.message, true);
     }
-    renderDeckEdit();
-  } catch (e) {
-    alert('Could not save: ' + e.message);
-  }
+  });
 }
 
 async function deleteDeck() {
-  if (!confirm('Delete "' + currentDeckId + '" and all its titles? This cannot be undone.')) return;
-  try {
-    await api('/admin/decks/' + encodeURIComponent(currentDeckId), { method: 'DELETE' });
-    showDeckList();
-  } catch (e) {
-    alert('Could not delete deck: ' + e.message);
-  }
-}
-
-async function uploadDeckImage() {
-  const file = $('deckImageFile').files[0];
-  if (!file) { alert('Choose a picture first'); return; }
-  const form = new FormData();
-  form.append('image', file);
-  try {
-    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/image', { method: 'PUT', body: form });
-    renderDeckEdit();
-    $('deckImageResult').textContent = 'Saved.';
-  } catch (e) {
-    alert('Could not upload picture: ' + e.message);
-  }
+  await openDialog({
+    title: 'Delete this deck?',
+    body: `"${currentDeck.nameEn || currentDeckId}" and all ${currentDeck.titles.length} of its titles will be deleted. This can't be undone.`,
+    confirmLabel: 'Delete deck',
+    destructive: true,
+    onConfirm: async () => {
+      await api(deckUrl(), { method: 'DELETE' });
+      toast('Deck deleted.');
+      showDeckList();
+    },
+  });
 }
 
 async function removeDeckImage() {
   const form = new FormData();
   form.append('removeImage', 'true');
   try {
-    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/image', { method: 'PUT', body: form });
+    currentDeck = await api(deckUrl('/image'), { method: 'PUT', body: form });
     renderDeckEdit();
-    $('deckImageResult').textContent = 'Removed.';
+    setResult('deckResult', 'Picture removed.');
   } catch (e) {
-    alert('Could not remove picture: ' + e.message);
-  }
-}
-
-async function removeTitle(titleId) {
-  try {
-    await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), { method: 'DELETE' });
-    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId));
-    renderDeckEdit();
-  } catch (e) {
-    alert('Could not remove title: ' + e.message);
+    if (e.message !== 'signed out') setResult('deckResult', 'Could not remove picture: ' + e.message, true);
   }
 }
 
 async function addTitle() {
   const text = $('newTitleText').value.trim();
-  if (!text) { alert('Type a title first'); return; }
+  if (!text) { setResult('addTitleResult', 'Type a title first.', true); return; }
   const form = new FormData();
   form.append('text', text);
   const file = $('newTitleImage').files[0];
   if (file) form.append('image', file);
-  const btn = $('addTitleBtn');
-  btn.disabled = true;
-  btn.textContent = 'Adding…';
-  try {
-    const result = await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles', { method: 'POST', body: form });
-    currentDeck = result.deck;
-    renderDeckEdit();
-    $('addTitleResult').textContent = result.added ? 'Added.' : 'Already in this deck — not added again.';
-  } catch (e) {
-    alert('Could not add title: ' + e.message);
-  } finally {
-    btn.disabled = !currentDeckId;
-    btn.textContent = 'Add title';
-  }
+  await withBusy($('addTitleBtn'), 'Adding…', async () => {
+    try {
+      const result = await api(deckUrl('/titles'), { method: 'POST', body: form });
+      currentDeck = result.deck;
+      renderDeckEdit();
+      setResult('addTitleResult', result.added ? 'Added.' : 'Already in this deck — not added again.', !result.added);
+    } catch (e) {
+      if (e.message !== 'signed out') setResult('addTitleResult', 'Could not add title: ' + e.message, true);
+    }
+  });
 }
 
 async function importTitles() {
   const file = $('importFile').files[0];
-  if (!file || !currentDeckId) { alert('Choose a file first'); return; }
+  if (!file) { setResult('importResult', 'Choose a file first.', true); return; }
   const form = new FormData();
   form.append('file', file);
-  $('importResult').textContent = 'Importing… this can take a while for a large file, please wait.';
-  const btn = $('importBtn');
-  btn.disabled = true;
-  btn.textContent = 'Importing…';
-  try {
-    const result = await api(
-      '/admin/decks/' + encodeURIComponent(currentDeckId) + '/import',
-      { method: 'POST', body: form }
-    );
-    $('importResult').textContent = `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped (already in this deck, or blank).`;
-    $('importFile').value = '';
-    currentDeck = result.deck;
-    renderDeckEdit();
-  } catch (e) {
-    $('importResult').textContent = '';
-    alert('Import failed: ' + e.message);
-  } finally {
-    btn.disabled = !currentDeckId;
-    btn.textContent = 'Import';
-  }
+  await withBusy($('importBtn'), 'Importing…', async () => {
+    setResult('importResult', 'Importing… a large file can take a while.');
+    try {
+      const result = await api(deckUrl('/import'), { method: 'POST', body: form });
+      currentDeck = result.deck;
+      renderDeckEdit();
+      setResult('importResult', `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped (already in this deck, or blank).`);
+    } catch (e) {
+      if (e.message !== 'signed out') setResult('importResult', 'Import failed: ' + e.message, true);
+    }
+  });
 }
 
 async function importTitlesWithImages() {
   const manifest = $('imageManifestFile').files[0];
   const images = $('imageZipFile').files[0];
-  if (!manifest || !images || !currentDeckId) { alert('Choose both a manifest (.xlsx) and an images (.zip) file first'); return; }
+  if (!manifest || !images) { setResult('importWithImagesResult', 'Choose both a manifest (.xlsx) and an images (.zip) file first.', true); return; }
   const form = new FormData();
   form.append('manifest', manifest);
   form.append('images', images);
-  $('importWithImagesResult').textContent = 'Importing… this can take a while for a large file, please wait.';
-  const btn = $('importWithImagesBtn');
-  btn.disabled = true;
-  btn.textContent = 'Importing…';
-  try {
-    const result = await api(
-      '/admin/decks/' + encodeURIComponent(currentDeckId) + '/import-with-images',
-      { method: 'POST', body: form }
-    );
-    let msg = `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped.`;
-    if (result.imageIssues.length) {
-      msg += ` ${result.imageIssues.length} picture issue(s): ${result.imageIssues.join('; ')}`;
+  await withBusy($('importWithImagesBtn'), 'Importing…', async () => {
+    setResult('importWithImagesResult', 'Importing… a large file can take a while.');
+    try {
+      const result = await api(deckUrl('/import-with-images'), { method: 'POST', body: form });
+      currentDeck = result.deck;
+      renderDeckEdit();
+      let msg = `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped.`;
+      if (result.imageIssues.length) msg += ` ${result.imageIssues.length} picture issue(s): ${result.imageIssues.join('; ')}`;
+      setResult('importWithImagesResult', msg);
+    } catch (e) {
+      if (e.message !== 'signed out') setResult('importWithImagesResult', 'Import failed: ' + e.message, true);
     }
-    $('importWithImagesResult').textContent = msg;
-    $('imageManifestFile').value = '';
-    $('imageZipFile').value = '';
-    currentDeck = result.deck;
-    renderDeckEdit();
-  } catch (e) {
-    $('importWithImagesResult').textContent = '';
-    alert('Import failed: ' + e.message);
-  } finally {
-    btn.disabled = !currentDeckId;
-    btn.textContent = 'Import with pictures';
-  }
+  });
 }
 
-async function saveTitleEdit(titleId) {
-  const textInput = document.querySelector('[data-title-text="' + titleId + '"]');
-  const difficultySelect = document.querySelector('[data-title-difficulty="' + titleId + '"]');
-  const fileInput = document.querySelector('[data-title-image="' + titleId + '"]');
+async function refreshDeck() {
+  currentDeck = await api(deckUrl());
+  const filter = $('titleFilter').value;
+  renderDeckEdit();
+  $('titleFilter').value = filter;
+  renderTitles();
+}
+
+async function saveTitleEdit(titleId, btn) {
   const form = new FormData();
-  form.append('text', textInput.value.trim());
-  form.append('difficulty', difficultySelect.value); // empty clears the override, back to the deck's default
-  if (fileInput.files[0]) form.append('image', fileInput.files[0]);
-  try {
-    await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), {
-      method: 'PUT', body: form,
-    });
-    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId));
-    renderDeckEdit();
-  } catch (e) {
-    alert('Could not save: ' + e.message);
-  }
+  form.append('text', document.querySelector('[data-title-text="' + CSS.escape(titleId) + '"]').value.trim());
+  // Empty clears the override, back to the deck's default.
+  form.append('difficulty', document.querySelector('[data-title-difficulty="' + CSS.escape(titleId) + '"]').value);
+  const file = document.querySelector('[data-title-image="' + CSS.escape(titleId) + '"]').files[0];
+  if (file) form.append('image', file);
+  await withBusy(btn, 'Saving…', async () => {
+    try {
+      await api(deckUrl('/titles/' + encodeURIComponent(titleId)), { method: 'PUT', body: form });
+      await refreshDeck();
+      toast('Title saved.');
+    } catch (e) {
+      if (e.message !== 'signed out') toast('Could not save: ' + e.message, true);
+    }
+  });
+}
+
+async function removeTitle(titleId) {
+  const title = currentDeck.titles.find((t) => t.id === titleId);
+  await openDialog({
+    title: 'Remove this title?',
+    body: title ? `"${title.text}" will be removed from this deck.` : '',
+    confirmLabel: 'Remove',
+    destructive: true,
+    onConfirm: async () => {
+      await api(deckUrl('/titles/' + encodeURIComponent(titleId)), { method: 'DELETE' });
+      await refreshDeck();
+      toast('Title removed.');
+    },
+  });
 }
 
 async function removeTitleImage(titleId) {
   const form = new FormData();
   form.append('removeImage', 'true');
   try {
-    await api('/admin/decks/' + encodeURIComponent(currentDeckId) + '/titles/' + encodeURIComponent(titleId), {
-      method: 'PUT', body: form,
-    });
-    currentDeck = await api('/admin/decks/' + encodeURIComponent(currentDeckId));
-    renderDeckEdit();
+    await api(deckUrl('/titles/' + encodeURIComponent(titleId)), { method: 'PUT', body: form });
+    await refreshDeck();
+    toast('Picture removed.');
   } catch (e) {
-    alert('Could not remove picture: ' + e.message);
+    if (e.message !== 'signed out') toast('Could not remove picture: ' + e.message, true);
   }
 }
 
-async function renderPlayers() {
-  const players = await api('/admin/players');
-  const rows = players.map((p) => `<tr>
+/* ------------------------------------------------------------ players */
+
+lists.players = createList({
+  mount: 'playersList',
+  endpoint: '/admin/players',
+  searchPlaceholder: 'Search by username or email',
+  defaultSort: 'username',
+  defaultDir: 'asc',
+  empty: 'No player accounts yet.',
+  columns: [{ label: 'Username', sort: 'username' }, { label: 'Email', sort: 'email' }, { label: 'Created', sort: 'created' }, { label: '' }],
+  row: (p) => `<tr>
       <td>${escapeHtml(p.username)}</td>
       <td class="muted">${p.email ? escapeHtml(p.email) : '—'}</td>
-      <td class="muted">${new Date(p.createdAt).toLocaleDateString()}</td>
+      <td class="muted">${formatDate(p.createdAt)}</td>
       <td class="rowActions">
-        <button class="secondary sm" data-rename="${p.id}">Rename</button>
-        <button class="secondary sm" data-email="${p.id}">Edit email</button>
-        <button class="secondary sm" data-repw="${p.id}">Change password</button>
-        <button class="danger sm" data-del="${p.id}">Delete</button>
+        <button class="btn danger sm" data-del="${p.id}">Delete</button>
+        <button class="btn secondary sm" data-repw="${p.id}">Change password</button>
+        <button class="btn secondary sm" data-email="${p.id}">Edit email</button>
+        <button class="btn secondary sm" data-rename="${p.id}">Rename</button>
       </td>
-    </tr>`).join('');
-  $('playerRows').innerHTML = rows || '<tr><td colspan="4" class="muted">No player accounts yet.</td></tr>';
+    </tr>`,
+  bind: (tbody, players) => {
+    const find = (id) => players.find((p) => p.id === id);
+    const put = (id, body) => api('/admin/players/' + id, jsonBody('PUT', body));
+    tbody.querySelectorAll('[data-rename]').forEach((btn) => btn.addEventListener('click', async () => {
+      const p = find(btn.dataset.rename);
+      const done = await openDialog({
+        title: 'Rename player',
+        fields: [{ name: 'username', label: 'Username', value: p.username }],
+        onConfirm: (v) => put(p.id, { username: v.username.trim() }),
+      });
+      if (done) { toast('Player renamed.'); lists.players.load(); }
+    }));
+    tbody.querySelectorAll('[data-email]').forEach((btn) => btn.addEventListener('click', async () => {
+      const p = find(btn.dataset.email);
+      const done = await openDialog({
+        title: 'Edit email',
+        body: 'Used for forgot-password codes and the low-balance notice. Leave blank to remove it.',
+        fields: [{ name: 'email', label: 'Email', type: 'email', value: p.email || '' }],
+        onConfirm: (v) => put(p.id, { email: v.email.trim() || null }),
+      });
+      if (done) { toast('Email updated.'); lists.players.load(); }
+    }));
+    tbody.querySelectorAll('[data-repw]').forEach((btn) => btn.addEventListener('click', async () => {
+      const p = find(btn.dataset.repw);
+      const done = await openDialog({
+        title: 'Change password',
+        body: `Sets a new password for ${p.username} and signs them out everywhere.`,
+        fields: [{ name: 'password', label: 'New password (8+ characters)', type: 'password', autocomplete: 'new-password' }],
+        confirmLabel: 'Change password',
+        onConfirm: (v) => put(p.id, { password: v.password }),
+      });
+      if (done) toast('Password changed.');
+    }));
+    tbody.querySelectorAll('[data-del]').forEach((btn) => btn.addEventListener('click', async () => {
+      const p = find(btn.dataset.del);
+      const done = await openDialog({
+        title: 'Delete this player?',
+        body: `${p.username}'s account and wallet will be deleted. This can't be undone.`,
+        confirmLabel: 'Delete player',
+        destructive: true,
+        onConfirm: () => api('/admin/players/' + p.id, { method: 'DELETE' }),
+      });
+      if (done) { toast('Player deleted.'); lists.players.load(); }
+    }));
+  },
+});
 
-  $('playerRows').querySelectorAll('[data-rename]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const username = prompt('New username:');
-      if (!username) return;
-      try {
-        await api('/admin/players/' + btn.dataset.rename, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }),
-        });
-        renderPlayers();
-      } catch (e) { alert('Could not rename: ' + e.message); }
-    });
+/* ------------------------------------------------------------ admins */
+
+lists.admins = createList({
+  mount: 'adminsList',
+  endpoint: '/admin/users',
+  searchPlaceholder: 'Search by username',
+  defaultSort: 'username',
+  defaultDir: 'asc',
+  empty: 'No admins yet.',
+  columns: [{ label: 'Username', sort: 'username' }, { label: 'Created', sort: 'created' }, { label: '' }],
+  row: (u) => `<tr>
+      <td>${escapeHtml(u.username)}${u.username === currentUsername ? ' <span class="badge">You</span>' : ''}</td>
+      <td class="muted">${formatDate(u.createdAt)}</td>
+      <td class="rowActions">
+        <button class="btn danger sm" data-del="${u.id}">Delete</button>
+        <button class="btn secondary sm" data-repw="${u.id}">Change password</button>
+        <button class="btn secondary sm" data-rename="${u.id}">Rename</button>
+      </td>
+    </tr>`,
+  primary: { label: 'Add admin', onClick: addAdmin },
+  bind: (tbody, admins) => {
+    const find = (id) => admins.find((u) => u.id === id);
+    const put = (id, body) => api('/admin/users/' + id, jsonBody('PUT', body));
+    tbody.querySelectorAll('[data-rename]').forEach((btn) => btn.addEventListener('click', async () => {
+      const u = find(btn.dataset.rename);
+      const done = await openDialog({
+        title: 'Rename admin',
+        fields: [{ name: 'username', label: 'Username', value: u.username }],
+        onConfirm: (v) => put(u.id, { username: v.username.trim() }),
+      });
+      if (done) { toast('Admin renamed.'); lists.admins.load(); }
+    }));
+    tbody.querySelectorAll('[data-repw]').forEach((btn) => btn.addEventListener('click', async () => {
+      const u = find(btn.dataset.repw);
+      const done = await openDialog({
+        title: 'Change password',
+        body: `Sets a new password for ${u.username} and signs them out everywhere.`,
+        fields: [{ name: 'password', label: 'New password (8+ characters)', type: 'password', autocomplete: 'new-password' }],
+        confirmLabel: 'Change password',
+        onConfirm: (v) => put(u.id, { password: v.password }),
+      });
+      if (done) toast('Password changed.');
+    }));
+    tbody.querySelectorAll('[data-del]').forEach((btn) => btn.addEventListener('click', async () => {
+      const u = find(btn.dataset.del);
+      const done = await openDialog({
+        title: 'Delete this admin?',
+        body: `${u.username} will no longer be able to sign in here.`,
+        confirmLabel: 'Delete admin',
+        destructive: true,
+        onConfirm: () => api('/admin/users/' + u.id, { method: 'DELETE' }),
+      });
+      if (done) { toast('Admin deleted.'); lists.admins.load(); }
+    }));
+  },
+});
+
+async function addAdmin() {
+  const done = await openDialog({
+    title: 'Add an admin',
+    fields: [
+      { name: 'username', label: 'Username', autocomplete: 'off' },
+      { name: 'password', label: 'Password (8+ characters)', type: 'password', autocomplete: 'new-password' },
+    ],
+    confirmLabel: 'Add admin',
+    onConfirm: (v) => api('/admin/users', jsonBody('POST', { username: v.username.trim(), password: v.password })),
   });
-  $('playerRows').querySelectorAll('[data-email]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const current = players.find((p) => p.id === btn.dataset.email);
-      const email = prompt('Email (used for forgot-password codes — leave blank to remove):', current?.email || '');
-      if (email === null) return;
-      try {
-        await api('/admin/players/' + btn.dataset.email, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim() || null }),
-        });
-        renderPlayers();
-      } catch (e) { alert('Could not update email: ' + e.message); }
-    });
-  });
-  $('playerRows').querySelectorAll('[data-repw]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const password = prompt('New password (8+ characters):');
-      if (!password) return;
-      try {
-        await api('/admin/players/' + btn.dataset.repw, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }),
-        });
-        alert('Password changed.');
-      } catch (e) { alert('Could not change password: ' + e.message); }
-    });
-  });
-  $('playerRows').querySelectorAll('[data-del]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this player account? This cannot be undone.')) return;
-      try {
-        await api('/admin/players/' + btn.dataset.del, { method: 'DELETE' });
-        renderPlayers();
-      } catch (e) { alert('Could not delete: ' + e.message); }
-    });
-  });
+  if (done) { toast('Admin added.'); lists.admins.load(); }
 }
 
-async function renderAdmins() {
-  const admins = await api('/admin/users');
-  const rows = admins.map((u) => `<tr>
-      <td>${escapeHtml(u.username)}</td>
-      <td class="muted">${new Date(u.createdAt).toLocaleDateString()}</td>
-      <td class="rowActions">
-        <button class="secondary sm" data-rename="${u.id}">Rename</button>
-        <button class="secondary sm" data-repw="${u.id}">Change password</button>
-        <button class="danger sm" data-del="${u.id}">Delete</button>
-      </td>
-    </tr>`).join('');
-  $('adminRows').innerHTML = rows || '<tr><td colspan="3" class="muted">No admins yet.</td></tr>';
-
-  $('adminRows').querySelectorAll('[data-rename]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const username = prompt('New username:');
-      if (!username) return;
-      try {
-        await api('/admin/users/' + btn.dataset.rename, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }),
-        });
-        renderAdmins();
-      } catch (e) { alert('Could not rename: ' + e.message); }
-    });
-  });
-  $('adminRows').querySelectorAll('[data-repw]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const password = prompt('New password (8+ characters):');
-      if (!password) return;
-      try {
-        await api('/admin/users/' + btn.dataset.repw, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }),
-        });
-        alert('Password changed.');
-      } catch (e) { alert('Could not change password: ' + e.message); }
-    });
-  });
-  $('adminRows').querySelectorAll('[data-del]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this admin account?')) return;
-      try {
-        await api('/admin/users/' + btn.dataset.del, { method: 'DELETE' });
-        renderAdmins();
-      } catch (e) { alert('Could not delete: ' + e.message); }
-    });
-  });
-}
+/* ------------------------------------------------------------ audit log */
 
 function summarizeAuditEntry(entry) {
   // A small per-action renderer rather than a raw JSON dump, so the common
   // cases read as a sentence; anything unrecognized still shows something.
-  if (entry.action === 'deck.update') {
-    const before = entry.before || {};
-    const after = entry.after || {};
+  const before = entry.before || {};
+  const after = entry.after || {};
+  if (entry.action === 'deck.update' || entry.action === 'settings.branding.update') {
     const changed = Object.keys(after).filter((k) => JSON.stringify(after[k]) !== JSON.stringify(before[k]));
     return changed.length ? `changed: ${changed.join(', ')}` : '';
   }
-  if (entry.action === 'deck.import') {
-    return `${entry.after.added} added, ${entry.after.skipped} skipped`;
-  }
+  if (entry.action === 'settings.branding.logo') return after.logoPath ? 'new logo uploaded' : 'back to the built-in logo';
+  if (entry.action === 'deck.import') return `${after.added} added, ${after.skipped} skipped`;
   if (entry.action === 'settings.game-price.update' || entry.action === 'settings.modified-game-price.update') {
-    return `${(entry.before.fils / 1000).toFixed(3)} KD -> ${(entry.after.fils / 1000).toFixed(3)} KD`;
+    return `${(before.fils / 1000).toFixed(3)} KD → ${(after.fils / 1000).toFixed(3)} KD`;
   }
-  if (entry.action.endsWith('.update') && entry.after && 'passwordChanged' in entry.after) {
-    return entry.after.passwordChanged ? 'password changed' : 'username changed';
+  if (entry.action.endsWith('.update') && 'passwordChanged' in after) {
+    return after.passwordChanged ? 'password changed' : 'details changed';
   }
   return '';
 }
 
-async function renderAuditLog() {
-  const entries = await api('/admin/audit-log');
-  const rows = entries.map((e) => `<tr>
-      <td class="muted">${new Date(e.createdAt).toLocaleString()}</td>
+lists.auditLog = createList({
+  mount: 'auditList',
+  endpoint: '/admin/audit-log',
+  searchPlaceholder: 'Search by admin, action, target or details',
+  defaultSort: 'created',
+  defaultDir: 'desc',
+  empty: 'Nothing logged yet.',
+  columns: [
+    { label: 'When', sort: 'created' },
+    { label: 'Admin', sort: 'actor' },
+    { label: 'Action', sort: 'action' },
+    { label: 'Target', sort: 'target' },
+    { label: 'Details' },
+  ],
+  row: (e) => `<tr>
+      <td class="muted">${formatDate(e.createdAt, true)}</td>
       <td>${escapeHtml(e.actorUsername)}</td>
       <td>${escapeHtml(e.action)}</td>
       <td>${escapeHtml(e.target)}</td>
       <td class="muted">${escapeHtml(summarizeAuditEntry(e))}</td>
-    </tr>`).join('');
-  $('auditRows').innerHTML = rows || '<tr><td colspan="5" class="muted">Nothing logged yet.</td></tr>';
+    </tr>`,
+});
+
+/* ------------------------------------------------------------ settings */
+
+function timezones() {
+  const all = typeof Intl.supportedValuesOf === 'function'
+    ? Intl.supportedValuesOf('timeZone')
+    : ['Asia/Kuwait', 'Asia/Riyadh', 'Asia/Dubai', 'Asia/Qatar', 'Asia/Bahrain', 'Asia/Muscat', 'Africa/Cairo', 'Europe/London', 'UTC'];
+  return all.includes(branding.timezone) ? all : [branding.timezone, ...all];
 }
 
-async function addAdmin() {
-  const username = $('newAdminUsername').value.trim();
-  const password = $('newAdminPassword').value;
-  $('addAdminError').classList.add('hidden');
+function renderBranding() {
+  $('appNameEn').value = branding.appNameEn;
+  $('appNameAr').value = branding.appNameAr;
+  $('timezoneSelect').innerHTML = timezones().map((tz) => `<option ${tz === branding.timezone ? 'selected' : ''}>${escapeHtml(tz)}</option>`).join('');
+  $('logoPreview').src = branding.logoPath || '';
+  $('logoPreview').style.visibility = branding.logoPath ? 'visible' : 'hidden';
+  $('logoFile').value = '';
+  $('removeLogoBtn').classList.toggle('hidden', !branding.logoPath);
+}
+
+async function loadSettings() {
   try {
-    await api('/admin/users', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }),
-    });
-    $('newAdminUsername').value = '';
-    $('newAdminPassword').value = '';
-    renderAdmins();
+    const [b, price, modifiedPrice, homeContent] = await Promise.all([
+      api('/admin/settings/branding'),
+      api('/admin/settings/game-price'),
+      api('/admin/settings/modified-game-price'),
+      api('/admin/settings/home-content'),
+    ]);
+    branding = b;
+    renderBranding();
+    $('gamePriceInput').value = (price.fils / 1000).toFixed(3);
+    $('modifiedGamePriceInput').value = (modifiedPrice.fils / 1000).toFixed(3);
+    $('homeTaglineEn').value = homeContent.taglineEn;
+    $('homeTaglineAr').value = homeContent.taglineAr;
+    $('homeWriteupEn').value = homeContent.writeupEn;
+    $('homeWriteupAr').value = homeContent.writeupAr;
+    ['brandingResult', 'pricesResult', 'homeContentResult'].forEach((id) => setResult(id, ''));
   } catch (e) {
-    $('addAdminError').textContent = e.message;
-    $('addAdminError').classList.remove('hidden');
+    if (e.message !== 'signed out') toast('Could not load settings: ' + e.message, true);
   }
 }
 
+async function saveBranding() {
+  await withBusy($('saveBrandingBtn'), 'Saving…', async () => {
+    try {
+      branding = await api('/admin/settings/branding', jsonBody('PUT', {
+        appNameEn: $('appNameEn').value,
+        appNameAr: $('appNameAr').value,
+        timezone: $('timezoneSelect').value,
+      }));
+      const file = $('logoFile').files[0];
+      if (file) {
+        const form = new FormData();
+        form.append('logo', file);
+        branding = await api('/admin/settings/branding/logo', { method: 'PUT', body: form });
+      }
+      renderBranding();
+      applyBranding();
+      setResult('brandingResult', 'Saved — players see it the next time they open the app.');
+    } catch (e) {
+      if (e.message !== 'signed out') setResult('brandingResult', 'Could not save: ' + e.message, true);
+    }
+  });
+}
+
+async function removeLogo() {
+  const form = new FormData();
+  form.append('removeLogo', 'true');
+  try {
+    branding = await api('/admin/settings/branding/logo', { method: 'PUT', body: form });
+    renderBranding();
+    applyBranding();
+    setResult('brandingResult', 'Back to the built-in logo.');
+  } catch (e) {
+    if (e.message !== 'signed out') setResult('brandingResult', 'Could not remove logo: ' + e.message, true);
+  }
+}
+
+async function savePrices() {
+  const lite = parseFloat($('gamePriceInput').value);
+  const pro = parseFloat($('modifiedGamePriceInput').value);
+  if (!(lite > 0) || !(pro > 0)) { setResult('pricesResult', 'Enter prices greater than zero.', true); return; }
+  await withBusy($('savePricesBtn'), 'Saving…', async () => {
+    try {
+      const a = await api('/admin/settings/game-price', jsonBody('PUT', { fils: Math.round(lite * 1000) }));
+      const b = await api('/admin/settings/modified-game-price', jsonBody('PUT', { fils: Math.round(pro * 1000) }));
+      $('gamePriceInput').value = (a.fils / 1000).toFixed(3);
+      $('modifiedGamePriceInput').value = (b.fils / 1000).toFixed(3);
+      setResult('pricesResult', 'Saved.');
+    } catch (e) {
+      if (e.message !== 'signed out') setResult('pricesResult', 'Could not save prices: ' + e.message, true);
+    }
+  });
+}
+
+async function saveHomeContent() {
+  await withBusy($('saveHomeContentBtn'), 'Saving…', async () => {
+    try {
+      const result = await api('/admin/settings/home-content', jsonBody('PUT', {
+        taglineEn: $('homeTaglineEn').value,
+        taglineAr: $('homeTaglineAr').value,
+        writeupEn: $('homeWriteupEn').value,
+        writeupAr: $('homeWriteupAr').value,
+      }));
+      $('homeTaglineEn').value = result.taglineEn;
+      $('homeTaglineAr').value = result.taglineAr;
+      $('homeWriteupEn').value = result.writeupEn;
+      $('homeWriteupAr').value = result.writeupAr;
+      setResult('homeContentResult', 'Saved.');
+    } catch (e) {
+      if (e.message !== 'signed out') setResult('homeContentResult', 'Could not save home content: ' + e.message, true);
+    }
+  });
+}
+
+/* ------------------------------------------------------------ wiring */
+
 $('signInBtn').addEventListener('click', signIn);
 $('passwordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
-$('logoutBtn').addEventListener('click', signOut);
-$('navDecks').addEventListener('click', showDecksSection);
-$('navPlayers').addEventListener('click', showPlayersSection);
-$('navAdmins').addEventListener('click', showAdminsSection);
-$('navAuditLog').addEventListener('click', showAuditLogSection);
-$('newDeckBtn').addEventListener('click', () => openDeck(null));
-$('savePricesBtn').addEventListener('click', savePrices);
-$('saveHomeContentBtn').addEventListener('click', saveHomeContent);
+$('logoutBtn').addEventListener('click', async () => {
+  const done = await openDialog({ title: 'Log out?', confirmLabel: 'Log out', destructive: true });
+  if (done) signOut();
+});
+$('brandHome').addEventListener('click', (e) => { e.preventDefault(); if (token) showTab('decks'); });
+document.querySelectorAll('.navTab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 $('deckBackLink').addEventListener('click', showDeckList);
+$('cancelDeckBtn').addEventListener('click', showDeckList);
 $('saveDeckBtn').addEventListener('click', saveDeck);
 $('deleteDeckBtn').addEventListener('click', deleteDeck);
-$('uploadDeckImageBtn').addEventListener('click', uploadDeckImage);
 $('removeDeckImageBtn').addEventListener('click', removeDeckImage);
 $('addTitleBtn').addEventListener('click', addTitle);
 $('importBtn').addEventListener('click', importTitles);
 $('importWithImagesBtn').addEventListener('click', importTitlesWithImages);
-$('addAdminBtn').addEventListener('click', addAdmin);
+$('titleFilter').addEventListener('input', renderTitles);
+$('saveBrandingBtn').addEventListener('click', saveBranding);
+$('removeLogoBtn').addEventListener('click', removeLogo);
+$('savePricesBtn').addEventListener('click', savePrices);
+$('saveHomeContentBtn').addEventListener('click', saveHomeContent);
 
+loadBranding();
 if (token) enterApp();
 </script>
 </body>

@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { draftCharades, unlockCharades as unlockClassicCharades, type ClassicDifficulty } from '../engine/charades';
 import { charadesForPlayer, endForInactivity, markActivity, type CharadesState, type GameMode } from '../engine/game';
 import { draftModifiedCharades, unlockModifiedCharades, type CharadesDeal } from '../engine/modifiedCharades';
@@ -21,6 +21,7 @@ import type { Lang } from '../engine/types';
 import { makeTranslator, type TranslateParams, type TranslationKey } from '../i18n';
 import { deviceLanguage, deviceStore } from '../platform';
 import { track } from '../services/analytics';
+import { DEFAULT_TIMEZONE, appNameFor, formatDateTime, getBranding, logoUrlFor, type Branding } from '../services/branding';
 import {
   PlayerAuthError,
   changePlayerPassword as changePlayerPasswordApi,
@@ -84,6 +85,14 @@ interface AppValue {
   modifiedGamePriceFils: number;
   /** The admin-editable home-screen tagline and write-up. `null` until the first successful fetch — callers fall back to the i18n default text until then. */
   homeContent: HomeContent | null;
+  /** The admin-set branding — `null` until the first successful fetch. Use `appName`/`logoUrl`/`formatDate` rather than reading it directly. */
+  branding: Branding | null;
+  /** The app's name in the current language — the admin-set one once loaded, the bundled one until then. */
+  appName: string;
+  /** The admin-uploaded logo's URL, or `null` for the built-in cube. */
+  logoUrl: string | null;
+  /** A timestamp in the admin-set timezone and the current language; `withTime` adds the time of day. */
+  formatDate: (ts: number, withTime?: boolean) => string;
   charades: CharadesState | null;
   /** `deckIds` is the player's choice of which decks to play, made alongside the team names and the mode; `difficulty` only applies to a classic game. */
   startCharadesDraft: (
@@ -201,6 +210,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [gamePriceFils, setGamePriceFils] = useState(0);
   const [modifiedGamePriceFils, setModifiedGamePriceFils] = useState(0);
   const [homeContent, setHomeContent] = useState<HomeContent | null>(null);
+  const [branding, setBranding] = useState<Branding | null>(null);
   const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null);
   const [playerAuthBusy, setPlayerAuthBusy] = useState(false);
   const [playerAuthError, setPlayerAuthError] = useState<string | null>(null);
@@ -243,6 +253,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       getHomeContent()
         .then(setHomeContent)
+        .catch(() => undefined);
+
+      getBranding()
+        .then(setBranding)
         .catch(() => undefined);
 
       // Wallet state lives entirely on the server — nothing to show until a
@@ -690,6 +704,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [expireSession]);
 
+  const appName = appNameFor(branding, lang, t('app.name'));
+  const timezone = branding?.timezone ?? DEFAULT_TIMEZONE;
+  const formatDate = useCallback((ts: number, withTime = false) => formatDateTime(ts, lang, timezone, withTime), [lang, timezone]);
+
+  // The browser tab carries the admin-set name too.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const g = globalThis as { document?: { title: string } };
+    if (g.document) g.document.title = appName;
+  }, [appName]);
+
   const value: AppValue = {
     ready,
     lang,
@@ -700,6 +725,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     gamePriceFils,
     modifiedGamePriceFils,
     homeContent,
+    branding,
+    appName,
+    logoUrl: logoUrlFor(branding),
+    formatDate,
     charades,
     startCharadesDraft,
     updateCharades,

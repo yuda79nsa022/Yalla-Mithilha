@@ -2,7 +2,7 @@ import type { TranslationKey } from './ar';
 
 export const en: Record<TranslationKey, string> = {
   'app.name': 'Bas Bedoon Kalam',
-  'app.copyright': '© {{year}} Bas Bedoon Kalam. All rights reserved.',
+  'app.copyright': '© {{year}} {{name}}. All rights reserved.',
   'app.tagline': 'You do not need to know the answer. You need your friends to understand you.',
   'app.writeup':
     'Bas Bedoon Kalam is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
@@ -205,6 +205,12 @@ export const en: Record<TranslationKey, string> = {
   'buy.classic': 'Lite game — {{price}}',
   'buy.modified': 'Pro game — {{price}}',
   'buy.backToGame': 'Continue to your game',
+  'buy.choose': 'Which game are you buying?',
+  'buy.pay': 'Pay {{price}}',
+  'payment.waiting': 'Complete the payment in the MyFatoorah window. This page updates on its own as soon as it’s done.',
+  'payment.cancel': 'Cancel payment',
+  'payment.starting': 'Payment received — starting your game…',
+  'charades.checkout.payToPlay': 'Pay for one game to start. Your game starts as soon as MyFatoorah confirms the payment.',
   'charades.draft.difficultyTitle': 'Difficulty',
   'charades.draft.difficultyMixed': 'Mixed',
   'charades.draft.difficultyModifiedNote': 'Each round, the team picks a level — easy, medium or hard.',
