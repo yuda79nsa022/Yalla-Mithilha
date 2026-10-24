@@ -98,7 +98,6 @@
   .card > p.lead { margin: 0 0 16px; color: var(--neutral700); font-size: 14px; }
   .gate { max-width: 480px; margin: 48px auto; }
   a.back { color: var(--purple700); font-weight: 700; font-size: 14px; cursor: pointer; display: inline-block; margin: 16px 0 0; border-bottom: 2px solid var(--purple700); text-decoration: none; }
-  code { font-size: 13px; background: var(--muted-bg); padding: 1px 6px; direction: ltr; unicode-bidi: isolate; }
 
   /* ---- buttons: one look, the player app's */
   .btn {
@@ -227,7 +226,7 @@
 <main>
   <div id="gate" class="card gate">
     <h2 data-i18n="gate.title">Sign in</h2>
-    <p class="lead"><span data-i18n="gate.lead"></span> <code>npm run create-admin</code></p>
+    <p class="lead" data-i18n="gate.lead"></p>
     <div class="field"><label for="usernameInput" data-i18n="common.username"></label><input id="usernameInput" type="text" dir="auto" autocomplete="username" /></div>
     <div class="field"><label for="passwordInput" data-i18n="common.password"></label><input id="passwordInput" type="password" autocomplete="current-password" /></div>
     <p id="gateError" class="result error"></p>
@@ -433,7 +432,7 @@ const STRINGS = {
     'copyright': '© {year} {name}. All rights reserved.',
     'common.username': 'Username', 'common.password': 'Password', 'common.email': 'Email', 'common.cancel': 'Cancel', 'common.save': 'Save',
     'common.saving': 'Saving…', 'common.saved': 'Saved.', 'common.saveFailed': 'Could not save: {e}', 'common.loadFailed': 'Could not load: {e}',
-    'gate.title': 'Sign in', 'gate.lead': 'Admin accounts only. No account yet? Ask another admin to add one, or run this on the server:',
+    'gate.title': 'Sign in', 'gate.lead': 'Admin accounts only. No account yet? Ask another admin to add one.',
     'gate.signIn': 'Sign in', 'gate.signingIn': 'Signing in…', 'gate.failed': 'Sign-in failed.',
     'list.search': 'Search', 'list.perPage': 'Per page', 'list.prev': '‹ Prev', 'list.next': 'Next ›',
     'list.range': '{from}–{to} of {total}', 'list.page': 'Page {page} of {last}', 'list.noMatch': 'Nothing matches "{q}".',
@@ -505,7 +504,7 @@ const STRINGS = {
     'copyright': '© {year} {name}. جميع الحقوق محفوظة.',
     'common.username': 'اسم المستخدم', 'common.password': 'كلمة المرور', 'common.email': 'البريد الإلكتروني', 'common.cancel': 'إلغاء', 'common.save': 'حفظ',
     'common.saving': 'جاري الحفظ…', 'common.saved': 'تم الحفظ.', 'common.saveFailed': 'تعذّر الحفظ: {e}', 'common.loadFailed': 'تعذّر التحميل: {e}',
-    'gate.title': 'تسجيل الدخول', 'gate.lead': 'لحسابات المشرفين فقط. ما عندك حساب؟ اطلب من مشرف آخر إضافتك، أو شغّل هذا الأمر على السيرفر:',
+    'gate.title': 'تسجيل الدخول', 'gate.lead': 'لحسابات المشرفين فقط. ما عندك حساب؟ اطلب من مشرف آخر إضافتك.',
     'gate.signIn': 'دخول', 'gate.signingIn': 'جاري الدخول…', 'gate.failed': 'تعذّر تسجيل الدخول.',
     'list.search': 'بحث', 'list.perPage': 'لكل صفحة', 'list.prev': '› السابق', 'list.next': 'التالي ‹',
     'list.range': '{from}–{to} من {total}', 'list.page': 'صفحة {page} من {last}', 'list.noMatch': 'لا توجد نتائج لـ "{q}".',
