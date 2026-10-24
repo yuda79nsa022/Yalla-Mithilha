@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
-import { Button, Screen, T } from '../src/ui/components';
+import { Button, PageTitle, Screen, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { useTopUp } from '../src/state/useTopUp';
@@ -32,9 +32,7 @@ export default function Buy() {
         header={{}}
         footer={<Button label={t('charades.checkout.signInButton')} onPress={() => router.push('/account')} />}
       >
-        <T variant="title" style={{ fontSize: 30 }}>
-          {t('buy.title')}
-        </T>
+        <PageTitle>{t('buy.title')}</PageTitle>
         <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
           {t('charades.home.guestNotice')}
         </T>
@@ -53,9 +51,7 @@ export default function Buy() {
         draftWaiting ? <Button label={t('buy.backToGame')} onPress={() => router.replace('/charades/checkout')} /> : undefined
       }
     >
-      <T variant="title" style={{ fontSize: 30 }}>
-        {t('buy.title')}
-      </T>
+      <PageTitle>{t('buy.title')}</PageTitle>
       <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
         {t('buy.subtitle')}
       </T>

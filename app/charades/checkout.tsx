@@ -1,7 +1,7 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Screen, T, TextLink } from '../../src/ui/components';
+import { Button, PageTitle, Screen, T, TextLink } from '../../src/ui/components';
 import { colors, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import { useTopUp } from '../../src/state/useTopUp';
@@ -76,11 +76,9 @@ export default function CharadesCheckout() {
     <Screen
       scroll
       header={{}}
-      footer={<Button label={t('charades.checkout.start')} compact disabled={!canStart} busy={starting} onPress={start} />}
+      footer={<Button label={t('charades.checkout.start')} disabled={!canStart} busy={starting} onPress={start} />}
     >
-      <T variant="title" style={{ fontSize: 30 }}>
-        {t('charades.checkout.title')}
-      </T>
+      <PageTitle>{t('charades.checkout.title')}</PageTitle>
       <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
         {t('charades.checkout.subtitle')}
       </T>

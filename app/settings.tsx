@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Button, ConfirmModal, Divider, Screen, T } from '../src/ui/components';
+import { Button, ConfirmModal, Divider, PageTitle, Screen, T } from '../src/ui/components';
 import { colors } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 
@@ -17,7 +17,7 @@ export default function Settings() {
 
   return (
     <Screen scroll header={{}}>
-      <T variant="title">{t('settings.title')}</T>
+      <PageTitle>{t('settings.title')}</PageTitle>
 
       <Button
         label={`${t('settings.language')} — ${prefs.lang === 'ar' ? 'العربية' : 'English'}`}

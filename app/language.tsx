@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
-import { Button, OptionCard, Screen, T } from '../src/ui/components';
+import { Button, OptionCard, PageTitle, Screen, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { needsRestartForDirection } from '../src/platform';
@@ -24,7 +24,7 @@ export default function LanguageScreen() {
       header={{}}
       footer={<Button label={t('common.continue')} disabled={!prefs.lang} onPress={() => router.replace('/home')} />}
     >
-      <T variant="title">{t('lang.title')}</T>
+      <PageTitle>{t('lang.title')}</PageTitle>
       {/* title/subtitle here are deliberately not run through t(): each
           option previews the language it offers, in that language, so an
           Arabic speaker sees "العربية" and an English speaker sees

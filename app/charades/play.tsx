@@ -606,7 +606,6 @@ function HandoffScreen({
           tone="secondary"
           background={colors.white}
           forceShadow
-          compact
           showArrow={false}
           onPress={onStart}
         />

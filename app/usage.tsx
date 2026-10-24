@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, Divider, Screen, T } from '../src/ui/components';
+import { Button, Divider, PageTitle, Screen, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { formatKwd, type UsageReport } from '../src/services/walletApi';
@@ -41,7 +41,7 @@ export default function Usage() {
 
   return (
     <Screen scroll header={{}}>
-      <T variant="title">{t('usage.title')}</T>
+      <PageTitle>{t('usage.title')}</PageTitle>
       {failed ? (
         <T variant="label" color={colors.red}>
           {t('usage.error')}
@@ -102,7 +102,7 @@ export default function Usage() {
               </View>
             ))
           )}
-          <Button label={t('nav.buyMore')} tone="secondary" compact showArrow={false} onPress={() => router.push('/buy')} />
+          <Button label={t('nav.buyMore')} tone="secondary" showArrow={false} onPress={() => router.push('/buy')} />
         </>
       )}
     </Screen>
