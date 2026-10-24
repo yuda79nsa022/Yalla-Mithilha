@@ -42,7 +42,7 @@ export default function LanguageScreen() {
           subtitle="Left-to-right interface"
           selected={prefs.lang === 'en'}
           onPress={() => choose('en')}
-          accent={colors.green}
+          accent={colors.purple}
         />
       </View>
 

@@ -48,7 +48,7 @@ export default function Buy() {
       scroll
       header={{}}
       footer={
-        draftWaiting ? <Button label={t('buy.backToGame')} onPress={() => router.replace('/charades/checkout')} /> : undefined
+        draftWaiting ? <Button label={t('buy.backToGame')} tone="secondary" onPress={() => router.replace('/charades/checkout')} /> : undefined
       }
     >
       <PageTitle>{t('buy.title')}</PageTitle>
@@ -69,7 +69,6 @@ export default function Buy() {
       />
       <Button
         label={t('buy.modified', { price: formatKwd(modifiedGamePriceFils) })}
-        tone="secondary"
         busy={busy || walletBusy}
         onPress={() => void topUp('modified')}
       />

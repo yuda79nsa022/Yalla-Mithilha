@@ -437,8 +437,7 @@ function FinalScreen({ state }: { state: CharadesState }) {
         <>
           <Button
             label={t('charades.play.newGame')}
-            accent={colors.green}
-            shadowColor={colors.purple}
+            shadowColor={colors.white}
             borderColor={colors.white}
             onPress={() => {
               quitCharades();
@@ -807,7 +806,6 @@ function ClassicPlayScreen() {
               <View style={styles.actingFooterGrid}>
                 <Button
                   label={t('charades.play.award', { team: teamName })}
-                  accent={colors.green}
                   showArrow={false}
                   style={{ flex: 2 }}
                   onPress={() => setPending({ round, kind: 'award', team: teamIndex, points: pointsForElapsed(clock.elapsed) })}
@@ -1020,7 +1018,6 @@ function ModifiedPlayScreen() {
                 <View style={styles.actingFooterGrid}>
                   <Button
                     label={t('charades.play.stealAward', { team: stealerName })}
-                    accent={colors.green}
                     showArrow={false}
                     disabled={!stealAllowed}
                     style={{ flex: 2 }}
@@ -1039,7 +1036,6 @@ function ModifiedPlayScreen() {
               <View style={styles.actingFooterGrid}>
                 <Button
                   label={t('charades.play.award', { team: teamName })}
-                  accent={colors.green}
                   showArrow={false}
                   style={{ flex: 2 }}
                   onPress={() =>
