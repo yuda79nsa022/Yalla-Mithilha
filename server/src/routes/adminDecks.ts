@@ -5,6 +5,7 @@ import AdmZip from 'adm-zip';
 import { Router } from 'express';
 import multer from 'multer';
 import {
+  DECK_SORTS,
   TITLE_IMAGES_DIR,
   addTitlesToDeck,
   addTitlesToDeckWithImages,
@@ -18,6 +19,7 @@ import {
   getTitle,
   listDecks,
   recordAudit,
+  searchDecks,
   setGamePriceFils,
   setModifiedGamePriceFils,
   updateDeck,
@@ -36,6 +38,7 @@ import { isDifficulty, type Difficulty } from '../types';
 import {
   parseCreateDeckBody,
   parseImportTitlesBody,
+  parseListQuery,
   parseSetGamePriceBody,
   parseUpdateDeckBody,
   parseUpdateHomeContentBody,
@@ -103,8 +106,14 @@ function deleteImageFile(imagePath: string | null): void {
   }
 }
 
-adminDecksRouter.get('/decks', (_req, res) => {
-  res.json(listDecks());
+/** With `?page=` it's searched, sorted and paged, each deck carrying a `titleCount` instead of its titles; without, every deck with every title as before. */
+adminDecksRouter.get('/decks', (req, res) => {
+  try {
+    const query = parseListQuery(req.query, Object.keys(DECK_SORTS), 'asc');
+    res.json(query ? searchDecks(query) : listDecks());
+  } catch (err) {
+    handleError(err, res);
+  }
 });
 
 adminDecksRouter.get('/decks/:id', (req, res) => {

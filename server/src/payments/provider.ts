@@ -93,6 +93,16 @@ export function providerFromEnv(env: NodeJS.ProcessEnv = process.env): PaymentPr
   return new MockPaymentProvider();
 }
 
+/**
+ * Whether the mock may take "payments" here. A game is only ever playable
+ * after a real gateway confirms the money, so a production server
+ * (NODE_ENV=production) on the mock refuses checkout outright — unless
+ * ALLOW_MOCK_PAYMENTS=true says, on purpose, that it's a test server.
+ */
+export function mockPaymentsAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.NODE_ENV !== 'production' || env.ALLOW_MOCK_PAYMENTS === 'true';
+}
+
 let current: PaymentProvider | null = null;
 
 export function getPaymentProvider(): PaymentProvider {

@@ -218,6 +218,18 @@ export interface HomeContent {
   writeupEn: string;
 }
 
+/**
+ * The admin-set branding every page shows: the app's name in both languages,
+ * its logo (a servable path under /branding/*, or `null` for the built-in
+ * cube) and the IANA timezone dates are displayed in.
+ */
+export interface Branding {
+  appNameAr: string;
+  appNameEn: string;
+  logoPath: string | null;
+  timezone: string;
+}
+
 /** One sensitive admin action. `before`/`after` are opaque snapshots — shaped differently per `action`. */
 export interface AuditLogRow {
   id: string;

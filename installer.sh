@@ -175,6 +175,14 @@ fill_secret_if_blank "PLAYER_SESSION_SECRET"
 set_env_kv "PORT" "$SERVER_PORT"
 ok "Server PORT set to $SERVER_PORT in server/.env."
 
+# A game should only ever start after MyFatoorah confirms the payment — say
+# so loudly when this deployment isn't wired to it (left as is: an operator
+# may be deliberately running a test server on the mock).
+if ! grep -qE "^PAYMENT_PROVIDER=myfatoorah" "$ENV_FILE"; then
+  warn "PAYMENT_PROVIDER=myfatoorah is not set in server/.env — players are on the MOCK payment provider."
+  warn "  Set PAYMENT_PROVIDER, MYFATOORAH_API_KEY and PUBLIC_BASE_URL for real payments (see server/.env.example)."
+fi
+
 # ---------------------------------------------------- resolve the DB path --
 # Mirrors server/src/db.ts: DATA_DIR defaults to <server>/data, DB_PATH
 # defaults to <DATA_DIR>/catalogue.sqlite. Both are overridable via .env,

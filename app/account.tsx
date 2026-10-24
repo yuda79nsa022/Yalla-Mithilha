@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Button, ButtonRow, ConfirmModal, Field, PageTitle, Screen, T, TextLink } from '../src/ui/components';
+import { Button, ButtonRow, ConfirmModal, Field, MenuItem, PageTitle, Screen, T, TextLink } from '../src/ui/components';
 import { colors } from '../src/ui/theme';
 import { goBack } from '../src/platform/navigation';
 import { useApp } from '../src/state/AppProvider';
@@ -18,6 +18,7 @@ export default function Account() {
     t,
     lang,
     player,
+    formatDate,
     playerAuthBusy,
     playerAuthError,
     registerPlayerAccount,
@@ -142,7 +143,11 @@ export default function Account() {
       <Screen
         scroll
         header={{}}
-        footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
+        footer={
+          <ButtonRow>
+            <Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />
+          </ButtonRow>
+        }
       >
         <PageTitle>{t('account.title')}</PageTitle>
         <T variant="body">{t('account.loggedInAs', { username: player.username })}</T>
@@ -158,7 +163,7 @@ export default function Account() {
             {profile.createdAt ? (
               <T variant="label" color={colors.neutral700}>
                 {t('account.memberSince', {
-                  date: new Date(profile.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-KW' : 'en-GB', { dateStyle: 'medium' }),
+                  date: formatDate(profile.createdAt),
                 })}
               </T>
             ) : null}
@@ -167,8 +172,8 @@ export default function Account() {
             </T>
           </View>
         ) : null}
-        <Button label={t('password.title')} tone="secondary" showArrow={false} onPress={() => router.push('/change-password')} />
-        <Button label={t('nav.usageReport')} tone="secondary" showArrow={false} onPress={() => router.push('/usage')} />
+        <MenuItem label={t('password.title')} onPress={() => router.push('/change-password')} />
+        <MenuItem label={t('nav.usageReport')} onPress={() => router.push('/usage')} />
 
         <ConfirmModal
           visible={confirmingLogout}
@@ -201,16 +206,34 @@ export default function Account() {
         <Button label={t('common.cancel')} tone="secondary" showArrow={false} onPress={() => router.replace('/home')} />
         <Button
           label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
-                    showArrow={false}
+          showArrow={false}
           disabled={!(mode === 'signIn' ? canSubmitSignIn : canSubmitCreate) || playerAuthBusy || tryingAdmin}
           busy={playerAuthBusy || tryingAdmin}
           onPress={submit}
         />
       </ButtonRow>
-    ) : mode === 'forgotRequest' ? (
-      <Button label={t('account.sendResetCode')} disabled={!canSendReset || playerAuthBusy} busy={playerAuthBusy} onPress={sendResetCode} />
     ) : (
-      <Button label={t('account.resetPassword')} disabled={!canSubmitReset || playerAuthBusy} busy={playerAuthBusy} onPress={submitReset} />
+      // Every step has the same pair: Cancel back to sign-in, then this step's action.
+      <ButtonRow>
+        <Button label={t('common.cancel')} tone="secondary" showArrow={false} onPress={() => goToMode('signIn')} />
+        {mode === 'forgotRequest' ? (
+          <Button
+            label={t('account.sendResetCode')}
+            showArrow={false}
+            disabled={!canSendReset || playerAuthBusy}
+            busy={playerAuthBusy}
+            onPress={sendResetCode}
+          />
+        ) : (
+          <Button
+            label={t('account.resetPassword')}
+            showArrow={false}
+            disabled={!canSubmitReset || playerAuthBusy}
+            busy={playerAuthBusy}
+            onPress={submitReset}
+          />
+        )}
+      </ButtonRow>
     );
 
   const intro = (

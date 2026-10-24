@@ -5,6 +5,7 @@ import fs from 'fs';
 import type {
   AdminUserRow,
   AuditLogRow,
+  Branding,
   DealtStacks,
   DealtTitle,
   Difficulty,
@@ -29,6 +30,10 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 export const TITLE_IMAGES_DIR = path.join(DATA_DIR, 'title-images');
 if (!fs.existsSync(TITLE_IMAGES_DIR)) fs.mkdirSync(TITLE_IMAGES_DIR, { recursive: true });
 
+/** Where the admin-uploaded app logo lives — served publicly at `/branding/*`, since every page (player app and admin tool) shows it. */
+export const BRANDING_DIR = path.join(DATA_DIR, 'branding');
+if (!fs.existsSync(BRANDING_DIR)) fs.mkdirSync(BRANDING_DIR, { recursive: true });
+
 const DB_PATH = process.env.DB_PATH ?? path.join(DATA_DIR, 'catalogue.sqlite');
 
 export const db = new Database(DB_PATH);
@@ -48,6 +53,15 @@ const DEFAULT_HOME_CONTENT: HomeContent = {
     'بس بدون كلام لعبة تمثيل صامت — فريقين يمثّلون عناوين حقيقية بدون كلام والفريق الثاني يخمّن. وقت الدفع تختار عناوين عربية (مسرحيات ومسلسلات وأفلام كويتية وخليجية ومصرية)، أو عناوين إنجليزية (أفلام هوليوود ومسلسلات أمريكية)، أو مزيج من الاثنين. عشرين جولة، يختارها السيرفر عشوائي كل مرة.',
   writeupEn:
     'Bas Bedoon Kalam is Charades — two teams act out real titles while the other guesses, no words allowed. At checkout, choose Arabic titles (Kuwaiti, Khaleeji and Egyptian plays, series and movies), English titles (Hollywood movies and American series), or a mix of both. Twenty rounds, picked at random by the server every time.',
+};
+
+// The app's name, logo and timezone as a fresh install shows them — the
+// same name the app ships in its own i18n catalogues (`app.name`).
+const DEFAULT_BRANDING: Branding = {
+  appNameAr: 'بس بدون كلام',
+  appNameEn: 'Bas Bedoon Kalam',
+  logoPath: null,
+  timezone: 'Asia/Kuwait',
 };
 
 db.exec(`
@@ -287,6 +301,13 @@ ensureColumn('settings', 'home_tagline_en', 'home_tagline_en TEXT');
 ensureColumn('settings', 'home_writeup_ar', 'home_writeup_ar TEXT');
 ensureColumn('settings', 'home_writeup_en', 'home_writeup_en TEXT');
 ensureColumn('players', 'email', 'email TEXT');
+// Branding — the app's display name in both languages, its logo (a servable
+// path under /branding/*, NULL for the built-in cube) and the timezone every
+// date in the admin tool and the player's usage report is shown in.
+ensureColumn('settings', 'app_name_ar', 'app_name_ar TEXT');
+ensureColumn('settings', 'app_name_en', 'app_name_en TEXT');
+ensureColumn('settings', 'logo_path', 'logo_path TEXT');
+ensureColumn('settings', 'timezone', 'timezone TEXT');
 // Bumped on every password change; every session token carries the value it
 // was issued with, and requirePlayerSession/requireAdminSession reject a
 // token whose value no longer matches (see auth.ts). So a password change or
@@ -377,6 +398,13 @@ db.prepare(
      home_writeup_en = COALESCE(home_writeup_en, @writeupEn)
    WHERE id = 1`
 ).run(DEFAULT_HOME_CONTENT);
+db.prepare(
+  `UPDATE settings SET
+     app_name_ar = COALESCE(app_name_ar, @appNameAr),
+     app_name_en = COALESCE(app_name_en, @appNameEn),
+     timezone = COALESCE(timezone, @timezone)
+   WHERE id = 1`
+).run(DEFAULT_BRANDING);
 
 /* --------------------------------------------------------------- settings */
 
@@ -434,6 +462,124 @@ export function updateHomeContent(input: Partial<HomeContent>): HomeContent {
      WHERE id = 1`
   ).run(next);
   return next;
+}
+
+export function getBranding(): Branding {
+  const row = db.prepare('SELECT app_name_ar, app_name_en, logo_path, timezone FROM settings WHERE id = 1').get() as {
+    app_name_ar: string;
+    app_name_en: string;
+    logo_path: string | null;
+    timezone: string;
+  };
+  return {
+    appNameAr: row.app_name_ar,
+    appNameEn: row.app_name_en,
+    logoPath: row.logo_path ?? null,
+    timezone: row.timezone,
+  };
+}
+
+/** Partial update — only the given fields change, same pattern as `updateHomeContent`. `logoPath: null` goes back to the built-in logo. */
+export function updateBranding(input: Partial<Branding>): Branding {
+  const next: Branding = { ...getBranding(), ...input };
+  db.prepare(
+    `UPDATE settings SET
+       app_name_ar = @appNameAr,
+       app_name_en = @appNameEn,
+       logo_path = @logoPath,
+       timezone = @timezone
+     WHERE id = 1`
+  ).run(next);
+  return next;
+}
+
+/* ---------------------------------------------------------------- listing */
+
+/** One page of a searched, sorted admin list — see `pagedList`. */
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ListQuery {
+  /** Free-text search; empty matches everything. */
+  q: string;
+  /** 1-based. */
+  page: number;
+  pageSize: number;
+  /** A key of the list's own sort map — anything else was already rejected by `parseListQuery`. */
+  sort: string;
+  dir: 'asc' | 'desc';
+}
+
+/**
+ * The one search/sort/paginate query every admin list goes through. `source`
+ * is a SELECT whose columns the search and sort maps refer to; only those
+ * maps' fixed SQL ever reaches the query text — the search term and the
+ * paging numbers are bound parameters, and an unknown sort key falls back to
+ * the default rather than being interpolated. Ties sort by `_rid` (the
+ * source's rowid) so paging is stable.
+ */
+function pagedList<T>(
+  source: string,
+  searchColumns: readonly string[],
+  sortColumns: Readonly<Record<string, string>>,
+  query: ListQuery,
+  map: (row: any) => T
+): Page<T> {
+  const where = query.q
+    ? `WHERE ${searchColumns.map((c) => `COALESCE(${c}, '') LIKE @like ESCAPE '\\'`).join(' OR ')}`
+    : '';
+  const like = `%${query.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const total = (db.prepare(`SELECT COUNT(*) AS n FROM (${source}) ${where}`).get({ like }) as { n: number }).n;
+  const sortSql = sortColumns[query.sort] ?? Object.values(sortColumns)[0];
+  const dir = query.dir === 'desc' ? 'DESC' : 'ASC';
+  const rows = db
+    .prepare(`SELECT * FROM (${source}) ${where} ORDER BY ${sortSql} COLLATE NOCASE ${dir}, _rid ${dir} LIMIT @limit OFFSET @offset`)
+    .all({ like, limit: query.pageSize, offset: (query.page - 1) * query.pageSize });
+  return { items: rows.map(map), total, page: query.page, pageSize: query.pageSize };
+}
+
+/** Sort keys each admin list accepts — `parseListQuery` rejects any other. The first is the default. */
+export const DECK_SORTS = { id: 'id', name: 'name_en', nameAr: 'name_ar', language: 'language', difficulty: 'difficulty', titles: 'title_count', created: 'created_at' } as const;
+export const PLAYER_SORTS = { username: 'username', email: 'email', created: 'created_at' } as const;
+export const ADMIN_SORTS = { username: 'username', created: 'created_at' } as const;
+export const AUDIT_SORTS = { created: 'created_at', actor: 'actor_username', action: 'action', target: 'target' } as const;
+
+/** Decks without their titles (a count instead) — the list view never needs every title of every deck. */
+export function searchDecks(query: ListQuery): Page<DeckRow & { titleCount: number }> {
+  return pagedList(
+    'SELECT d.*, d.rowid AS _rid, (SELECT COUNT(*) FROM titles t WHERE t.deck_id = d.id) AS title_count FROM decks d',
+    ['id', 'name_en', 'name_ar'],
+    DECK_SORTS,
+    query,
+    (r) => ({ ...rowToDeck(r), titleCount: r.title_count })
+  );
+}
+
+export function searchPlayers(query: ListQuery): Page<PlayerRow> {
+  return pagedList('SELECT *, rowid AS _rid FROM players', ['username', 'email'], PLAYER_SORTS, query, (r) =>
+    stripPlayerHash(rowToPlayer(r))
+  );
+}
+
+export function searchAdminUsers(query: ListQuery): Page<AdminUserRow> {
+  return pagedList('SELECT *, rowid AS _rid FROM admin_users', ['username'], ADMIN_SORTS, query, (r) =>
+    stripHash(rowToAdminUser(r))
+  );
+}
+
+/** Searches who, what and which target, plus the before/after snapshots — so a deck's or player's name finds its history too. */
+export function searchAuditLog(query: ListQuery): Page<AuditLogRow> {
+  return pagedList(
+    'SELECT *, rowid AS _rid FROM audit_log',
+    ['actor_username', 'action', 'target', 'before_json', 'after_json'],
+    AUDIT_SORTS,
+    query,
+    rowToAuditLog
+  );
 }
 
 /* ------------------------------------------------------------------ decks */
@@ -1550,4 +1696,5 @@ export function resetDbForTests(): void {
        home_writeup_en = @writeupEn
      WHERE id = 1`
   ).run({ gamePriceFils: DEFAULT_GAME_PRICE_FILS, ...DEFAULT_HOME_CONTENT });
+  updateBranding(DEFAULT_BRANDING);
 }

@@ -343,3 +343,68 @@ export function parseUpdateHomeContentBody(body: unknown): UpdateHomeContentBody
   return out;
 }
 
+
+export interface UpdateBrandingBody {
+  appNameAr?: string;
+  appNameEn?: string;
+  timezone?: string;
+}
+
+const MAX_APP_NAME_LENGTH = 60;
+
+/** Whether this runtime knows `tz` as an IANA timezone — `Intl` throws a RangeError for anything it doesn't. */
+export function isValidTimezone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function parseUpdateBrandingBody(body: unknown): UpdateBrandingBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const out: UpdateBrandingBody = {};
+  for (const field of ['appNameAr', 'appNameEn'] as const) {
+    const value = optionalBoundedString(b[field], field, MAX_APP_NAME_LENGTH);
+    if (value === undefined) continue;
+    if (!value.trim()) throw new ValidationError(`"${field}" cannot be blank`);
+    out[field] = value.trim();
+  }
+  if (b.timezone !== undefined) {
+    const timezone = requireString(b.timezone, 'timezone');
+    if (!isValidTimezone(timezone)) throw new ValidationError(`"${timezone}" is not a known timezone`);
+    out.timezone = timezone;
+  }
+  return out;
+}
+
+const MAX_PAGE_SIZE = 100;
+const MAX_SEARCH_LENGTH = 100;
+
+/**
+ * `?q=&page=&pageSize=&sort=&dir=` for an admin list. Returns `null` when the
+ * request has no `page` at all — that caller predates paging and still gets
+ * the plain array it always did. `sort` must be one of `sortKeys` (the
+ * first is the default), so nothing caller-supplied ever names a column.
+ */
+export function parseListQuery(
+  query: Record<string, unknown>,
+  sortKeys: readonly string[],
+  defaultDir: 'asc' | 'desc'
+): { q: string; page: number; pageSize: number; sort: string; dir: 'asc' | 'desc' } | null {
+  if (query.page === undefined) return null;
+  const page = Number(query.page);
+  if (!Number.isInteger(page) || page < 1) throw new ValidationError('"page" must be a positive integer');
+  const pageSize = query.pageSize === undefined ? 20 : Number(query.pageSize);
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+    throw new ValidationError(`"pageSize" must be an integer from 1 to ${MAX_PAGE_SIZE}`);
+  }
+  const q = typeof query.q === 'string' ? query.q.trim() : '';
+  if (q.length > MAX_SEARCH_LENGTH) throw new ValidationError(`"q" is too long (max ${MAX_SEARCH_LENGTH} characters)`);
+  const sort = query.sort === undefined || query.sort === '' ? sortKeys[0] : String(query.sort);
+  if (!sortKeys.includes(sort)) throw new ValidationError(`"sort" must be one of: ${sortKeys.join(', ')}`);
+  const dir = query.dir === undefined || query.dir === '' ? defaultDir : String(query.dir);
+  if (dir !== 'asc' && dir !== 'desc') throw new ValidationError('"dir" must be "asc" or "desc"');
+  return { q, page, pageSize, sort, dir };
+}

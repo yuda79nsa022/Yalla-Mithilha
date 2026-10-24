@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Animated, Easing, Image, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { colors, fonts } from './theme';
 import { T } from './components';
 import { useApp } from '../state/AppProvider';
@@ -172,15 +172,41 @@ function Wordmark() {
   );
 }
 
+/** Height of an admin-uploaded logo at each size — about the cube's own footprint. */
+const CUSTOM_LOGO_HEIGHT: Record<Size, number> = { lg: 120, md: 48, sm: 36 };
+
 /**
  * The brand mark: a 3D purple cube with a frustrated, zipped-mouth face,
  * plus the stacked wordmark. `lg` is the home hero (cube + wordmark), `md`
  * is a page-title accessory (cube only, no steam/wordmark), `sm` is for
- * favicon/app-icon rendering (cube only).
+ * favicon/app-icon rendering (cube only). Once an admin uploads a logo it
+ * replaces the cube everywhere, and a renamed app shows its own name in
+ * place of the built-in wordmark.
  */
 export function Logo({ size = 'lg', animated = false }: { size?: Size; animated?: boolean }) {
-  const { lang } = useApp();
+  const { lang, t, appName, logoUrl } = useApp();
+  const mark = logoUrl ? (
+    <Image
+      source={{ uri: logoUrl }}
+      accessibilityLabel={appName}
+      resizeMode="contain"
+      style={{ height: CUSTOM_LOGO_HEIGHT[size], width: CUSTOM_LOGO_HEIGHT[size] * 1.6 }}
+    />
+  ) : (
+    <Cube size={size} animated={animated} />
+  );
+  const builtInName = appName === t('app.name');
   if (size === 'lg') {
+    if (logoUrl || !builtInName) {
+      return (
+        <View style={[styles.row, lang === 'en' && styles.rowReversed]}>
+          {mark}
+          <T variant="title" style={styles.customName}>
+            {appName}
+          </T>
+        </View>
+      );
+    }
     return (
       <View style={[styles.row, lang === 'en' && styles.rowReversed]}>
         <Cube size="lg" animated={animated} />
@@ -188,7 +214,7 @@ export function Logo({ size = 'lg', animated = false }: { size?: Size; animated?
       </View>
     );
   }
-  return <Cube size={size} animated={animated} />;
+  return mark;
 }
 
 const styles = StyleSheet.create({
@@ -203,6 +229,7 @@ const styles = StyleSheet.create({
   zipTooth: { position: 'absolute', backgroundColor: colors.white },
   zipPull: { position: 'absolute', backgroundColor: colors.ink },
   wordmark: { gap: 2 },
+  customName: { flexShrink: 1 },
   bassRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   bass: { fontSize: 50, lineHeight: 58, transform: [{ rotate: '-6deg' }] },
   bang: { fontSize: 50, lineHeight: 58, transform: [{ rotate: '4deg' }] },

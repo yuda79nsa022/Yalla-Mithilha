@@ -189,7 +189,7 @@ describe('checkout with a real gateway', () => {
 
     const ret = await request(app).get(`/charades/checkout/myfatoorah/return?paymentId=${invoice.gatewayPaymentId}&Id=x`);
     expect(ret.status).toBe(303);
-    expect(ret.headers.location).toBe(`/charades/checkout?payment=${paymentId}&result=paid`);
+    expect(ret.headers.location).toBe(`/charades/checkout/myfatoorah/done?payment=${paymentId}&result=paid`);
 
     await request(app).get(`/charades/checkout/myfatoorah/return?paymentId=${invoice.gatewayPaymentId}`);
     const hook = await request(app).post('/charades/checkout/myfatoorah/webhook').send({ EventType: 1, Data: { InvoiceId: Number(invoiceId) } });
@@ -204,7 +204,7 @@ describe('checkout with a real gateway', () => {
   it('an unpaid return credits nothing and leaves the payment open', async () => {
     const { player, paymentId, invoice } = await startCheckout();
     const ret = await request(app).get(`/charades/checkout/myfatoorah/return?paymentId=${invoice.gatewayPaymentId}`);
-    expect(ret.headers.location).toBe(`/charades/checkout?payment=${paymentId}&result=pending`);
+    expect(ret.headers.location).toBe(`/charades/checkout/myfatoorah/done?payment=${paymentId}&result=pending`);
     expect(creditBalance(player.id)).toBe(0);
     expect(getPayment(paymentId)?.status).toBe('initiated');
   });
@@ -213,7 +213,7 @@ describe('checkout with a real gateway', () => {
     const { paymentId, invoice } = await startCheckout();
     invoice.status = 'failed';
     const ret = await request(app).get(`/charades/checkout/myfatoorah/return?paymentId=${invoice.gatewayPaymentId}`);
-    expect(ret.headers.location).toBe(`/charades/checkout?payment=${paymentId}&result=failed`);
+    expect(ret.headers.location).toBe(`/charades/checkout/myfatoorah/done?payment=${paymentId}&result=failed`);
     expect(getPayment(paymentId)?.status).toBe('failed');
   });
 
@@ -222,7 +222,7 @@ describe('checkout with a real gateway', () => {
     invoice.status = 'paid';
     invoice.amountFils = 100;
     const ret = await request(app).get(`/charades/checkout/myfatoorah/return?paymentId=${invoice.gatewayPaymentId}`);
-    expect(ret.headers.location).toBe(`/charades/checkout?payment=${paymentId}&result=pending`);
+    expect(ret.headers.location).toBe(`/charades/checkout/myfatoorah/done?payment=${paymentId}&result=pending`);
     expect(creditBalance(player.id)).toBe(0);
   });
 
@@ -231,7 +231,7 @@ describe('checkout with a real gateway', () => {
     // A second, paid invoice claiming to be the victim's payment.
     gateway.invoices.set('6666', { reference: victim.paymentId, gatewayPaymentId: '06666', status: 'paid', amountFils: 1500 });
     const ret = await request(app).get('/charades/checkout/myfatoorah/return?paymentId=06666');
-    expect(ret.headers.location).toBe('/charades/checkout?result=error');
+    expect(ret.headers.location).toBe('/charades/checkout/myfatoorah/done?result=error');
     expect(creditBalance(victim.player.id)).toBe(0);
   });
 
@@ -250,7 +250,7 @@ describe('checkout with a real gateway', () => {
 
   it('junk in the public return URL is rejected before the gateway is ever called', async () => {
     const ret = await request(app).get('/charades/checkout/myfatoorah/return?paymentId=../../etc');
-    expect(ret.headers.location).toBe('/charades/checkout?result=error');
+    expect(ret.headers.location).toBe('/charades/checkout/myfatoorah/done?result=error');
     expect(gateway.lookups).toBe(0);
   });
 

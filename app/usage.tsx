@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, Divider, PageTitle, Screen, T } from '../src/ui/components';
+import { Button, ButtonRow, Divider, PageTitle, Screen, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
 import { formatKwd, type UsageReport } from '../src/services/walletApi';
@@ -14,7 +14,7 @@ const STATUS_KEY = {
 } as const;
 
 export default function Usage() {
-  const { t, lang, player, loadUsage } = useApp();
+  const { t, player, loadUsage, formatDate } = useApp();
   const [report, setReport] = useState<UsageReport | null>(null);
   const [failed, setFailed] = useState(false);
   const signedIn = Boolean(player);
@@ -36,11 +36,15 @@ export default function Usage() {
 
   if (!player) return null;
 
-  const when = (ts: number) => new Date(ts).toLocaleString(lang === 'ar' ? 'ar-KW' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  const when = (ts: number) => formatDate(ts, true);
   const modeName = (mode: 'classic' | 'modified') => t(mode === 'classic' ? 'charades.draft.modeClassic' : 'charades.draft.modeModified');
 
   return (
-    <Screen scroll header={{}} footer={<Button label={t('nav.buyMore')} showArrow={false} onPress={() => router.push('/buy')} />}>
+    <Screen scroll header={{}} footer={
+        <ButtonRow>
+          <Button label={t('nav.buyMore')} showArrow={false} onPress={() => router.push('/buy')} />
+        </ButtonRow>
+      }>
       <PageTitle>{t('usage.title')}</PageTitle>
       {failed ? (
         <T variant="label" color={colors.red}>

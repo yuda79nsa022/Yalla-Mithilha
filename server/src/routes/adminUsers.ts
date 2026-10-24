@@ -1,13 +1,19 @@
 import { Router } from 'express';
-import { createAdminUser, deleteAdminUser, getAdminUserById, listAdminUsers, recordAudit, updateAdminUser } from '../db';
+import { ADMIN_SORTS, createAdminUser, deleteAdminUser, getAdminUserById, listAdminUsers, recordAudit, searchAdminUsers, updateAdminUser } from '../db';
 import { hashPassword } from '../auth';
 import { handleError } from '../errors';
-import { parseCreateAdminUserBody, parseUpdateAdminUserBody } from '../validate';
+import { parseCreateAdminUserBody, parseListQuery, parseUpdateAdminUserBody } from '../validate';
 
 export const adminUsersRouter = Router();
 
-adminUsersRouter.get('/', (_req, res) => {
-  res.json(listAdminUsers());
+/** `?page=` searches, sorts and pages (see parseListQuery); without it, every admin as before. */
+adminUsersRouter.get('/', (req, res) => {
+  try {
+    const query = parseListQuery(req.query, Object.keys(ADMIN_SORTS), 'asc');
+    res.json(query ? searchAdminUsers(query) : listAdminUsers());
+  } catch (err) {
+    handleError(err, res);
+  }
 });
 
 adminUsersRouter.post('/', async (req, res) => {
