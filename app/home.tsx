@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Button, ConfirmModal, Divider, LowBalanceAlert, LowBalanceBanner, Screen, Spacer, T, TextLink } from '../src/ui/components';
+import { Button, Divider, LowBalanceAlert, LowBalanceBanner, Screen, Spacer, T } from '../src/ui/components';
 import { CategoryGrid } from '../src/ui/Hero';
 import { Logo } from '../src/ui/Logo';
 import { colors, fonts, spacing } from '../src/ui/theme';
@@ -16,11 +16,9 @@ export default function Home() {
     walletBalance,
     freeGameCredits,
     refreshWallet,
-    logoutPlayerAccount,
     charades,
     quitCharades,
   } = useApp();
-  const [confirmingLogout, setConfirmingLogout] = useState(false);
   const { width, height } = useWindowDimensions();
   const isWide = width >= 900;
   const isPhone = width < 600;
@@ -33,18 +31,13 @@ export default function Home() {
     if (player) void refreshWallet();
   }, [player, refreshWallet]);
 
-  const logout = () => {
-    setConfirmingLogout(false);
-    logoutPlayerAccount();
-  };
-
   // Admin-editable via the mini CMS — falls back to the bundled i18n copy
   // until the first successful fetch (or if the server can't be reached).
   const tagline = (lang === 'ar' ? homeContent?.taglineAr : homeContent?.taglineEn) ?? t('app.tagline');
   const writeup = (lang === 'ar' ? homeContent?.writeupAr : homeContent?.writeupEn) ?? t('app.writeup');
 
   const footer = (
-    <Button label={t('charades.home.startNew')} onPress={() => router.push('/charades/draft')} />
+    <Button label={t('charades.home.startNew')} compact onPress={() => router.push('/charades/draft')} />
   );
 
   // One block with its own small gap — spacing between its parts no longer
@@ -76,7 +69,6 @@ export default function Home() {
           ) : null}
           <LowBalanceBanner />
           <LowBalanceAlert path="/home" />
-          <TextLink label={t('account.logout')} onPress={() => setConfirmingLogout(true)} />
         </>
       ) : (
         <>
@@ -203,16 +195,6 @@ export default function Home() {
         </>
       )}
 
-      <ConfirmModal
-        visible={confirmingLogout}
-        title={t('account.logout')}
-        body={t('account.logoutConfirm')}
-        confirmLabel={t('common.yes')}
-        cancelLabel={t('common.cancel')}
-        destructive
-        onConfirm={logout}
-        onCancel={() => setConfirmingLogout(false)}
-      />
     </Screen>
   );
 }
