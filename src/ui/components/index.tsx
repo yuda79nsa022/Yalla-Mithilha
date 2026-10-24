@@ -92,6 +92,9 @@ export function T({
 /** The widest a confirmation dialog gets — on a desktop window it stays dialog-sized instead of stretching across the screen. */
 export const MAX_DIALOG_WIDTH = 512;
 
+/** The pinned footer (primary action) is the same width on every screen — a button never stretches across a desktop window. */
+export const FOOTER_MAX_WIDTH = 480;
+
 /**
  * The AR/EN switch every screen header carries. On native, flipping between
  * RTL and LTR only fully applies after the app restarts — the notice under
@@ -193,7 +196,9 @@ export function Screen({
         <View style={styles.screen}>{inner}</View>
       )}
         {footer ? (
-          <View style={[styles.footer, { backgroundColor: background }]}>{footer}</View>
+          <View style={[styles.footer, { backgroundColor: background }]}>
+            <View style={styles.footerInner}>{footer}</View>
+          </View>
         ) : null}
         <Copyright onDark={background === colors.ink || background === colors.purple} showLinks={(header?.variant ?? 'site') === 'site'} />
         </KeyboardAvoidingView>
@@ -471,6 +476,20 @@ function NavIcon({ name, color }: { name: string; color: string }) {
 
 /* --------------------------------------------------------------- buttons */
 
+/** One label size for every button on every screen — the Create account / Sign in size. */
+const BUTTON_LABEL_SIZE = 17;
+
+/** Buttons side by side (Cancel + Save, Create account + Sign in …), equal width, same height. */
+export function ButtonRow({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={styles.buttonPair}>
+      {React.Children.map(children, (child) =>
+        React.isValidElement(child) ? <View style={styles.buttonPairItem}>{child}</View> : child
+      )}
+    </View>
+  );
+}
+
 export function Button({
   label,
   onPress,
@@ -486,7 +505,6 @@ export function Button({
   textColor,
   background,
   forceShadow = false,
-  compact = false,
 }: {
   label: string;
   onPress: () => void;
@@ -508,20 +526,21 @@ export function Button({
   background?: string;
   /** Gives a normally shadow-less tone (secondary/ghost/danger) a hard shadow anyway — the turn-handoff screen's white CTA. */
   forceShadow?: boolean;
-  /** A smaller button — shorter, with a smaller label — for screens where the main button shouldn't dominate. */
-  compact?: boolean;
 }) {
   const { lang } = useApp();
   const [pressed, setPressed] = React.useState(false);
+  // Every button — whatever the screen — is the same size: HIT_SIZE tall, one
+  // label size. The filled look (ink border + hard shadow) is the Create
+  // account / Sign in button; there is deliberately no "smaller" variant.
   const palette: Record<string, { bg: string; fg: string; border: string; shadow: boolean }> = {
-    primary: { bg: accent, fg: onAccent, border: 'transparent', shadow: true },
+    primary: { bg: accent, fg: onAccent, border: colors.ink, shadow: true },
     secondary: { bg: 'transparent', fg: colors.ink, border: colors.ink, shadow: false },
     ghost: { bg: 'transparent', fg: colors.neutral700, border: 'transparent', shadow: false },
     danger: { bg: 'transparent', fg: colors.red, border: colors.red, shadow: false },
   };
   const p = palette[tone];
   const useShadow = (p.shadow || forceShadow) && !disabled && !busy;
-  const border = borderColor ?? p.border;
+  const border = disabled && p.border !== 'transparent' ? colors.mutedText : borderColor ?? p.border;
   const fg = disabled ? colors.mutedText : textColor ?? p.fg;
   const bg = disabled ? colors.mutedBg : background ?? p.bg;
 
@@ -537,7 +556,6 @@ export function Button({
       onPressOut={() => setPressed(false)}
       style={[
         styles.button,
-        compact && { minHeight: 44, paddingVertical: 8 },
         { backgroundColor: bg, borderColor: border, borderWidth: border === 'transparent' ? 0 : 2 },
         useShadow && (pressed ? hardShadowPressed(lang, shadowColor) : hardShadow(lang, shadowColor)),
         useShadow && pressed && { transform: [{ translateX: lang === 'ar' ? -3 : 3 }, { translateY: 3 }] },
@@ -548,11 +566,11 @@ export function Button({
         <ActivityIndicator color={fg} />
       ) : (
         <View style={styles.buttonRow}>
-          <T variant="heading" color={fg} style={{ fontSize: compact ? 16 : tone === 'primary' ? 22 : 15 }}>
+          <T variant="heading" color={fg} style={{ fontSize: BUTTON_LABEL_SIZE }}>
             {label}
           </T>
           {showArrow ? (
-            <T variant="heading" color={fg} style={{ fontSize: compact ? 18 : tone === 'primary' ? 26 : 15 }}>
+            <T variant="heading" color={fg} style={{ fontSize: BUTTON_LABEL_SIZE + 2 }}>
               {endArrow(lang)}
             </T>
           ) : null}
@@ -818,6 +836,26 @@ export function Pill({ text, color = colors.ink }: { text: string; color?: strin
     <View style={[styles.pill, { borderColor: color }]}>
       <T style={{ fontFamily: fonts.display, fontSize: 13, letterSpacing: 1, color }}>{text}</T>
     </View>
+  );
+}
+
+/**
+ * The heading at the top of every page. One size rule for all of them: 24 on
+ * a phone or a short window, 30 otherwise — so no page's title is bigger
+ * than another's for no reason.
+ */
+export function PageTitle({ children, color = colors.ink }: { children: React.ReactNode; color?: string }) {
+  const { lang } = useApp();
+  const { width, height } = useWindowDimensions();
+  const small = width < 600 || height < 700;
+  return (
+    <T
+      variant="title"
+      color={color}
+      style={small ? { fontSize: 24, lineHeight: lang === 'ar' ? 36 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}
+    >
+      {children}
+    </T>
   );
 }
 
@@ -1127,6 +1165,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
+  buttonPair: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
+  buttonPairItem: { flex: 1, flexBasis: 0 },
+  footerInner: { width: '100%', maxWidth: FOOTER_MAX_WIDTH, alignSelf: 'center' },
   bigChoice: {
     flex: 1,
     minHeight: 110,

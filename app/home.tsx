@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Button, Divider, LowBalanceAlert, LowBalanceBanner, Screen, Spacer, T } from '../src/ui/components';
+import { Button, ButtonRow, Divider, LowBalanceAlert, LowBalanceBanner, Screen, Spacer, T } from '../src/ui/components';
 import { CategoryGrid } from '../src/ui/Hero';
 import { Logo } from '../src/ui/Logo';
 import { colors, fonts, spacing } from '../src/ui/theme';
@@ -21,7 +21,6 @@ export default function Home() {
   } = useApp();
   const { width, height } = useWindowDimensions();
   const isWide = width >= 900;
-  const isPhone = width < 600;
   // A short phone screen can't hold the decorative category tiles as well
   // as everything else; game setup shows the real decks anyway.
   const showCategoryTiles = height >= 760;
@@ -37,7 +36,7 @@ export default function Home() {
   const writeup = (lang === 'ar' ? homeContent?.writeupAr : homeContent?.writeupEn) ?? t('app.writeup');
 
   const footer = (
-    <Button label={t('charades.home.startNew')} compact onPress={() => router.push('/charades/draft')} />
+    <Button label={t('charades.home.startNew')} onPress={() => router.push('/charades/draft')} />
   );
 
   // One block with its own small gap — spacing between its parts no longer
@@ -78,29 +77,22 @@ export default function Home() {
               {t('charades.home.guestNotice')}
             </T>
           ) : null}
-          {/* Side by side everywhere; on a phone they use the smaller label size
-              (the secondary tone, recoloured) so both labels fit in one row. */}
-          <View style={styles.authRow}>
+          {/* Side by side at every width, same buttons as the sign-in page. */}
+          <ButtonRow>
             <Button
               label={t('account.createAccount')}
-              {...(isPhone
-                ? { tone: 'secondary' as const, background: colors.purple, textColor: colors.white, borderColor: colors.ink, forceShadow: true }
-                : { accent: colors.purple })}
+              accent={colors.purple}
               showArrow={false}
-              style={styles.authButton}
               onPress={() => router.push('/account?mode=create')}
             />
             <Button
               label={t('account.signIn')}
-              {...(isPhone
-                ? { tone: 'secondary' as const, background: colors.green, borderColor: colors.ink, forceShadow: true }
-                : { accent: colors.green })}
+              accent={colors.green}
               textColor={colors.ink}
               showArrow={false}
-              style={styles.authButton}
               onPress={() => router.push('/account')}
             />
-          </View>
+          </ButtonRow>
         </>
       )}
 
@@ -201,8 +193,6 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   accountSection: { gap: spacing.sm },
-  authRow: { flexDirection: 'row', gap: spacing.sm },
-  authButton: { flexGrow: 1, flexBasis: 0 },
   heroRow: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 64, paddingHorizontal: spacing.lg },
   heroRowEn: { flexDirection: 'row' },
   heroTextCol: { flex: 1.15, gap: spacing.lg },

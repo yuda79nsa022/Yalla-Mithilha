@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Button, ConfirmModal, Field, Screen, T, TextLink } from '../src/ui/components';
+import { Button, ButtonRow, ConfirmModal, Field, PageTitle, Screen, T, TextLink } from '../src/ui/components';
 import { colors } from '../src/ui/theme';
 import { goBack } from '../src/platform/navigation';
 import { useApp } from '../src/state/AppProvider';
@@ -144,11 +144,7 @@ export default function Account() {
         header={{}}
         footer={<Button label={t('account.logout')} tone="danger" showArrow={false} onPress={() => setConfirmingLogout(true)} />}
       >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <T variant="title" style={width < 600 ? { fontSize: 24, lineHeight: lang === 'ar' ? 32 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
-            {t('account.title')}
-          </T>
-        </View>
+        <PageTitle>{t('account.title')}</PageTitle>
         <T variant="body">{t('account.loggedInAs', { username: player.username })}</T>
         {profileFailed ? (
           <T variant="label" color={colors.red}>
@@ -200,30 +196,19 @@ export default function Account() {
   // without scrolling.
   const footer =
     mode === 'signIn' || mode === 'create' ? (
-      // Compact side-by-side pair (same smaller button style as Home's
-      // Create account / Sign in row): Cancel returns to the homepage.
-      <View style={styles.footerRow}>
-        <Button
-          label={t('common.cancel')}
-          tone="secondary"
-          showArrow={false}
-          style={styles.footerButton}
-          onPress={() => router.replace('/home')}
-        />
+      // The reference button pair for the whole app: Cancel returns to the homepage.
+      <ButtonRow>
+        <Button label={t('common.cancel')} tone="secondary" showArrow={false} onPress={() => router.replace('/home')} />
         <Button
           label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
-          tone="secondary"
-          background={mode === 'signIn' ? colors.green : colors.purple}
+          accent={mode === 'signIn' ? colors.green : colors.purple}
           textColor={mode === 'signIn' ? colors.ink : colors.white}
-          borderColor={colors.ink}
-          forceShadow
           showArrow={false}
-          style={styles.footerButton}
           disabled={!(mode === 'signIn' ? canSubmitSignIn : canSubmitCreate) || playerAuthBusy || tryingAdmin}
           busy={playerAuthBusy || tryingAdmin}
           onPress={submit}
         />
-      </View>
+      </ButtonRow>
     ) : mode === 'forgotRequest' ? (
       <Button label={t('account.sendResetCode')} disabled={!canSendReset || playerAuthBusy} busy={playerAuthBusy} onPress={sendResetCode} />
     ) : (
@@ -232,11 +217,7 @@ export default function Account() {
 
   const intro = (
     <>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <T variant="title" style={width < 600 ? { fontSize: 24, lineHeight: lang === 'ar' ? 32 : 30 } : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }}>
-          {title}
-        </T>
-      </View>
+      <PageTitle>{title}</PageTitle>
       {mode !== 'signIn' && mode !== 'create' ? (
         <T variant="body" color={colors.neutral700}>
           {t(mode === 'forgotRequest' ? 'account.forgotRequestBody' : 'account.forgotConfirmBody')}
@@ -343,8 +324,6 @@ export default function Account() {
 }
 
 const styles = StyleSheet.create({
-  footerRow: { flexDirection: 'row', gap: 12, width: '100%', maxWidth: 480, alignSelf: 'center' },
-  footerButton: { flexGrow: 1, flexBasis: 0 },
   wideRow: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 64, paddingHorizontal: 24 },
   wideRowEn: { flexDirection: 'row' },
   wideIntro: { flex: 1, gap: 16 },

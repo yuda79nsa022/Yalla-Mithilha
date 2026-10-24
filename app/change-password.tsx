@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Button, Field, Screen, T } from '../src/ui/components';
+import { Button, ButtonRow, Field, PageTitle, Screen, T } from '../src/ui/components';
 import { colors } from '../src/ui/theme';
 import { goBack } from '../src/platform/navigation';
 import { useApp } from '../src/state/AppProvider';
@@ -46,28 +45,13 @@ export default function ChangePassword() {
       scroll
       header={{}}
       footer={
-        <View style={styles.footerRow}>
-          <Button
-            label={t('common.cancel')}
-            tone="secondary"
-            showArrow={false}
-            compact
-            style={styles.footerButton}
-            onPress={() => goBack('/account')}
-          />
-          <Button
-            label={t('password.save')}
-            showArrow={false}
-            compact
-            style={styles.footerButton}
-            disabled={!canSubmit}
-            busy={busy}
-            onPress={submit}
-          />
-        </View>
+        <ButtonRow>
+          <Button label={t('common.cancel')} tone="secondary" showArrow={false} onPress={() => goBack('/account')} />
+          <Button label={t('password.save')} showArrow={false} disabled={!canSubmit} busy={busy} onPress={submit} />
+        </ButtonRow>
       }
     >
-      <T variant="title">{t('password.title')}</T>
+      <PageTitle>{t('password.title')}</PageTitle>
       <Field label={t('password.current')} value={current} onChangeText={setCurrent} placeholder={t('password.current')} secureTextEntry />
       <Field label={t('password.new')} value={next} onChangeText={setNext} placeholder={t('password.new')} secureTextEntry />
       <Field label={t('password.confirm')} value={confirm} onChangeText={setConfirm} placeholder={t('password.confirm')} secureTextEntry />
@@ -89,8 +73,3 @@ export default function ChangePassword() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  footerRow: { flexDirection: 'row', gap: 12, width: '100%', maxWidth: 480, alignSelf: 'center' },
-  footerButton: { flexGrow: 1, flexBasis: 0 },
-});

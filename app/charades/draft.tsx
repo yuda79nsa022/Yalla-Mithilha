@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
-import { Button, CategoryTile, Screen, T } from '../../src/ui/components';
+import { Button, CategoryTile, PageTitle, Screen, T } from '../../src/ui/components';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import type { GameMode } from '../../src/engine/game';
@@ -138,16 +138,7 @@ export default function CharadesDraft() {
 
   const intro = (
     <View style={styles.section}>
-      <T
-        variant="title"
-        style={
-          isPhone || height < 700
-            ? { fontSize: 24, lineHeight: lang === 'ar' ? 36 : 30 }
-            : { fontSize: 30, lineHeight: lang === 'ar' ? 44 : 38 }
-        }
-      >
-        {t('charades.draft.title')}
-      </T>
+      <PageTitle>{t('charades.draft.title')}</PageTitle>
       {!isPhone ? (
         <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
           {t('charades.draft.subtitle')}
@@ -276,7 +267,7 @@ export default function CharadesDraft() {
     <Screen
       scroll
       header={{}}
-      footer={<Button label={t('charades.draft.confirm')} compact disabled={!canConfirm} onPress={confirmDraft} />}
+      footer={<Button label={t('charades.draft.confirm')} disabled={!canConfirm} onPress={confirmDraft} />}
     >
       {isWide ? (
         <View style={[styles.wideRow, lang === 'en' && styles.wideRowEn]}>
