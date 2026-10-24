@@ -85,13 +85,13 @@
           <h3 style="margin-top:0">Game prices</h3>
           <p class="muted">What one game costs a player, deducted from their wallet once they start playing — set separately for each game mode.</p>
           <div class="row">
-            <div class="field"><label>Classic price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
-            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveGamePriceBtn" class="secondary">Save classic price</button></div>
+            <div class="field"><label>Lite price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
+            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveGamePriceBtn" class="secondary">Save Lite price</button></div>
           </div>
           <p id="gamePriceResult" class="muted"></p>
           <div class="row">
-            <div class="field"><label>Modified price (KD)</label><input id="modifiedGamePriceInput" type="number" step="0.001" min="0.001" /></div>
-            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveModifiedGamePriceBtn" class="secondary">Save modified price</button></div>
+            <div class="field"><label>Pro price (KD)</label><input id="modifiedGamePriceInput" type="number" step="0.001" min="0.001" /></div>
+            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveModifiedGamePriceBtn" class="secondary">Save Pro price</button></div>
           </div>
           <p id="modifiedGamePriceResult" class="muted"></p>
         </div>
@@ -139,7 +139,7 @@
               </select>
             </div>
             <div class="field">
-              <label>Difficulty (default for every title in this deck — modified mode only)</label>
+              <label>Difficulty (default for every title in this deck — Pro mode only)</label>
               <select id="dDifficulty">
                 <option value="easy">Easy — 1 point (everyday words, things everyone knows)</option>
                 <option value="medium">Medium — 3 points (recent series and films)</option>

@@ -5,7 +5,7 @@ import { Button, CategoryTile, Screen, T } from '../../src/ui/components';
 import { colors, fonts, spacing } from '../../src/ui/theme';
 import { useApp } from '../../src/state/AppProvider';
 import type { GameMode } from '../../src/engine/game';
-import { CLASSIC_DIFFICULTIES, type ClassicDifficulty } from '../../src/engine/charades';
+import { DIFFICULTY_POINTS } from '../../src/engine/modifiedCharades';
 import { getPlayableDecks, type PlayableDeck } from '../../src/services/walletApi';
 
 /**
@@ -71,38 +71,27 @@ function ModePicker({
   );
 }
 
-const DIFFICULTY_LABEL_KEY = {
-  mixed: 'charades.draft.difficultyMixed',
-  easy: 'charades.play.difficultyEasy',
-  medium: 'charades.play.difficultyMedium',
-  hard: 'charades.play.difficultyHard',
-} as const;
+const PRO_LEVELS = [
+  { level: 'easy', labelKey: 'charades.play.difficultyEasy' },
+  { level: 'medium', labelKey: 'charades.play.difficultyMedium' },
+  { level: 'hard', labelKey: 'charades.play.difficultyHard' },
+] as const;
 
-function DifficultyPicker({ value, onChange }: { value: ClassicDifficulty; onChange: (next: ClassicDifficulty) => void }) {
+/** Pro's three levels, shown as information — the team picks one every round during play. */
+function ProLevels() {
   const { t } = useApp();
   return (
-    <View style={styles.difficultyRow} accessibilityRole="radiogroup">
-      {CLASSIC_DIFFICULTIES.map((level) => {
-        const selected = value === level;
-        return (
-          <Pressable
-            key={level}
-            accessibilityRole="radio"
-            accessibilityState={{ selected }}
-            accessibilityLabel={t(DIFFICULTY_LABEL_KEY[level])}
-            onPress={() => onChange(level)}
-            style={({ pressed }) => [
-              styles.difficultyChip,
-              { backgroundColor: selected ? colors.ink : colors.white },
-              pressed && styles.pressed,
-            ]}
-          >
-            <T variant="label" style={{ fontSize: 13 }} color={selected ? colors.white : colors.ink} numberOfLines={1}>
-              {t(DIFFICULTY_LABEL_KEY[level])}
-            </T>
-          </Pressable>
-        );
-      })}
+    <View style={styles.difficultyRow}>
+      {PRO_LEVELS.map(({ level, labelKey }) => (
+        <View key={level} style={styles.difficultyChip}>
+          <T variant="label" style={{ fontSize: 13 }} numberOfLines={1}>
+            {t(labelKey)}
+          </T>
+          <T variant="label" color={colors.neutral700} style={{ fontSize: 11 }} numberOfLines={1}>
+            {t('charades.play.difficultyPoints', { points: DIFFICULTY_POINTS[level] })}
+          </T>
+        </View>
+      ))}
     </View>
   );
 }
@@ -115,7 +104,6 @@ export default function CharadesDraft() {
   const [teamAName, setTeamAName] = useState('');
   const [teamBName, setTeamBName] = useState('');
   const [mode, setMode] = useState<GameMode>('classic');
-  const [difficulty, setDifficulty] = useState<ClassicDifficulty>('mixed');
   const [decks, setDecks] = useState<PlayableDeck[] | null>(null);
   const [decksError, setDecksError] = useState(false);
   const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>([]);
@@ -144,7 +132,7 @@ export default function CharadesDraft() {
 
   const confirmDraft = () => {
     if (!canConfirm) return;
-    startCharadesDraft(teamAName.trim(), teamBName.trim(), selectedDeckIds, mode, difficulty);
+    startCharadesDraft(teamAName.trim(), teamBName.trim(), selectedDeckIds, mode);
     router.push('/charades/checkout');
   };
 
@@ -179,24 +167,24 @@ export default function CharadesDraft() {
     </View>
   );
 
-  // On a phone the chips need no heading, and a modified game (which picks
-  // its level every round, as its description says) shows nothing here.
-  const difficultySection = isPhone && mode !== 'classic' ? null : (
-    <View style={styles.section}>
-      {!isPhone ? (
-        <T variant="heading" style={{ fontSize: 18 }}>
-          {t('charades.draft.difficultyTitle')}
-        </T>
-      ) : null}
-      {mode === 'classic' ? (
-        <DifficultyPicker value={difficulty} onChange={setDifficulty} />
-      ) : (
-        <T variant="label" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
-          {t('charades.draft.difficultyModifiedNote')}
-        </T>
-      )}
-    </View>
-  );
+  // Lite always deals every level mixed, so it has nothing to choose here.
+  // Pro lists its easy / medium / hard levels (picked each round in play).
+  const difficultySection =
+    mode === 'classic' ? null : (
+      <View style={styles.section}>
+        {!isPhone ? (
+          <T variant="heading" style={{ fontSize: 18 }}>
+            {t('charades.draft.difficultyTitle')}
+          </T>
+        ) : null}
+        <ProLevels />
+        {!isPhone ? (
+          <T variant="label" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
+            {t('charades.draft.difficultyModifiedNote')}
+          </T>
+        ) : null}
+      </View>
+    );
 
   const teamsSection = (
     <View style={styles.teamRow}>
@@ -341,7 +329,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   difficultyRow: { flexDirection: 'row', gap: 8 },
-  difficultyChip: { flex: 1, borderWidth: 2, borderColor: colors.ink, paddingVertical: 8, alignItems: 'center' },
+  difficultyChip: { flex: 1, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, paddingVertical: 8, alignItems: 'center', gap: 2 },
   decksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 });
