@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Button, Field, Screen, T } from '../src/ui/components';
 import { colors } from '../src/ui/theme';
 import { goBack } from '../src/platform/navigation';
@@ -45,10 +46,25 @@ export default function ChangePassword() {
       scroll
       header={{}}
       footer={
-        <>
-          <Button label={t('password.save')} disabled={!canSubmit} busy={busy} onPress={submit} />
-          <Button label={t('common.cancel')} tone="ghost" showArrow={false} onPress={() => goBack('/account')} />
-        </>
+        <View style={styles.footerRow}>
+          <Button
+            label={t('common.cancel')}
+            tone="secondary"
+            showArrow={false}
+            compact
+            style={styles.footerButton}
+            onPress={() => goBack('/account')}
+          />
+          <Button
+            label={t('password.save')}
+            showArrow={false}
+            compact
+            style={styles.footerButton}
+            disabled={!canSubmit}
+            busy={busy}
+            onPress={submit}
+          />
+        </View>
       }
     >
       <T variant="title">{t('password.title')}</T>
@@ -73,3 +89,8 @@ export default function ChangePassword() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  footerRow: { flexDirection: 'row', gap: 12, width: '100%', maxWidth: 480, alignSelf: 'center' },
+  footerButton: { flexGrow: 1, flexBasis: 0 },
+});
