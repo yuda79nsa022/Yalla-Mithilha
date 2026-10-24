@@ -76,7 +76,7 @@ export default function CharadesCheckout() {
     <Screen
       scroll
       header={{}}
-      footer={<Button label={t('charades.checkout.start')} disabled={!canStart} busy={starting} onPress={start} />}
+      footer={<Button label={t('charades.checkout.start')} compact disabled={!canStart} busy={starting} onPress={start} />}
     >
       <T variant="title" style={{ fontSize: 30 }}>
         {t('charades.checkout.title')}
