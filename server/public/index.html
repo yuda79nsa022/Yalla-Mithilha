@@ -45,11 +45,13 @@
   .hidden { display: none !important; }
 
   /* ---- header: the player app's site bar */
-  /* Full window width, like the player app's bar — the column is for the page below it. */
-  header.site .bar { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  /* Like the player app's bar: full width with a rule under it, its contents
+     lined up with the page column below. */
+  header.site { border-bottom: 2px solid var(--muted-bg); }
+  header.site .bar { max-width: var(--column); margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--purple); min-width: 0; }
-  .brand img { height: 36px; width: auto; max-width: 120px; object-fit: contain; }
-  .brand img.brandLogo { height: 48px; max-width: none; }
+  /* A logo picture keeps its own proportions, 52px tall — the player header's. */
+  .brand img { height: 52px; width: auto; max-width: 220px; object-fit: contain; display: block; }
   .brandName { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
   .brandTag { font-family: var(--display); font-size: 11px; letter-spacing: 1.5px; color: var(--white); background: var(--ink); padding: 2px 8px; transform: rotate(-2deg); }
   [dir="rtl"] .brandTag { letter-spacing: 0; }
@@ -73,12 +75,13 @@
   .navTab svg, .iconBtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
   .headerEnd { display: flex; align-items: center; gap: 12px; }
   .account { display: flex; align-items: center; gap: 12px; }
-  .chip { border: 2px solid var(--ink); padding: 5px 12px; font-weight: 700; font-size: 13px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Every header control — tabs, account, log out, language — is 40px tall. */
+  .chip { height: 40px; display: inline-flex; align-items: center; border: 2px solid var(--ink); padding: 0 12px; font-weight: 700; font-size: 13px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .iconBtn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid transparent; background: transparent; cursor: pointer; color: var(--red); padding: 0; }
   .iconBtn:hover { border-color: var(--red); }
   [dir="rtl"] .iconBtn svg { transform: scaleX(-1); }
   /* The player app's AR/EN switch: names the language it switches to. */
-  .langToggle { font-family: var(--display); font-size: 13px; letter-spacing: 1px; color: var(--purple); background: transparent; border: 2px solid var(--ink); padding: 5px 12px; cursor: pointer; }
+  .langToggle { height: 40px; font-family: var(--display); font-size: 13px; letter-spacing: 1px; color: var(--purple); background: transparent; border: 2px solid var(--ink); padding: 0 12px; cursor: pointer; }
   .langToggle:hover { background: var(--ink); color: var(--white); }
 
   /* ---- footer: the player app's copyright line */
@@ -751,14 +754,14 @@ function openDialog({ title, body = '', fields = [], confirmLabel = t('common.sa
  * The header mark, by the player app's rule (src/ui/Logo.tsx): the built-in
  * brand logo in both languages; an uploaded logo instead once there is one;
  * and a renamed app with no logo of its own gets the plain cube, since the
- * brand logo spells out the original name. The name is printed beside the
- * mark unless the brand logo already shows it.
+ * brand logo spells out the original name. A logo picture is the brand on
+ * its own — the name is printed beside the cube only.
  */
 function applyBranding() {
   const builtIn = !branding.logoPath
     && branding.appNameEn === DEFAULT_NAMES.appNameEn && branding.appNameAr === DEFAULT_NAMES.appNameAr;
   $('brandName').textContent = appName();
-  $('brandName').classList.toggle('hidden', builtIn);
+  $('brandName').classList.toggle('hidden', builtIn || Boolean(branding.logoPath));
   document.title = appName() + ' — ' + t('brand.tag');
   $('copyright').textContent = t('copyright', { year: new Date().getFullYear(), name: appName() });
   $('brandMark').innerHTML = builtIn

@@ -34,7 +34,7 @@ import {
 } from '../theme';
 import { useApp } from '../../state/AppProvider';
 import { isRtlLayout, needsRestartForDirection } from '../../platform';
-import { Logo, useLogoShowsName } from '../Logo';
+import { Logo, useLogoIsImage } from '../Logo';
 import { track } from '../../services/analytics';
 import type { Lang } from '../../engine/types';
 
@@ -281,6 +281,9 @@ function Copyright({ onDark, showLinks }: { onDark: boolean; showLinks: boolean 
 
 const ACCOUNT_DROPDOWN_WIDTH = 220;
 
+/** Every control in the header bar — tabs, account, log out, language — is this tall. */
+const NAV_CONTROL_HEIGHT = 40;
+
 type NavLink = { key: string; label: string; href: string; active: boolean };
 
 /**
@@ -310,12 +313,12 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
     if (pathname !== href) router.navigate(href as never);
   };
 
-  // The built-in logo already spells out the name; anything else gets it beside the mark.
-  const logoShowsName = useLogoShowsName();
+  // A logo picture is the brand on its own; only the plain cube gets the name beside it.
+  const logoIsImage = useLogoIsImage();
   const brandContent = (
     <View style={[styles.navBrand, mirror]}>
       <Logo size={compact ? 'xs' : 'sm'} />
-      {!compact && !logoShowsName ? (
+      {!compact && !logoIsImage ? (
         <T variant="heading" color={brandColor} style={{ fontSize: 15 }} numberOfLines={1}>
           {appName}
         </T>
@@ -323,8 +326,15 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
     </View>
   );
 
+  // The bar spans the window with a rule under it, its contents lined up
+  // with the page column below — logo over the content's start edge, the
+  // menu over its end edge — rather than pinned to the window's corners.
+  const frame = (content: React.ReactNode) => (
+    <View style={[styles.headerFrame, { borderBottomColor: light ? 'rgba(255,255,255,0.25)' : colors.mutedBg }]}>{content}</View>
+  );
+
   if (variant !== 'site') {
-    return (
+    return frame(
       // Slimmer than the site bar — every pixel goes to the game.
       <View style={[styles.headerBar, mirror, compact && styles.headerBarPhone, styles.headerBarGame]}>
         <View style={[styles.navStart, mirror]}>
@@ -342,14 +352,16 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
 
   const playHref = charades ? (charades.lock === 'unlocked' ? '/charades/play' : '/charades/checkout') : '/charades/draft';
   const gamesLeft = walletBalance + freeGameCredits;
-  const links: NavLink[] = [
-    { key: 'home', label: t('nav.home'), href: '/home', active: pathname === '/home' || pathname === '/' },
-    { key: 'play', label: charades ? t('nav.resume') : t('nav.play'), href: playHref, active: pathname.startsWith('/charades') },
-    { key: 'settings', label: t('nav.settings'), href: '/settings', active: pathname === '/settings' },
-    // About & privacy: the footer link on a wide window, Settings' own menu on a phone.
-    // A signed-in player gets the username dropdown below instead.
-    ...(player ? [] : [{ key: 'account', label: t('account.signIn'), href: '/account', active: pathname === '/account' }]),
-  ];
+  // A guest gets only Sign in (and the language toggle): the sections are
+  // for a signed-in player. A signed-in player gets the username dropdown
+  // instead of Sign in.
+  const links: NavLink[] = player
+    ? [
+        { key: 'home', label: t('nav.home'), href: '/home', active: pathname === '/home' || pathname === '/' },
+        { key: 'play', label: charades ? t('nav.resume') : t('nav.play'), href: playHref, active: pathname.startsWith('/charades') },
+        { key: 'settings', label: t('nav.settings'), href: '/settings', active: pathname === '/settings' },
+      ]
+    : [{ key: 'account', label: t('account.signIn'), href: '/account', active: pathname === '/account' }];
   const accountItems: NavLink[] = [
     { key: 'profile', label: t('nav.profile'), href: '/account', active: pathname === '/account' },
     { key: 'changePassword', label: t('nav.changePassword'), href: '/change-password', active: pathname === '/change-password' },
@@ -368,7 +380,7 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
     router.replace('/home');
   };
 
-  return (
+  return frame(
     <View style={[styles.headerBar, mirror, compact && styles.headerBarPhone]}>
       <Pressable accessibilityRole="link" accessibilityLabel={t('nav.home')} onPress={() => go('/home')} hitSlop={6}>
         {brandContent}
@@ -1220,25 +1232,30 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   headerStart: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerEnd: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  langToggle: { borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5 },
+  langToggle: { borderWidth: 2, paddingHorizontal: 12, height: NAV_CONTROL_HEIGHT, justifyContent: 'center' },
   screenInner: { flex: 1, width: '100%', alignSelf: 'center', padding: spacing.lg, gap: spacing.md },
   screenInnerPhone: { padding: spacing.md, gap: 12 },
   screenInnerShort: { paddingVertical: spacing.md },
   scrollContent: { flexGrow: 1 },
+  headerFrame: { borderBottomWidth: 2 },
   headerBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: WIDE_MAX_WIDTH,
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
-  headerBarPhone: { paddingVertical: 10, paddingHorizontal: spacing.md },
+  headerBarPhone: { paddingVertical: 10, paddingHorizontal: spacing.md, gap: spacing.xs },
   headerBarGame: { paddingVertical: 6 },
   navBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   navStart: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexShrink: 1 },
   navEnd: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   navLink: { paddingVertical: 6, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  navAccount: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5, maxWidth: 260 },
+  navAccount: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 2, paddingHorizontal: 12, height: NAV_CONTROL_HEIGHT, maxWidth: 260 },
   navAccountActive: { backgroundColor: colors.ink },
   navBadge: { backgroundColor: colors.purple, paddingHorizontal: 6, paddingVertical: 1 },
   accountDropdown: {
@@ -1251,7 +1268,7 @@ const styles = StyleSheet.create({
   accountDropdownItem: { paddingVertical: 12, paddingHorizontal: spacing.md },
   accountDropdownItemActive: { backgroundColor: colors.purple },
   accountDropdownLogout: { borderTopWidth: 2, borderTopColor: colors.mutedBg },
-  navIconButton: { borderWidth: 2, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  navIconButton: { borderWidth: 2, width: NAV_CONTROL_HEIGHT, height: NAV_CONTROL_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   navTab: { width: 'auto', flexDirection: 'row', gap: 8, paddingHorizontal: 12 },
   navIconBadge: { position: 'absolute', top: -6, right: -6, minWidth: 16, height: 16, paddingHorizontal: 3, backgroundColor: colors.purple, alignItems: 'center', justifyContent: 'center' },
   navMenuButton: { borderWidth: 2, width: 40, height: 36, alignItems: 'center', justifyContent: 'center' },
