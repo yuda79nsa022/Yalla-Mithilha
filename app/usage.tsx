@@ -102,7 +102,7 @@ export default function Usage() {
               </View>
             ))
           )}
-          <Button label={t('nav.buyMore')} tone="secondary" onPress={() => router.push('/buy')} />
+          <Button label={t('nav.buyMore')} tone="secondary" compact showArrow={false} onPress={() => router.push('/buy')} />
         </>
       )}
     </Screen>
