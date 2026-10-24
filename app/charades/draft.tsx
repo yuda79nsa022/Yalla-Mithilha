@@ -276,7 +276,7 @@ export default function CharadesDraft() {
     <Screen
       scroll
       header={{}}
-      footer={<Button label={t('charades.draft.confirm')} disabled={!canConfirm} onPress={confirmDraft} />}
+      footer={<Button label={t('charades.draft.confirm')} compact disabled={!canConfirm} onPress={confirmDraft} />}
     >
       {isWide ? (
         <View style={[styles.wideRow, lang === 'en' && styles.wideRowEn]}>

@@ -486,6 +486,7 @@ export function Button({
   textColor,
   background,
   forceShadow = false,
+  compact = false,
 }: {
   label: string;
   onPress: () => void;
@@ -507,6 +508,8 @@ export function Button({
   background?: string;
   /** Gives a normally shadow-less tone (secondary/ghost/danger) a hard shadow anyway — the turn-handoff screen's white CTA. */
   forceShadow?: boolean;
+  /** A smaller button — shorter, with a smaller label — for screens where the main button shouldn't dominate. */
+  compact?: boolean;
 }) {
   const { lang } = useApp();
   const [pressed, setPressed] = React.useState(false);
@@ -534,6 +537,7 @@ export function Button({
       onPressOut={() => setPressed(false)}
       style={[
         styles.button,
+        compact && { minHeight: 44, paddingVertical: 8 },
         { backgroundColor: bg, borderColor: border, borderWidth: border === 'transparent' ? 0 : 2 },
         useShadow && (pressed ? hardShadowPressed(lang, shadowColor) : hardShadow(lang, shadowColor)),
         useShadow && pressed && { transform: [{ translateX: lang === 'ar' ? -3 : 3 }, { translateY: 3 }] },
@@ -544,11 +548,11 @@ export function Button({
         <ActivityIndicator color={fg} />
       ) : (
         <View style={styles.buttonRow}>
-          <T variant="heading" color={fg} style={{ fontSize: tone === 'primary' ? 22 : 15 }}>
+          <T variant="heading" color={fg} style={{ fontSize: compact ? 16 : tone === 'primary' ? 22 : 15 }}>
             {label}
           </T>
           {showArrow ? (
-            <T variant="heading" color={fg} style={{ fontSize: tone === 'primary' ? 26 : 15 }}>
+            <T variant="heading" color={fg} style={{ fontSize: compact ? 18 : tone === 'primary' ? 26 : 15 }}>
               {endArrow(lang)}
             </T>
           ) : null}
