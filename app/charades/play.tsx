@@ -594,13 +594,23 @@ function HandoffScreen({
   const { t, lang } = useApp();
   const { height } = useWindowDimensions();
   const short = height < 700;
-  const qrSize = height < 640 ? 88 : short ? 104 : height < 760 ? 128 : 168;
+  // A little smaller than before: the full site header above now takes room, and this page no longer scrolls.
+  const qrSize = height < 640 ? 80 : short ? 96 : height < 760 ? 112 : 148;
   return (
     <Screen
-      scroll
       background={colors.purple}
-      header={{ variant: 'game', light: true, title: t('charades.play.round', { round, total }) }}
-      footer={<Button label={t('charades.play.startTimer')} tone="secondary" background={colors.white} forceShadow onPress={onStart} />}
+      header={{ light: true }}
+      footer={
+        <Button
+          label={t('charades.play.startTimer')}
+          tone="secondary"
+          background={colors.white}
+          forceShadow
+          compact
+          showArrow={false}
+          onPress={onStart}
+        />
+      }
     >
       <RoundProgress round={round} total={total} />
       <ScoreBlock teamAName={state.teamAName} teamAScore={state.scores[0]} teamBName={state.teamBName} teamBScore={state.scores[1]} compact />
