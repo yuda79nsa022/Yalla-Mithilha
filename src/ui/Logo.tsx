@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { colors } from './theme';
 import { T } from './components';
@@ -146,9 +146,6 @@ function Cube({ size, animated = false }: { size: Size; animated?: boolean }) {
     </Animated.View>
   );
 }
-/** Height of an admin-uploaded logo at each size — about the cube's own footprint. */
-const CUSTOM_LOGO_HEIGHT: Record<Size, number> = { lg: 120, md: 48, sm: 36, xs: 30 };
-
 /**
  * The built-in brand logo — cube and "بس! بدون كلام / BAS BEDOON KALAM"
  * wordmark in one transparent image, the same in English and Arabic. Also
@@ -156,59 +153,73 @@ const CUSTOM_LOGO_HEIGHT: Record<Size, number> = { lg: 120, md: 48, sm: 36, xs: 
  */
 const BRAND_LOGO = require('../../assets/images/brand-logo.png');
 const BRAND_LOGO_ASPECT = 1368 / 799;
-const BRAND_LOGO_HEIGHT: Record<Size, number> = { lg: 150, md: 72, sm: 48, xs: 36 };
+
+/** How tall a logo image is at each size; its width follows its own proportions. */
+const LOGO_HEIGHT: Record<Size, number> = { lg: 150, md: 72, sm: 52, xs: 34 };
 
 /**
- * Whether the logo already spells out the app's name — true for the built-in
- * brand image, so the header doesn't print the name a second time beside it.
+ * An uploaded logo's width-to-height ratio, read from the image itself — a
+ * fixed box squeezed a wide logo down to a sliver. Square until it's known.
  */
-export function useLogoShowsName(): boolean {
-  const { t, appName, logoUrl } = useApp();
-  return !logoUrl && appName === t('app.name');
+function useImageAspect(uri: string | null): number {
+  const [aspect, setAspect] = useState(1);
+  useEffect(() => {
+    if (!uri) return;
+    let live = true;
+    Image.getSize(
+      uri,
+      (w, h) => live && h > 0 && setAspect(w / h),
+      () => undefined
+    );
+    return () => {
+      live = false;
+    };
+  }, [uri]);
+  return aspect;
 }
 
 /**
- * The brand mark. By default the built-in brand image (cube + wordmark) at
- * every size: `lg` for the splash and home hero, `md` beside the game,
- * `sm` in the header. An admin-uploaded logo replaces it everywhere. An app
- * renamed without a logo of its own falls back to the plain cube with its
- * new name, since the brand image spells out the original one.
+ * Whether the logo is a picture (the built-in brand image, or one an admin
+ * uploaded) rather than the plain cube. A picture is the brand on its own —
+ * nothing prints the app's name beside it; the cube always comes with it.
+ */
+export function useLogoIsImage(): boolean {
+  const { t, appName, logoUrl } = useApp();
+  return Boolean(logoUrl) || appName === t('app.name');
+}
+
+/**
+ * The brand mark, the same in English and Arabic: the built-in brand image,
+ * or the logo an admin uploaded in its place. `lg` is the splash and home
+ * hero, `md` beside the game, `sm` the header, `xs` the phone header. An app
+ * renamed without a logo of its own gets the plain cube with its new name
+ * instead, since the brand image spells out the original one.
  */
 export function Logo({ size = 'lg', animated = false }: { size?: Size; animated?: boolean }) {
   const { lang, appName, logoUrl } = useApp();
-  const showsName = useLogoShowsName();
-  const translateY = useBob(animated && (showsName || Boolean(logoUrl)));
+  const isImage = useLogoIsImage();
+  const uploadedAspect = useImageAspect(logoUrl);
+  const translateY = useBob(animated && isImage);
 
-  if (showsName) {
-    const height = BRAND_LOGO_HEIGHT[size];
+  if (isImage) {
+    const height = LOGO_HEIGHT[size];
+    const aspect = logoUrl ? uploadedAspect : BRAND_LOGO_ASPECT;
     return (
       <Animated.View style={animated ? { transform: [{ translateY }] } : undefined}>
         <Image
-          source={BRAND_LOGO}
+          source={logoUrl ? { uri: logoUrl } : BRAND_LOGO}
           accessibilityLabel={appName}
           resizeMode="contain"
-          style={{ height, width: Math.round(height * BRAND_LOGO_ASPECT) }}
+          style={{ height, width: Math.round(height * aspect) }}
         />
       </Animated.View>
     );
   }
 
-  const mark = logoUrl ? (
-    <Animated.View style={animated ? { transform: [{ translateY }] } : undefined}>
-      <Image
-        source={{ uri: logoUrl }}
-        accessibilityLabel={appName}
-        resizeMode="contain"
-        style={{ height: CUSTOM_LOGO_HEIGHT[size], width: CUSTOM_LOGO_HEIGHT[size] * 1.6 }}
-      />
-    </Animated.View>
-  ) : (
-    <Cube size={size} animated={animated} />
-  );
-  if (size !== 'lg') return mark;
+  if (size !== 'lg') return <Cube size={size} animated={animated} />;
   return (
     <View style={[styles.row, lang === 'en' && styles.rowReversed]}>
-      {mark}
+      <Cube size={size} animated={animated} />
       <T variant="title" style={styles.customName}>
         {appName}
       </T>
