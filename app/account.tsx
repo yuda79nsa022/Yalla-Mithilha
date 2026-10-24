@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Button, ConfirmModal, Field, Screen, T, TextLink } from '../src/ui/components';
 import { colors } from '../src/ui/theme';
@@ -7,6 +7,7 @@ import { goBack } from '../src/platform/navigation';
 import { useApp } from '../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../src/config';
 import { loginAdmin } from '../src/services/adminAuthApi';
+import type { PlayerProfile } from '../src/services/playerAuthApi';
 
 type Mode = 'signIn' | 'create' | 'forgotRequest' | 'forgotConfirm';
 
@@ -24,6 +25,7 @@ export default function Account() {
     logoutPlayerAccount,
     requestPasswordReset,
     confirmPasswordReset,
+    loadProfile,
   } = useApp();
   // `?mode=create` opens straight on the create-account form (Home's "Create account" button).
   const { mode: initialMode } = useLocalSearchParams<{ mode?: string }>();
@@ -39,6 +41,25 @@ export default function Account() {
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [tryingAdmin, setTryingAdmin] = useState(false);
   const [adminRedirecting, setAdminRedirecting] = useState(false);
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [profileFailed, setProfileFailed] = useState(false);
+  const signedIn = Boolean(player);
+
+  // Profile details for the signed-in view (this page doubles as the Profile page).
+  useEffect(() => {
+    if (!signedIn) {
+      setProfile(null);
+      return;
+    }
+    let live = true;
+    setProfileFailed(false);
+    loadProfile()
+      .then((p) => live && setProfile(p))
+      .catch(() => live && setProfileFailed(true));
+    return () => {
+      live = false;
+    };
+  }, [signedIn, loadProfile]);
 
   const logout = () => {
     setConfirmingLogout(false);
@@ -129,6 +150,29 @@ export default function Account() {
           </T>
         </View>
         <T variant="body">{t('account.loggedInAs', { username: player.username })}</T>
+        {profileFailed ? (
+          <T variant="label" color={colors.red}>
+            {t('account.profileLoadError')}
+          </T>
+        ) : profile ? (
+          <View style={{ gap: 6 }}>
+            <T variant="label" color={colors.neutral700}>
+              {profile.email ?? t('account.noEmail')}
+            </T>
+            {profile.createdAt ? (
+              <T variant="label" color={colors.neutral700}>
+                {t('account.memberSince', {
+                  date: new Date(profile.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-KW' : 'en-GB', { dateStyle: 'medium' }),
+                })}
+              </T>
+            ) : null}
+            <T variant="label" color={colors.neutral700}>
+              {t('account.freeGames', { count: profile.freeGameCredits })}
+            </T>
+          </View>
+        ) : null}
+        <Button label={t('password.title')} tone="secondary" showArrow={false} onPress={() => router.push('/change-password')} />
+        <Button label={t('nav.usageReport')} tone="secondary" showArrow={false} onPress={() => router.push('/usage')} />
 
         <ConfirmModal
           visible={confirmingLogout}

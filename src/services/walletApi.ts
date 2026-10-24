@@ -111,6 +111,24 @@ export function getWalletBalance(token: string, timeoutMs = 8000): Promise<Walle
   );
 }
 
+export interface UsageReport {
+  totals: {
+    gamesPlayed: number;
+    liteGames: number;
+    proGames: number;
+    gamesBought: number;
+    spentFils: number;
+    currency: string;
+  };
+  games: { id: string; mode: GameMode; createdAt: number }[];
+  payments: { id: string; credits: number; amountFils: number; currency: string; status: PaymentStatus; createdAt: number }[];
+}
+
+/** The signed-in player's games started and top-ups made, with totals. */
+export function getUsageReport(token: string, timeoutMs = 8000): Promise<UsageReport> {
+  return request<UsageReport>('/charades/usage', { method: 'GET', headers: { Authorization: `Bearer ${token}` } }, timeoutMs);
+}
+
 /**
  * Starts a top-up for exactly one game's worth of credit, at `mode`'s current
  * price. No credit exists until the payment gateway confirms it. `language`

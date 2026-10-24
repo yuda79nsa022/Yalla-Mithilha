@@ -23,6 +23,9 @@ import { deviceLanguage, deviceStore } from '../platform';
 import { track } from '../services/analytics';
 import {
   PlayerAuthError,
+  changePlayerPassword as changePlayerPasswordApi,
+  getPlayerProfile as getPlayerProfileApi,
+  type PlayerProfile,
   confirmPasswordReset as confirmPasswordResetApi,
   loginPlayer as loginPlayerApi,
   refreshPlayerSession as refreshPlayerSessionApi,
@@ -36,6 +39,7 @@ import {
   failCheckout as failCheckoutApi,
   getGamePrice,
   getHomeContent,
+  getUsageReport as getUsageReportApi,
   getWalletBalance,
   refreshCheckout as refreshCheckoutApi,
   startCheckout as startCheckoutApi,
@@ -43,6 +47,7 @@ import {
   type CheckoutPayment,
   type HomeContent,
   type PaymentStatus,
+  type UsageReport,
 } from '../services/walletApi';
 import { LOW_BALANCE_THRESHOLD, checkSession } from '../services/session';
 
@@ -168,6 +173,12 @@ interface AppValue {
   requestPasswordReset: (username: string) => Promise<boolean>;
   /** Step two — the code from the (mocked, for now) email plus a new password. */
   confirmPasswordReset: (username: string, code: string, newPassword: string) => Promise<boolean>;
+  /** Changes the signed-in player's password. Resolves `null` on success (the session is swapped for the fresh one the server issues) or the error message. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string | null>;
+  /** The signed-in player's profile (Profile page). Rejects if the session has ended or the server can't be reached. */
+  loadProfile: () => Promise<PlayerProfile>;
+  /** The signed-in player's usage report (games played, top-ups). Rejects like `loadProfile`. */
+  loadUsage: () => Promise<UsageReport>;
 }
 
 const AppContext = createContext<AppValue | null>(null);
@@ -643,6 +654,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const session = sessionRef.current;
+    if (!session) return 'not signed in';
+    try {
+      const result = await changePlayerPasswordApi(session.token, currentPassword, newPassword);
+      const next: PlayerSession = { id: result.player.id, username: result.player.username, token: result.token };
+      setPlayerSession(next);
+      await savePlayerSession(deviceStore, next);
+      return null;
+    } catch (err) {
+      return err instanceof PlayerAuthError ? err.message : 'could not reach the server';
+    }
+  }, []);
+
+  const loadProfile = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session) throw new PlayerAuthError('not signed in', 401);
+    try {
+      return await getPlayerProfileApi(session.token);
+    } catch (err) {
+      if (err instanceof PlayerAuthError && err.status === 401 && sessionRef.current?.id === session.id) expireSession();
+      throw err;
+    }
+  }, [expireSession]);
+
+  const loadUsage = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session) throw new WalletError('not signed in', 401);
+    try {
+      return await getUsageReportApi(session.token);
+    } catch (err) {
+      if (err instanceof WalletError && err.status === 401 && sessionRef.current?.id === session.id) expireSession();
+      throw err;
+    }
+  }, [expireSession]);
+
   const value: AppValue = {
     ready,
     lang,
@@ -682,6 +729,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dismissSessionExpired,
     requestPasswordReset,
     confirmPasswordReset,
+    changePassword,
+    loadProfile,
+    loadUsage,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

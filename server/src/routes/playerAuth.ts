@@ -16,7 +16,12 @@ import { hashPassword, requirePlayerSession, signPlayerSessionToken, verifyPassw
 import { handleError } from '../errors';
 import { resetCodeProvider } from '../notifications/resetCodeProvider';
 import { loginLimiter, passwordResetConfirmLimiter, passwordResetRequestLimiter, registerLimiter } from '../rateLimit';
-import { parseConfirmPasswordResetBody, parseRegisterPlayerBody, parseRequestPasswordResetBody } from '../validate';
+import {
+  parseChangePasswordBody,
+  parseConfirmPasswordResetBody,
+  parseRegisterPlayerBody,
+  parseRequestPasswordResetBody,
+} from '../validate';
 
 const RESET_CODE_TTL_MS = 10 * 60 * 1000;
 /** Once a code has racked up this many wrong guesses, it's dead even if it hasn't expired yet — the player has to request a fresh one. */
@@ -40,7 +45,7 @@ export const playerAuthRouter = Router();
 // same-origin-only on top of requiring a session.
 playerAuthRouter.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   // Authorization for /session/refresh, the one route here that needs a session.
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') {
@@ -173,6 +178,52 @@ playerAuthRouter.post('/session/refresh', requirePlayerSession, (req, res) => {
     }
     const token = signPlayerSessionToken({ sub: player.id, username: player.username });
     res.json({ token, player: { id: player.id, username: player.username } });
+  } catch (err) {
+    handleError(err, res);
+  }
+});
+
+/** The signed-in player's own profile — what the Profile page shows. Never includes the password hash. */
+playerAuthRouter.get('/me', requirePlayerSession, (req, res) => {
+  const player = getPlayerById(req.player!.sub);
+  if (!player) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  res.json({
+    id: player.id,
+    username: player.username,
+    email: player.email,
+    freeGameCredits: player.freeGameCredits,
+    createdAt: player.createdAt,
+  });
+});
+
+/**
+ * A signed-in player changing their own password: the current one must be
+ * right (a borrowed, unlocked device can't silently take over the account).
+ * Changing it bumps the account's session version, which signs out every
+ * other device — so the response carries a fresh token for this one, the
+ * same shape as login, and the app swaps to it without a re-sign-in.
+ */
+playerAuthRouter.post('/password/change', loginLimiter, requirePlayerSession, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = parseChangePasswordBody(req.body);
+    const player = getPlayerByUsernameWithHash(req.player!.username);
+    const ok = player && player.id === req.player!.sub ? await verifyPassword(currentPassword, player.passwordHash) : false;
+    if (!player || !ok) {
+      res.status(401).json({ error: 'current password is incorrect' });
+      return;
+    }
+    const updated = updatePlayer(player.id, { passwordHash: await hashPassword(newPassword) });
+    recordAudit({
+      actorId: player.id,
+      actorUsername: player.username,
+      action: 'player.password_change_self',
+      target: player.id,
+    });
+    const token = signPlayerSessionToken({ sub: updated.id, username: updated.username });
+    res.json({ token, player: { id: updated.id, username: updated.username } });
   } catch (err) {
     handleError(err, res);
   }

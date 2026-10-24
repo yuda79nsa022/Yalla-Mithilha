@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express';
-import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFilsForMode, getGameSession, getHomeContent, getPayment, getPlayerById, listPublicDecks, setPaymentProviderRef, startGameSession } from '../db';
+import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createPayment, createRevealToken, creditBalance, failPayment, getGamePriceFilsForMode, getGameSession, getHomeContent, getPayment, getPlayerById, listGameSessionsForPlayer, listPaymentsForPlayer, listPublicDecks, setPaymentProviderRef, startGameSession } from '../db';
 import { isGameMode, type GameMode } from '../types';
 import { requirePlayerSession } from '../auth';
 import { handleError } from '../errors';
@@ -61,6 +61,38 @@ charadesRouter.get('/wallet', requirePlayerSession, (req, res) => {
   res.json({
     balance: creditBalance(req.player!.sub),
     freeGameCredits: getPlayerById(req.player!.sub)?.freeGameCredits ?? 0,
+  });
+});
+
+/**
+ * The player's usage report: every game they started and every top-up they
+ * made (newest first), plus totals. Games paid for with signup-bonus credits
+ * show up as games like any other; only top-ups that actually settled count
+ * as bought.
+ */
+charadesRouter.get('/usage', requirePlayerSession, (req, res) => {
+  const playerId = req.player!.sub;
+  const games = listGameSessionsForPlayer(playerId);
+  const payments = listPaymentsForPlayer(playerId).slice(0, 100);
+  const paid = payments.filter((p) => p.status === 'paid');
+  res.json({
+    totals: {
+      gamesPlayed: games.length,
+      liteGames: games.filter((g) => g.mode === 'classic').length,
+      proGames: games.filter((g) => g.mode === 'modified').length,
+      gamesBought: paid.reduce((sum, p) => sum + p.credits, 0),
+      spentFils: paid.reduce((sum, p) => sum + p.amountFils, 0),
+      currency: 'KWD',
+    },
+    games,
+    payments: payments.map((p) => ({
+      id: p.id,
+      credits: p.credits,
+      amountFils: p.amountFils,
+      currency: p.currency,
+      status: p.status,
+      createdAt: p.createdAt,
+    })),
   });
 });
 

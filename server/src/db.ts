@@ -1042,6 +1042,21 @@ export function getPayment(id: string): PaymentRow | null {
   return row ? rowToPayment(row) : null;
 }
 
+export interface GameSessionSummary {
+  id: string;
+  mode: GameMode;
+  createdAt: number;
+}
+
+/** A player's games, newest first — id, mode and start time only (never the dealt titles, which a player must not be able to read back). */
+export function listGameSessionsForPlayer(playerId: string, limit = 100): GameSessionSummary[] {
+  return (
+    db
+      .prepare('SELECT id, mode, created_at FROM game_sessions WHERE player_id = ? ORDER BY created_at DESC LIMIT ?')
+      .all(playerId, limit) as { id: string; mode: string; created_at: number }[]
+  ).map((r) => ({ id: r.id, mode: r.mode === 'modified' ? 'modified' : 'classic', createdAt: r.created_at }));
+}
+
 export function listPaymentsForPlayer(playerId: string): PaymentRow[] {
   return db
     .prepare('SELECT * FROM payments WHERE player_id = ? ORDER BY created_at DESC')
