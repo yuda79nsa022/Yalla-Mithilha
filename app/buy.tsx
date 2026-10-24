@@ -32,26 +32,10 @@ export default function Buy() {
     if (player) void refreshWallet();
   }, [player, refreshWallet]);
 
-  // A guest (say, opening the email's link on a fresh browser) has no
-  // wallet to add to yet — sign in first, which comes straight back here.
-  if (!player) {
-    return (
-      <Screen
-        scroll
-        header={{}}
-        footer={
-          <ButtonRow>
-            <Button label={t('charades.checkout.signInButton')} onPress={() => router.push('/account')} />
-          </ButtonRow>
-        }
-      >
-        <PageTitle>{t('buy.title')}</PageTitle>
-        <T variant="body" color={colors.neutral700} style={{ fontSize: 13, fontWeight: '500' }}>
-          {t('charades.home.guestNotice')}
-        </T>
-      </Screen>
-    );
-  }
+  // A guest (say, opening the low-balance email's link on a fresh browser)
+  // never gets here — SignInGuard (app/_layout.tsx) sends them to sign in
+  // first, and straight back here afterwards.
+  if (!player) return null;
 
   const gamesLeft = walletBalance + freeGameCredits;
   const draftWaiting = charades !== null && charades.lock === 'locked';

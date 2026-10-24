@@ -7,6 +7,7 @@ import { goBack } from '../src/platform/navigation';
 import { useApp } from '../src/state/AppProvider';
 import { CATALOGUE_API_URL } from '../src/config';
 import { loginAdmin } from '../src/services/adminAuthApi';
+import { safeNextPath } from '../src/services/access';
 import type { PlayerProfile } from '../src/services/playerAuthApi';
 
 type Mode = 'signIn' | 'create' | 'forgotRequest' | 'forgotConfirm';
@@ -29,7 +30,10 @@ export default function Account() {
     loadProfile,
   } = useApp();
   // `?mode=create` opens straight on the create-account form (Home's "Create account" button).
-  const { mode: initialMode } = useLocalSearchParams<{ mode?: string }>();
+  // `?next=` is the screen a guest was sent here from (see SignInGuard) — back there once signed in.
+  const { mode: initialMode, next } = useLocalSearchParams<{ mode?: string; next?: string }>();
+  const returnTo = safeNextPath(next);
+  const leave = () => (returnTo ? router.replace(returnTo as never) : goBack());
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
   const [mode, setMode] = useState<Mode>(initialMode === 'create' ? 'create' : 'signIn');
@@ -78,13 +82,13 @@ export default function Account() {
     setAdminRedirecting(false);
     if (mode !== 'signIn') {
       const ok = await registerPlayerAccount(username.trim(), password, email.trim());
-      if (ok) goBack();
+      if (ok) leave();
       return;
     }
 
     const ok = await loginPlayerAccount(username.trim(), password);
     if (ok) {
-      goBack();
+      leave();
       return;
     }
 

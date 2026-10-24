@@ -19,11 +19,9 @@ export default function Usage() {
   const [failed, setFailed] = useState(false);
   const signedIn = Boolean(player);
 
+  // A guest never gets here — SignInGuard (app/_layout.tsx) sends them to sign in first.
   useEffect(() => {
-    if (!signedIn) {
-      router.replace('/account');
-      return;
-    }
+    if (!signedIn) return;
     let live = true;
     setFailed(false);
     loadUsage()
