@@ -18,6 +18,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
 import {
   ARABIC_LINE_HEIGHT_BOOST,
   FONT_BY_WEIGHT,
@@ -241,23 +242,22 @@ type NavLink = { key: string; label: string; href: string; active: boolean };
  * would leave the game by accident.
  */
 function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' | 'minimal'; title?: string; light?: boolean }) {
-  const { t, player, charades, walletLoaded, walletBalance, freeGameCredits } = useApp();
+  const { t, player, charades, walletLoaded, walletBalance, freeGameCredits, logoutPlayerAccount } = useApp();
   const pathname = usePathname();
   const { width } = useWindowDimensions();
-  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [confirmingLogout, setConfirmingLogout] = React.useState(false);
   const compact = width < 760;
   const fg = light ? colors.white : colors.ink;
   const brandColor = light ? colors.white : colors.purple;
 
   const go = (href: string) => {
-    setMenuOpen(false);
     if (pathname !== href) router.navigate(href as never);
   };
 
   const brandContent = (
     <View style={styles.navBrand}>
       <Logo size="sm" />
-      {!compact || variant !== 'game' ? (
+      {!compact ? (
         <T variant="heading" color={brandColor} style={{ fontSize: 15 }} numberOfLines={1}>
           {t('app.name')}
         </T>
@@ -283,110 +283,119 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
   }
 
   const playHref = charades ? (charades.lock === 'unlocked' ? '/charades/play' : '/charades/checkout') : '/charades/draft';
+  const gamesLeft = walletBalance + freeGameCredits;
   const links: NavLink[] = [
     { key: 'home', label: t('nav.home'), href: '/home', active: pathname === '/home' || pathname === '/' },
     { key: 'play', label: charades ? t('nav.resume') : t('nav.play'), href: playHref, active: pathname.startsWith('/charades') },
     ...(player ? [{ key: 'buy', label: t('nav.buy'), href: '/buy', active: pathname === '/buy' }] : []),
     { key: 'settings', label: t('nav.settings'), href: '/settings', active: pathname === '/settings' },
+    // The footer carries this link on a wide window; on a phone it joins the icons.
+    ...(compact ? [{ key: 'privacy', label: t('home.about'), href: '/privacy', active: pathname === '/privacy' }] : []),
+    {
+      key: 'account',
+      label: player ? t('nav.account') : t('account.signIn'),
+      href: '/account',
+      active: pathname === '/account',
+    },
   ];
-  // The footer carries this link on a wide window; on a phone it joins the menu.
-  const menuLinks: NavLink[] = [...links, { key: 'privacy', label: t('home.about'), href: '/privacy', active: pathname === '/privacy' }];
-  const gamesLeft = walletBalance + freeGameCredits;
-  const accountLabel = player ? player.username : t('account.signIn');
 
-  const accountButton = (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={player ? t('nav.account') : t('account.signIn')}
-      onPress={() => go('/account')}
-      style={({ pressed }) => [styles.navAccount, { borderColor: fg }, pathname === '/account' && styles.navAccountActive, pressed && styles.pressed]}
-    >
-      <T variant="label" color={pathname === '/account' ? colors.white : fg} style={{ fontSize: 13 }} numberOfLines={1}>
-        {accountLabel}
-      </T>
-      {player && walletLoaded ? (
-        <View style={styles.navBadge}>
-          <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
-            {t('nav.gamesLeft', { count: gamesLeft })}
-          </T>
-        </View>
-      ) : null}
-    </Pressable>
-  );
+  const logout = () => {
+    setConfirmingLogout(false);
+    logoutPlayerAccount();
+    router.replace('/home');
+  };
 
   return (
     <View style={[styles.headerBar, compact && styles.headerBarPhone]}>
       <Pressable accessibilityRole="link" accessibilityLabel={t('nav.home')} onPress={() => go('/home')} hitSlop={6}>
         {brandContent}
       </Pressable>
-      {compact ? (
-        <View style={styles.navEnd}>
-          <LanguageToggle light={light} />
+      <View style={[styles.navEnd, compact && { gap: spacing.sm }]}>
+        {links.map((link) => (
+          <Pressable
+            key={link.key}
+            accessibilityRole="link"
+            accessibilityLabel={link.label}
+            accessibilityState={{ selected: link.active }}
+            onPress={() => go(link.href)}
+            style={({ pressed }) => [
+              styles.navIconButton,
+              { borderColor: link.active ? brandColor : 'transparent' },
+              link.active && { backgroundColor: brandColor },
+              pressed && styles.pressed,
+            ]}
+          >
+            <NavIcon name={link.key} color={link.active ? (light ? colors.ink : colors.white) : fg} />
+            {link.key === 'buy' && walletLoaded ? (
+              <View style={styles.navIconBadge}>
+                <T variant="label" color={colors.white} style={{ fontSize: 10, lineHeight: 12 }}>
+                  {gamesLeft}
+                </T>
+              </View>
+            ) : null}
+          </Pressable>
+        ))}
+        {player ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('nav.menu')}
-            accessibilityState={{ expanded: menuOpen }}
-            onPress={() => setMenuOpen(true)}
-            style={({ pressed }) => [styles.navMenuButton, { borderColor: fg }, pressed && styles.pressed]}
+            accessibilityLabel={t('account.logout')}
+            onPress={() => setConfirmingLogout(true)}
+            style={({ pressed }) => [styles.navIconButton, { borderColor: 'transparent' }, pressed && styles.pressed]}
           >
-            <T variant="heading" color={fg} style={{ fontSize: 18, lineHeight: 22 }}>
-              ☰
-            </T>
+            <NavIcon name="logout" color={light ? colors.white : colors.red} />
           </Pressable>
-          <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-            <Pressable style={styles.navSheetBackdrop} onPress={() => setMenuOpen(false)} accessibilityLabel={t('nav.close')}>
-              <Pressable style={styles.navSheet} onPress={() => undefined}>
-                <View style={[styles.headerBar, styles.headerBarPhone]}>
-                  {brandContent}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('nav.close')}
-                    onPress={() => setMenuOpen(false)}
-                    style={({ pressed }) => [styles.navMenuButton, { borderColor: colors.ink }, pressed && styles.pressed]}
-                  >
-                    <T variant="heading" style={{ fontSize: 18, lineHeight: 22 }}>
-                      ✕
-                    </T>
-                  </Pressable>
-                </View>
-                {menuLinks.map((link) => (
-                  <Pressable
-                    key={link.key}
-                    accessibilityRole="link"
-                    accessibilityState={{ selected: link.active }}
-                    onPress={() => go(link.href)}
-                    style={({ pressed }) => [styles.navSheetItem, link.active && styles.navSheetItemActive, pressed && styles.pressed]}
-                  >
-                    <T variant="heading" color={link.active ? colors.white : colors.ink} style={{ fontSize: 18 }}>
-                      {link.label}
-                    </T>
-                  </Pressable>
-                ))}
-                <View style={styles.navSheetAccount}>{accountButton}</View>
-              </Pressable>
-            </Pressable>
-          </Modal>
-        </View>
-      ) : (
-        <View style={styles.navEnd}>
-          {links.map((link) => (
-            <Pressable
-              key={link.key}
-              accessibilityRole="link"
-              accessibilityState={{ selected: link.active }}
-              onPress={() => go(link.href)}
-              style={({ pressed }) => [styles.navLink, link.active && { borderBottomColor: brandColor }, pressed && styles.pressed]}
-            >
-              <T variant="label" color={link.active ? brandColor : fg} style={{ fontSize: 14 }}>
-                {link.label}
-              </T>
-            </Pressable>
-          ))}
-          {accountButton}
-          <LanguageToggle light={light} />
-        </View>
-      )}
+        ) : null}
+        <LanguageToggle light={light} />
+      </View>
+      <ConfirmModal
+        visible={confirmingLogout}
+        title={t('account.logout')}
+        body={t('account.logoutConfirm')}
+        confirmLabel={t('common.yes')}
+        cancelLabel={t('common.cancel')}
+        destructive
+        onConfirm={logout}
+        onCancel={() => setConfirmingLogout(false)}
+      />
     </View>
+  );
+}
+
+/** Feather-style 24px line icons for the header bar, keyed by nav link. */
+function NavIcon({ name, color }: { name: string; color: string }) {
+  const common = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24">
+      {name === 'home' ? (
+        <>
+          <Path d="M3 11l9-8 9 8" {...common} />
+          <Path d="M5 10v10h14V10" {...common} />
+          <Path d="M10 20v-6h4v6" {...common} />
+        </>
+      ) : name === 'play' ? (
+        <Path d="M7 4l13 8-13 8z" {...common} />
+      ) : name === 'buy' ? (
+        <>
+          <Circle cx={9} cy={20} r={1} {...common} />
+          <Circle cx={18} cy={20} r={1} {...common} />
+          <Path d="M1 2h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" {...common} />
+        </>
+      ) : name === 'settings' ? (
+        <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" {...common} />
+      ) : name === 'privacy' ? (
+        <>
+          <Circle cx={12} cy={12} r={10} {...common} />
+          <Path d="M12 16v-4M12 8h.01" {...common} />
+        </>
+      ) : name === 'account' ? (
+        <>
+          <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" {...common} />
+          <Circle cx={12} cy={7} r={4} {...common} />
+        </>
+      ) : (
+        <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" {...common} />
+      )}
+    </Svg>
   );
 }
 
@@ -1007,6 +1016,8 @@ const styles = StyleSheet.create({
   navAccount: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5, maxWidth: 260 },
   navAccountActive: { backgroundColor: colors.ink },
   navBadge: { backgroundColor: colors.purple, paddingHorizontal: 6, paddingVertical: 1 },
+  navIconButton: { borderWidth: 2, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  navIconBadge: { position: 'absolute', top: -6, right: -6, minWidth: 16, height: 16, paddingHorizontal: 3, backgroundColor: colors.purple, alignItems: 'center', justifyContent: 'center' },
   navMenuButton: { borderWidth: 2, width: 40, height: 36, alignItems: 'center', justifyContent: 'center' },
   navSheetBackdrop: { flex: 1, backgroundColor: colors.overlay, alignItems: 'stretch' },
   navSheet: { backgroundColor: colors.ground, borderBottomWidth: 2, borderBottomColor: colors.ink, paddingBottom: spacing.md },
