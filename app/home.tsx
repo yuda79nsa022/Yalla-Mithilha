@@ -35,8 +35,32 @@ export default function Home() {
   const tagline = (lang === 'ar' ? homeContent?.taglineAr : homeContent?.taglineEn) ?? t('app.tagline');
   const writeup = (lang === 'ar' ? homeContent?.writeupAr : homeContent?.writeupEn) ?? t('app.writeup');
 
-  const footer = (
+  // Every page keeps its actions in the pinned footer: one primary (purple),
+  // anything secondary beside it, outlined.
+  const footer = charades ? (
+    <ButtonRow>
+      <Button
+        label={t('resume.discard')}
+        tone="secondary"
+        showArrow={false}
+        onPress={() => {
+          quitCharades();
+          router.push('/charades/draft');
+        }}
+      />
+      <Button
+        label={t('resume.continue')}
+        showArrow={false}
+        onPress={() => router.push(charades.lock === 'unlocked' ? '/charades/play' : '/charades/checkout')}
+      />
+    </ButtonRow>
+  ) : player ? (
     <Button label={t('charades.home.startNew')} onPress={() => router.push('/charades/draft')} />
+  ) : (
+    <ButtonRow>
+      <Button label={t('account.signIn')} tone="secondary" showArrow={false} onPress={() => router.push('/account')} />
+      <Button label={t('account.createAccount')} showArrow={false} onPress={() => router.push('/account?mode=create')} />
+    </ButtonRow>
   );
 
   // One block with its own small gap — spacing between its parts no longer
@@ -71,28 +95,11 @@ export default function Home() {
         </>
       ) : (
         <>
-          {/* The two buttons below say the same thing — on a short phone screen the note makes room for them. */}
           {!shortPhone ? (
             <T variant="label" color={colors.neutral700} style={{ fontWeight: '500' }}>
               {t('charades.home.guestNotice')}
             </T>
           ) : null}
-          {/* Side by side at every width, same buttons as the sign-in page. */}
-          <ButtonRow>
-            <Button
-              label={t('account.createAccount')}
-              accent={colors.purple}
-              showArrow={false}
-              onPress={() => router.push('/account?mode=create')}
-            />
-            <Button
-              label={t('account.signIn')}
-              accent={colors.green}
-              textColor={colors.ink}
-              showArrow={false}
-              onPress={() => router.push('/account')}
-            />
-          </ButtonRow>
         </>
       )}
 
@@ -103,19 +110,6 @@ export default function Home() {
             <T variant="label" color={colors.neutral700}>
               {t('charades.resume.body')}
             </T>
-            <Button
-              label={t('resume.continue')}
-              onPress={() => router.push(charades.lock === 'unlocked' ? '/charades/play' : '/charades/checkout')}
-            />
-            <Button
-              label={t('resume.discard')}
-              tone="ghost"
-              showArrow={false}
-              onPress={() => {
-                quitCharades();
-                router.push('/charades/draft');
-              }}
-            />
           </View>
         </>
       ) : null}
@@ -125,10 +119,9 @@ export default function Home() {
   return (
     <Screen
       scroll
+      wide
       header={{}}
-      // A guest signs in or creates an account first (the two buttons in
-      // the account section) — starting a game is only offered once signed in.
-      footer={charades || !player ? undefined : footer}
+      footer={footer}
     >
       {isWide ? (
         // A wide window uses its whole width: the words and the account on

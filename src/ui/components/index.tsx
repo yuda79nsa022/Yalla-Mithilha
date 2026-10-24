@@ -92,6 +92,10 @@ export function T({
 /** The widest a confirmation dialog gets — on a desktop window it stays dialog-sized instead of stretching across the screen. */
 export const MAX_DIALOG_WIDTH = 512;
 
+/** Width of the centred page column, and of the two-column pages (home, setup, sign-in). */
+export const CONTENT_MAX_WIDTH = 640;
+export const WIDE_MAX_WIDTH = 1100;
+
 /** The pinned footer (primary action) is the same width on every screen — a button never stretches across a desktop window. */
 export const FOOTER_MAX_WIDTH = 480;
 
@@ -142,9 +146,17 @@ export function Screen({
   style,
   header,
   footer,
+  wide = false,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
+  /**
+   * Pages are a centred column (CONTENT_MAX_WIDTH) so nothing — text, link,
+   * button — ever runs edge to edge on a desktop window. Only pages with a
+   * real two-column layout (home, setup, sign-in) opt into the wider
+   * WIDE_MAX_WIDTH.
+   */
+  wide?: boolean;
   background?: string;
   style?: StyleProp<ViewStyle>;
   /**
@@ -170,7 +182,15 @@ export function Screen({
   // A short window (a laptop's browser, a small phone) also gets less top and bottom padding.
   const { width, height } = useWindowDimensions();
   const inner = (
-    <View style={[styles.screenInner, width < 600 && styles.screenInnerPhone, height < 700 && styles.screenInnerShort, style]}>
+    <View
+      style={[
+        styles.screenInner,
+        { maxWidth: wide ? WIDE_MAX_WIDTH : CONTENT_MAX_WIDTH },
+        width < 600 && styles.screenInnerPhone,
+        height < 700 && styles.screenInnerShort,
+        style,
+      ]}
+    >
       {children}
     </View>
   );
@@ -1108,7 +1128,7 @@ const styles = StyleSheet.create({
   headerStart: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerEnd: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   langToggle: { borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5 },
-  screenInner: { flex: 1, padding: spacing.lg, gap: spacing.md },
+  screenInner: { flex: 1, width: '100%', alignSelf: 'center', padding: spacing.lg, gap: spacing.md },
   screenInnerPhone: { padding: spacing.md, gap: 12 },
   screenInnerShort: { paddingVertical: spacing.md },
   scrollContent: { flexGrow: 1 },

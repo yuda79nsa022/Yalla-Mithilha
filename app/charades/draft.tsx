@@ -77,22 +77,17 @@ const PRO_LEVELS = [
   { level: 'hard', labelKey: 'charades.play.difficultyHard' },
 ] as const;
 
-/** Pro's three levels, shown as information — the team picks one every round during play. */
+/**
+ * Pro's three levels, as plain text — information, not a control. The team
+ * picks the level every round during play, so nothing here is tappable (it
+ * used to be bordered chips that looked like a picker and did nothing).
+ */
 function ProLevels() {
   const { t } = useApp();
   return (
-    <View style={styles.difficultyRow}>
-      {PRO_LEVELS.map(({ level, labelKey }) => (
-        <View key={level} style={styles.difficultyChip}>
-          <T variant="label" style={{ fontSize: 13 }} numberOfLines={1}>
-            {t(labelKey)}
-          </T>
-          <T variant="label" color={colors.neutral700} style={{ fontSize: 11 }} numberOfLines={1}>
-            {t('charades.play.difficultyPoints', { points: DIFFICULTY_POINTS[level] })}
-          </T>
-        </View>
-      ))}
-    </View>
+    <T variant="label" color={colors.neutral700} style={{ fontSize: 13 }}>
+      {PRO_LEVELS.map(({ level, labelKey }) => `${t(labelKey)} · ${t('charades.play.difficultyPoints', { points: DIFFICULTY_POINTS[level] })}`).join('   |   ')}
+    </T>
   );
 }
 
@@ -266,6 +261,7 @@ export default function CharadesDraft() {
   return (
     <Screen
       scroll
+      wide
       header={{}}
       footer={<Button label={t('charades.draft.confirm')} disabled={!canConfirm} onPress={confirmDraft} />}
     >
@@ -319,8 +315,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     color: colors.ink,
   },
-  difficultyRow: { flexDirection: 'row', gap: 8 },
-  difficultyChip: { flex: 1, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, paddingVertical: 8, alignItems: 'center', gap: 2 },
   decksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 });

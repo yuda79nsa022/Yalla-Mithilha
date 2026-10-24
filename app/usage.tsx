@@ -40,7 +40,7 @@ export default function Usage() {
   const modeName = (mode: 'classic' | 'modified') => t(mode === 'classic' ? 'charades.draft.modeClassic' : 'charades.draft.modeModified');
 
   return (
-    <Screen scroll header={{}}>
+    <Screen scroll header={{}} footer={<Button label={t('nav.buyMore')} showArrow={false} onPress={() => router.push('/buy')} />}>
       <PageTitle>{t('usage.title')}</PageTitle>
       {failed ? (
         <T variant="label" color={colors.red}>
@@ -102,7 +102,6 @@ export default function Usage() {
               </View>
             ))
           )}
-          <Button label={t('nav.buyMore')} tone="secondary" showArrow={false} onPress={() => router.push('/buy')} />
         </>
       )}
     </Screen>

@@ -201,9 +201,7 @@ export default function Account() {
         <Button label={t('common.cancel')} tone="secondary" showArrow={false} onPress={() => router.replace('/home')} />
         <Button
           label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
-          accent={mode === 'signIn' ? colors.green : colors.purple}
-          textColor={mode === 'signIn' ? colors.ink : colors.white}
-          showArrow={false}
+                    showArrow={false}
           disabled={!(mode === 'signIn' ? canSubmitSignIn : canSubmitCreate) || playerAuthBusy || tryingAdmin}
           busy={playerAuthBusy || tryingAdmin}
           onPress={submit}
@@ -303,7 +301,7 @@ export default function Account() {
   // above it, so the page fits a laptop-sized browser window without
   // scrolling (and the fields don't stretch across the whole screen).
   return (
-    <Screen scroll header={{}} footer={footer}>
+    <Screen scroll wide header={{}} footer={footer}>
       {isWide ? (
         <View style={[styles.wideRow, lang === 'en' && styles.wideRowEn]}>
           <View style={styles.wideIntro}>
