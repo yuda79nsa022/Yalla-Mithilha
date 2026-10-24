@@ -156,12 +156,30 @@ export default function Account() {
   // without scrolling.
   const footer =
     mode === 'signIn' || mode === 'create' ? (
-      <Button
-        label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
-        disabled={!(mode === 'signIn' ? canSubmitSignIn : canSubmitCreate) || playerAuthBusy || tryingAdmin}
-        busy={playerAuthBusy || tryingAdmin}
-        onPress={submit}
-      />
+      // Compact side-by-side pair (same smaller button style as Home's
+      // Create account / Sign in row): Cancel returns to the homepage.
+      <View style={styles.footerRow}>
+        <Button
+          label={t('common.cancel')}
+          tone="secondary"
+          showArrow={false}
+          style={styles.footerButton}
+          onPress={() => router.replace('/home')}
+        />
+        <Button
+          label={mode === 'signIn' ? t('account.signIn') : t('account.createAccount')}
+          tone="secondary"
+          background={mode === 'signIn' ? colors.green : colors.purple}
+          textColor={mode === 'signIn' ? colors.ink : colors.white}
+          borderColor={colors.ink}
+          forceShadow
+          showArrow={false}
+          style={styles.footerButton}
+          disabled={!(mode === 'signIn' ? canSubmitSignIn : canSubmitCreate) || playerAuthBusy || tryingAdmin}
+          busy={playerAuthBusy || tryingAdmin}
+          onPress={submit}
+        />
+      </View>
     ) : mode === 'forgotRequest' ? (
       <Button label={t('account.sendResetCode')} disabled={!canSendReset || playerAuthBusy} busy={playerAuthBusy} onPress={sendResetCode} />
     ) : (
@@ -281,6 +299,8 @@ export default function Account() {
 }
 
 const styles = StyleSheet.create({
+  footerRow: { flexDirection: 'row', gap: 12, width: '100%', maxWidth: 480, alignSelf: 'center' },
+  footerButton: { flexGrow: 1, flexBasis: 0 },
   wideRow: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 64, paddingHorizontal: 24 },
   wideRowEn: { flexDirection: 'row' },
   wideIntro: { flex: 1, gap: 16 },
