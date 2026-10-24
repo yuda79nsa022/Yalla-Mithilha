@@ -2,43 +2,111 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Bas Bedoon Kalam — Charades Admin</title>
 <style>
-  /* Same tokens as src/ui/theme.ts: white paper, dark blue for chrome,
-     light orange (blue's complement) for the one thing to tap. */
-  :root { color-scheme: light; }
+  /* Same tokens and rules as the player app (src/ui/theme.ts):
+     - one centred column, so nothing runs edge to edge on a wide window
+     - buttons: primary = purple, secondary = outlined, danger = red outline;
+       every button has the ink border + hard shadow, and they are all the
+       same height (small ones only inside table rows)
+     - actions live in a bar at the bottom of each card: secondary / danger on
+       the start side, the card's one primary on the end side */
+  :root {
+    color-scheme: light;
+    --ink: #201E1D; --ground: #F3F2F2; --white: #FFFFFF;
+    --purple: #8038D1; --purple700: #6928B0; --red: #EC3013;
+    --muted-bg: #E4E2E2; --muted: #5B5654;
+    --column: 960px;
+  }
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; margin: 0; background: #F3F2F2; color: #201E1D; }
-  header { background: #201E1D; color: #FFFFFF; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  header h1 { font-size: 18px; margin: 0; }
-  nav { display: flex; gap: 8px; }
-  nav button { background: transparent; border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.85); }
-  nav button.active { background: #8038D1; color: #fff; border-color: #8038D1; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 1.45; }
+
+  /* ---- header: same column as the page */
+  header { background: var(--ink); color: var(--white); }
+  .bar { max-width: var(--column); margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: 0.2px; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  nav button { background: transparent; color: var(--white); border-color: rgba(255,255,255,0.4); box-shadow: none; min-height: 36px; padding: 4px 14px; }
+  nav button:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+  nav button.active { background: var(--purple); border-color: var(--purple); }
   .headerRight { display: flex; align-items: center; gap: 12px; font-size: 13px; color: rgba(255,255,255,0.85); }
-  main { max-width: 960px; margin: 24px auto; padding: 0 16px 64px; }
-  .card { background: #FFFFFF; border: 2px solid #201E1D; border-radius: 0; padding: 20px; margin-bottom: 20px; }
+  .headerRight button { background: transparent; color: var(--white); border-color: rgba(255,255,255,0.5); box-shadow: none; min-height: 36px; padding: 4px 14px; }
+
+  main { max-width: var(--column); margin: 24px auto; padding: 0 16px 64px; }
+
+  /* ---- cards and page headings */
+  .card { background: var(--white); border: 2px solid var(--ink); padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 24px; line-height: 1.25; margin: 0 0 4px; }
+  .card h3 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; }
+  .gate { max-width: 420px; margin: 48px auto; }
+
+  /* ---- tables */
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #E4E2E2; font-size: 14px; }
-  th { color: #5B5654; font-weight: 600; }
-  button { cursor: pointer; border: 2px solid #8038D1; background: #8038D1; color: #fff; border-radius: 0; padding: 6px 14px; font-size: 14px; }
-  button.secondary { background: #FFFFFF; color: #201E1D; border-color: #201E1D; }
-  button.danger { background: #FFFFFF; color: #EC3013; border-color: #EC3013; }
-  button.link { background: none; border: none; color: #5B5654; padding: 0; text-decoration: underline; }
-  button:disabled { opacity: 0.5; cursor: default; }
-  input, select, textarea { font: inherit; padding: 6px 8px; border: 2px solid #201E1D; border-radius: 0; width: 100%; }
-  label { display: block; font-size: 12px; color: #5B5654; margin-bottom: 4px; }
-  .field { margin-bottom: 10px; }
-  .row { display: flex; gap: 10px; }
-  .row > * { flex: 1; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--muted-bg); font-size: 14px; vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; }
+  td.rowActions { white-space: nowrap; text-align: right; }
+  td.rowActions button { margin-left: 6px; }
+
+  /* ---- buttons: one look. Primary purple, secondary outlined, danger red outline. */
+  button {
+    cursor: pointer; font: inherit; font-size: 15px; font-weight: 700;
+    min-height: 44px; padding: 8px 20px; border-radius: 0;
+    border: 2px solid var(--ink); background: var(--purple); color: var(--white);
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: transform 60ms, box-shadow 60ms;
+  }
+  button:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+  button.secondary { background: var(--white); color: var(--ink); border-color: var(--ink); }
+  button.danger { background: var(--white); color: var(--red); border-color: var(--red); box-shadow: 4px 4px 0 var(--red); }
+  button.link { background: none; border: none; box-shadow: none; min-height: 0; padding: 0; color: var(--muted); font-weight: 400; text-decoration: underline; }
+  /* Small buttons: only for the Open / Rename / Delete controls inside table and title rows. */
+  button.sm { min-height: 32px; padding: 3px 12px; font-size: 13px; box-shadow: 3px 3px 0 var(--ink); }
+  button.sm.danger { box-shadow: 3px 3px 0 var(--red); }
+  button:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+
+  /* ---- the action bar at the bottom of a card (and the top-right "New deck" bar) */
+  .actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 16px; }
+  .actions .start { margin-right: auto; display: flex; gap: 12px; flex-wrap: wrap; }   /* secondary / danger side */
+  .inlineActions { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 4px; }
+
+  /* ---- forms */
+  input, select, textarea { font: inherit; padding: 8px 10px; border: 2px solid var(--ink); border-radius: 0; width: 100%; background: var(--white); min-height: 40px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); box-shadow: 3px 3px 0 var(--purple); }
+  input[type="file"] { padding: 6px 8px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .field { margin-bottom: 12px; }
+  .row { display: flex; gap: 12px; }
+  .row > * { flex: 1; min-width: 0; }
+  .row > .noGrow { flex: 0 0 auto; }
+  .headRow { display: flex; gap: 12px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
+  .headRow > :first-child { flex: 1; min-width: 220px; }
   [dir="rtl"] { text-align: right; }
-  .muted { color: #5B5654; font-size: 13px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .error { color: var(--red); }
   .hidden { display: none !important; }
-  a.back { color: #5B5654; text-decoration: none; font-size: 14px; cursor: pointer; }
+  a.back { color: var(--purple700); text-decoration: underline; font-size: 14px; cursor: pointer; display: inline-block; margin-bottom: 12px; }
+  p.muted { margin: 4px 0 12px; }
+  p.muted:empty { margin: 0; }
+
+  /* ---- a title's row in the deck editor */
+  .titleRow { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--muted-bg); flex-wrap: wrap; }
+  .titleRow img { width: 40px; height: 40px; object-fit: cover; background: var(--muted-bg); flex: 0 0 auto; }
+  .titleRow input[data-title-text] { flex: 1; min-width: 160px; }
+  .titleRow select { width: 130px; font-size: 13px; }
+  .titleRow input[type="file"] { width: 170px; font-size: 12px; }
+
+  @media (max-width: 700px) {
+    .row { flex-direction: column; }
+    .card { padding: 16px; }
+    td.rowActions { white-space: normal; }
+  }
 </style>
 </head>
 <body>
 
 <header>
+ <div class="bar">
   <h1>Charades Admin</h1>
   <nav id="mainNav" class="hidden">
     <button id="navDecks" class="active">Decks</button>
@@ -48,13 +116,14 @@
   </nav>
   <div class="headerRight">
     <span id="whoami"></span>
-    <button id="logoutBtn" class="hidden secondary" style="background:transparent;color:#fff;border-color:rgba(255,255,255,0.5)">Log out</button>
+    <button id="logoutBtn" class="hidden secondary">Log out</button>
   </div>
+ </div>
 </header>
 
 <main>
-  <div id="gate" class="card">
-    <h2 style="margin-top:0">Sign in</h2>
+  <div id="gate" class="card gate">
+    <h2>Sign in</h2>
     <div class="field">
       <label for="usernameInput">Username</label>
       <input id="usernameInput" type="text" autocomplete="username" />
@@ -63,8 +132,8 @@
       <label for="passwordInput">Password</label>
       <input id="passwordInput" type="password" autocomplete="current-password" />
     </div>
-    <button id="signInBtn">Sign in</button>
-    <p id="gateError" class="muted hidden" style="color:#EC3013"></p>
+    <p id="gateError" class="muted error hidden"></p>
+    <div class="actions"><button id="signInBtn">Sign in</button></div>
     <p class="muted">No account yet? Ask another admin to add one, or run <code>npm run create-admin</code> on the server.</p>
   </div>
 
@@ -73,30 +142,27 @@
     <div id="decksSection">
       <div id="deckListView">
         <div class="card">
-          <div class="row" style="align-items:flex-end">
+          <div class="headRow">
             <div>
-              <h2 style="margin:0 0 4px">Decks</h2>
+              <h2>Decks</h2>
               <p class="muted" style="margin:0">Charades decks — a pool of titles to act out. Any deck with at least one title is playable.</p>
             </div>
-            <div style="flex:0 0 auto"><button id="newDeckBtn">+ New deck</button></div>
+            <button id="newDeckBtn">+ New deck</button>
           </div>
         </div>
         <div class="card">
-          <h3 style="margin-top:0">Game prices</h3>
+          <h3>Game prices</h3>
           <p class="muted">What one game costs a player, deducted from their wallet once they start playing — set separately for each game mode.</p>
           <div class="row">
             <div class="field"><label>Lite price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
-            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveGamePriceBtn" class="secondary">Save Lite price</button></div>
+            <div class="field"><label>Pro price (KD)</label><input id="modifiedGamePriceInput" type="number" step="0.001" min="0.001" /></div>
           </div>
           <p id="gamePriceResult" class="muted"></p>
-          <div class="row">
-            <div class="field"><label>Pro price (KD)</label><input id="modifiedGamePriceInput" type="number" step="0.001" min="0.001" /></div>
-            <div style="flex:0 0 auto;align-self:flex-end;padding-bottom:10px"><button id="saveModifiedGamePriceBtn" class="secondary">Save Pro price</button></div>
-          </div>
           <p id="modifiedGamePriceResult" class="muted"></p>
+          <div class="actions"><button id="savePricesBtn">Save prices</button></div>
         </div>
         <div class="card">
-          <h3 style="margin-top:0">Home page content</h3>
+          <h3>Home page content</h3>
           <p class="muted">The tagline and explanatory paragraph shown on the player app's home screen, in both languages.</p>
           <div class="row">
             <div class="field"><label>Tagline (English)</label><input id="homeTaglineEn" /></div>
@@ -106,8 +172,8 @@
             <div class="field"><label>Write-up (English)</label><textarea id="homeWriteupEn" rows="4"></textarea></div>
             <div class="field"><label>Write-up (Arabic)</label><textarea id="homeWriteupAr" dir="rtl" rows="4"></textarea></div>
           </div>
-          <button id="saveHomeContentBtn" class="secondary">Save home content</button>
           <p id="homeContentResult" class="muted"></p>
+          <div class="actions"><button id="saveHomeContentBtn">Save home content</button></div>
         </div>
         <div class="card">
           <table>
@@ -122,7 +188,7 @@
       <div id="deckEditView" class="hidden">
         <a class="back" id="deckBackLink">&larr; Back to decks</a>
         <div class="card">
-          <h2 id="deckEditTitle" style="margin-top:0"></h2>
+          <h2 id="deckEditTitle"></h2>
           <div class="row">
             <div class="field"><label>id</label><input id="dId" disabled /></div>
           </div>
@@ -152,50 +218,54 @@
             <div class="field">
               <label>Deck picture (shown next to this deck on the player's deck picker)</label>
               <div style="display:flex;align-items:center;gap:10px">
-                <img id="deckImagePreview" src="" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:0;background:#E4E2E2;flex:0 0 auto;visibility:hidden" />
+                <img id="deckImagePreview" src="" alt="" style="width:56px;height:56px;object-fit:cover;background:#E4E2E2;flex:0 0 auto;visibility:hidden" />
                 <input id="deckImageFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
               </div>
             </div>
           </div>
-          <button id="uploadDeckImageBtn" class="secondary">Upload picture</button>
-          <button id="removeDeckImageBtn" class="secondary hidden">Remove picture</button>
+          <div class="inlineActions">
+            <button id="uploadDeckImageBtn" class="secondary">Upload picture</button>
+            <button id="removeDeckImageBtn" class="secondary hidden">Remove picture</button>
+          </div>
           <p id="deckImageResult" class="muted"></p>
-          <button id="saveDeckBtn">Save deck</button>
-          <button class="danger" id="deleteDeckBtn">Delete deck</button>
+          <div class="actions">
+            <div class="start"><button class="danger" id="deleteDeckBtn">Delete deck</button></div>
+            <button id="saveDeckBtn">Save deck</button>
+          </div>
         </div>
 
         <div class="card">
-          <h3 style="margin-top:0">Add a title</h3>
+          <h3>Add a title</h3>
           <p class="muted">Add one title by hand, with an optional picture — quicker than building a whole import file for a single addition.</p>
           <div class="row">
             <div class="field"><label>Title</label><input id="newTitleText" dir="rtl" /></div>
             <div class="field"><label>Picture (optional)</label><input id="newTitleImage" type="file" accept=".png,.jpg,.jpeg,.webp" /></div>
           </div>
-          <button id="addTitleBtn" class="secondary">Add title</button>
           <p id="addTitleResult" class="muted"></p>
+          <div class="actions"><button id="addTitleBtn">Add title</button></div>
         </div>
 
         <div class="card">
-          <h3 style="margin-top:0">Import titles</h3>
+          <h3>Import titles</h3>
           <p class="muted">Upload a .docx, .xlsx or .pdf list of names — every non-duplicate title is added to this deck directly. No size limit, so the whole list goes in at once. In a .docx or .xlsx table, a cell that reads "easy"/"medium"/"hard" (or "سهل"/"متوسط"/"صعب") sets that row's own difficulty, overriding the deck's default for that one title.</p>
           <input id="importFile" type="file" accept=".docx,.xlsx,.pdf" />
-          <button id="importBtn" class="secondary">Import</button>
           <p id="importResult" class="muted"></p>
+          <div class="actions"><button id="importBtn">Import</button></div>
         </div>
 
         <div class="card">
-          <h3 style="margin-top:0">Import titles with pictures</h3>
+          <h3>Import titles with pictures</h3>
           <p class="muted">Two files: a .xlsx with two or three columns (title, image filename, optional difficulty — row 1 is a header and is skipped), and a .zip containing those image files (.png/.jpg/.webp, 5 MB max each). Titles are matched to pictures by filename; a title whose filename isn't found still gets added, just without a picture. A third-column value of "easy"/"medium"/"hard" (or the Arabic equivalent) sets that title's own difficulty.</p>
           <div class="row">
             <div class="field"><label>Manifest (.xlsx)</label><input id="imageManifestFile" type="file" accept=".xlsx" /></div>
             <div class="field"><label>Images (.zip)</label><input id="imageZipFile" type="file" accept=".zip" /></div>
           </div>
-          <button id="importWithImagesBtn" class="secondary">Import with pictures</button>
           <p id="importWithImagesResult" class="muted"></p>
+          <div class="actions"><button id="importWithImagesBtn">Import with pictures</button></div>
         </div>
 
         <div class="card">
-          <h3 style="margin-top:0">Titles (<span id="titleCount">0</span>)</h3>
+          <h3>Titles (<span id="titleCount">0</span>)</h3>
           <div id="titleRows" style="max-height:520px;overflow-y:auto"></div>
         </div>
       </div>
@@ -203,7 +273,7 @@
 
     <div id="playersSection" class="hidden">
       <div class="card">
-        <h2 style="margin:0 0 4px">Player accounts</h2>
+        <h2>Player accounts</h2>
         <p class="muted" style="margin:0">People who created an optional account in the app. Guest play never appears here.</p>
       </div>
       <div class="card">
@@ -216,7 +286,7 @@
 
     <div id="adminsSection" class="hidden">
       <div class="card">
-        <h2 style="margin:0 0 4px">Admin accounts</h2>
+        <h2>Admin accounts</h2>
         <p class="muted" style="margin:0">Everyone here can manage categories, tiles and other admins.</p>
       </div>
       <div class="card">
@@ -226,19 +296,19 @@
         </table>
       </div>
       <div class="card">
-        <h3 style="margin-top:0">Add an admin</h3>
+        <h3>Add an admin</h3>
         <div class="row">
           <div class="field"><label>Username</label><input id="newAdminUsername" /></div>
           <div class="field"><label>Password (8+ characters)</label><input id="newAdminPassword" type="password" /></div>
         </div>
-        <button id="addAdminBtn">Add admin</button>
-        <p id="addAdminError" class="muted hidden" style="color:#EC3013"></p>
+        <p id="addAdminError" class="muted error hidden"></p>
+        <div class="actions"><button id="addAdminBtn">Add admin</button></div>
       </div>
     </div>
 
     <div id="auditLogSection" class="hidden">
       <div class="card">
-        <h2 style="margin:0 0 4px">Audit log</h2>
+        <h2>Audit log</h2>
         <p class="muted" style="margin:0">Every sensitive change, who made it, and what changed. Read-only — there is no edit or delete here on purpose.</p>
       </div>
       <div class="card">
@@ -399,7 +469,7 @@ async function showDeckList() {
       <td>${d.language === 'en' ? 'English' : 'Arabic'}</td>
       <td>${escapeHtml(d.difficulty || 'medium')}</td>
       <td>${d.titles.length}</td>
-      <td><button class="secondary" data-open="${escapeHtml(d.id)}">Open</button></td>
+      <td class="rowActions"><button class="secondary sm" data-open="${escapeHtml(d.id)}">Open</button></td>
     </tr>`).join('');
   $('deckRows').innerHTML = rows || '<tr><td colspan="6" class="muted">No decks yet.</td></tr>';
   $('deckRows').querySelectorAll('[data-open]').forEach((btn) => {
@@ -433,6 +503,11 @@ async function saveModifiedGamePrice() {
   } catch (e) {
     alert('Could not save price: ' + e.message);
   }
+}
+
+async function savePrices() {
+  await saveGamePrice();
+  await saveModifiedGamePrice();
 }
 
 async function saveHomeContent() {
@@ -502,20 +577,19 @@ function renderDeckEdit() {
 
   $('titleCount').textContent = d.titles.length;
   $('titleRows').innerHTML = d.titles.map((t) => `
-    <div class="row" style="align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #EAF1FA">
-      <img src="${t.imagePath ? escapeHtml(t.imagePath) : ''}" alt=""
-        style="width:40px;height:40px;object-fit:cover;border-radius:0;background:#E4E2E2;flex:0 0 auto;${t.imagePath ? '' : 'visibility:hidden'}" />
-      <input dir="rtl" style="flex:1;min-width:120px" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" />
-      <select data-title-difficulty="${escapeHtml(t.id)}" style="width:110px;font-size:12px" title="Overrides the deck's default difficulty for this title only">
+    <div class="titleRow">
+      <img src="${t.imagePath ? escapeHtml(t.imagePath) : ''}" alt="" style="${t.imagePath ? '' : 'visibility:hidden'}" />
+      <input dir="rtl" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" />
+      <select data-title-difficulty="${escapeHtml(t.id)}" title="Overrides the deck's default difficulty for this title only">
         <option value="" ${!t.difficulty ? 'selected' : ''}>Deck default</option>
         <option value="easy" ${t.difficulty === 'easy' ? 'selected' : ''}>Easy</option>
         <option value="medium" ${t.difficulty === 'medium' ? 'selected' : ''}>Medium</option>
         <option value="hard" ${t.difficulty === 'hard' ? 'selected' : ''}>Hard</option>
       </select>
-      <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" style="width:130px;font-size:11px" />
-      ${t.imagePath ? `<button class="secondary" data-remove-image="${escapeHtml(t.id)}">Remove picture</button>` : ''}
-      <button class="secondary" data-save-title="${escapeHtml(t.id)}">Save</button>
-      <button class="danger" data-remove-title="${escapeHtml(t.id)}">Remove</button>
+      <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" />
+      ${t.imagePath ? `<button class="secondary sm" data-remove-image="${escapeHtml(t.id)}">Remove picture</button>` : ''}
+      <button class="sm" data-save-title="${escapeHtml(t.id)}">Save</button>
+      <button class="danger sm" data-remove-title="${escapeHtml(t.id)}">Remove</button>
     </div>
   `).join('') || '<p class="muted">No titles yet — import a list below.</p>';
   $('titleRows').querySelectorAll('[data-remove-title]').forEach((btn) => {
@@ -727,11 +801,11 @@ async function renderPlayers() {
       <td>${escapeHtml(p.username)}</td>
       <td class="muted">${p.email ? escapeHtml(p.email) : '—'}</td>
       <td class="muted">${new Date(p.createdAt).toLocaleDateString()}</td>
-      <td>
-        <button class="secondary" data-rename="${p.id}">Rename</button>
-        <button class="secondary" data-email="${p.id}">Edit email</button>
-        <button class="secondary" data-repw="${p.id}">Change password</button>
-        <button class="danger" data-del="${p.id}">Delete</button>
+      <td class="rowActions">
+        <button class="secondary sm" data-rename="${p.id}">Rename</button>
+        <button class="secondary sm" data-email="${p.id}">Edit email</button>
+        <button class="secondary sm" data-repw="${p.id}">Change password</button>
+        <button class="danger sm" data-del="${p.id}">Delete</button>
       </td>
     </tr>`).join('');
   $('playerRows').innerHTML = rows || '<tr><td colspan="4" class="muted">No player accounts yet.</td></tr>';
@@ -789,10 +863,10 @@ async function renderAdmins() {
   const rows = admins.map((u) => `<tr>
       <td>${escapeHtml(u.username)}</td>
       <td class="muted">${new Date(u.createdAt).toLocaleDateString()}</td>
-      <td>
-        <button class="secondary" data-rename="${u.id}">Rename</button>
-        <button class="secondary" data-repw="${u.id}">Change password</button>
-        <button class="danger" data-del="${u.id}">Delete</button>
+      <td class="rowActions">
+        <button class="secondary sm" data-rename="${u.id}">Rename</button>
+        <button class="secondary sm" data-repw="${u.id}">Change password</button>
+        <button class="danger sm" data-del="${u.id}">Delete</button>
       </td>
     </tr>`).join('');
   $('adminRows').innerHTML = rows || '<tr><td colspan="3" class="muted">No admins yet.</td></tr>';
@@ -890,8 +964,7 @@ $('navPlayers').addEventListener('click', showPlayersSection);
 $('navAdmins').addEventListener('click', showAdminsSection);
 $('navAuditLog').addEventListener('click', showAuditLogSection);
 $('newDeckBtn').addEventListener('click', () => openDeck(null));
-$('saveGamePriceBtn').addEventListener('click', saveGamePrice);
-$('saveModifiedGamePriceBtn').addEventListener('click', saveModifiedGamePrice);
+$('savePricesBtn').addEventListener('click', savePrices);
 $('saveHomeContentBtn').addEventListener('click', saveHomeContent);
 $('deckBackLink').addEventListener('click', showDeckList);
 $('saveDeckBtn').addEventListener('click', saveDeck);
