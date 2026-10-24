@@ -49,6 +49,7 @@
   header.site .bar { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--purple); min-width: 0; }
   .brand img { height: 36px; width: auto; max-width: 120px; object-fit: contain; }
+  .brand img.brandLogo { height: 48px; max-width: none; }
   .brandName { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
   .brandTag { font-family: var(--display); font-size: 11px; letter-spacing: 1.5px; color: var(--white); background: var(--ink); padding: 2px 8px; transform: rotate(-2deg); }
   [dir="rtl"] .brandTag { letter-spacing: 0; }
@@ -199,8 +200,8 @@
 <header class="site">
  <div class="bar">
   <a class="brand" id="brandHome" href="#">
-    <span id="brandMark" class="cubeWrap"><span class="cube"><span class="front"></span><span class="side"></span><span class="top"></span></span></span>
-    <span class="brandName" id="brandName">Bas Bedoon Kalam</span>
+    <span id="brandMark"><img class="brandLogo" src="brand-logo.png" alt="Bas Bedoon Kalam" /></span>
+    <span class="brandName hidden" id="brandName">Bas Bedoon Kalam</span>
     <span class="brandTag" data-i18n="brand.tag">ADMIN</span>
   </a>
   <nav id="mainNav" class="hidden">
@@ -599,7 +600,9 @@ function t(key, params = {}) {
 
 let token = sessionStorage.getItem('adminSessionToken') || '';
 let currentUsername = sessionStorage.getItem('adminUsername') || '';
-let branding = { appNameEn: 'Bas Bedoon Kalam', appNameAr: 'بس بدون كلام', logoPath: null, timezone: 'Asia/Kuwait' };
+// The app's own name, which the built-in brand logo (brand-logo.png) spells out.
+const DEFAULT_NAMES = { appNameEn: 'Bas Bedoon Kalam', appNameAr: 'بس بدون كلام' };
+let branding = { ...DEFAULT_NAMES, logoPath: null, timezone: 'Asia/Kuwait' };
 let currentTab = null;
 let currentDeckId = null;
 let currentDeck = null;
@@ -744,14 +747,26 @@ function openDialog({ title, body = '', fields = [], confirmLabel = t('common.sa
 
 /* ------------------------------------------------------------ branding + language */
 
+/**
+ * The header mark, by the player app's rule (src/ui/Logo.tsx): the built-in
+ * brand logo in both languages; an uploaded logo instead once there is one;
+ * and a renamed app with no logo of its own gets the plain cube, since the
+ * brand logo spells out the original name. The name is printed beside the
+ * mark unless the brand logo already shows it.
+ */
 function applyBranding() {
+  const builtIn = !branding.logoPath
+    && branding.appNameEn === DEFAULT_NAMES.appNameEn && branding.appNameAr === DEFAULT_NAMES.appNameAr;
   $('brandName').textContent = appName();
+  $('brandName').classList.toggle('hidden', builtIn);
   document.title = appName() + ' — ' + t('brand.tag');
   $('copyright').textContent = t('copyright', { year: new Date().getFullYear(), name: appName() });
-  $('brandMark').innerHTML = branding.logoPath
-    ? `<img src="${escapeHtml(branding.logoPath)}" alt="${escapeHtml(appName())}" />`
-    : '<span class="cube"><span class="front"></span><span class="side"></span><span class="top"></span></span>';
-  $('brandMark').className = branding.logoPath ? '' : 'cubeWrap';
+  $('brandMark').innerHTML = builtIn
+    ? `<img class="brandLogo" src="brand-logo.png" alt="${escapeHtml(appName())}" />`
+    : branding.logoPath
+      ? `<img src="${escapeHtml(branding.logoPath)}" alt="${escapeHtml(appName())}" />`
+      : '<span class="cube"><span class="front"></span><span class="side"></span><span class="top"></span></span>';
+  $('brandMark').className = builtIn || branding.logoPath ? '' : 'cubeWrap';
 }
 
 /** Puts every fixed label in the current language and lays the page out in its direction. */
