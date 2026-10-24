@@ -250,6 +250,19 @@ export function parseConfirmPasswordResetBody(body: unknown): ConfirmPasswordRes
   };
 }
 
+export interface ChangePasswordBody {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export function parseChangePasswordBody(body: unknown): ChangePasswordBody {
+  const b = (body ?? {}) as Record<string, unknown>;
+  if (typeof b.currentPassword !== 'string' || b.currentPassword.length === 0) {
+    throw new ValidationError('"currentPassword" is required');
+  }
+  return { currentPassword: b.currentPassword, newPassword: requirePassword(b.newPassword) };
+}
+
 export interface StartSessionBody {
   sessionId: string;
   deckIds?: string[];

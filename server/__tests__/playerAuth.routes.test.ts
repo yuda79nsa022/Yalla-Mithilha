@@ -331,3 +331,73 @@ describe('POST /players/password-reset/request + /confirm', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('GET /players/me', () => {
+  it('returns the signed-in player profile without the hash', async () => {
+    const reg = await request(app)
+      .post('/players/register')
+      .send({ username: 'meplayer', password: 'password1234', email: 'me@example.com' });
+    const res = await request(app).get('/players/me').set('Authorization', `Bearer ${reg.body.token}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ username: 'meplayer', email: 'me@example.com', freeGameCredits: 2 });
+    expect(res.body.passwordHash).toBeUndefined();
+  });
+
+  it('requires a session', async () => {
+    expect((await request(app).get('/players/me')).status).toBe(401);
+  });
+});
+
+describe('POST /players/password/change', () => {
+  async function signUp(username = 'changer') {
+    const reg = await request(app)
+      .post('/players/register')
+      .send({ username, password: 'password1234', email: `${username}@example.com` });
+    return reg.body.token as string;
+  }
+
+  it('changes the password, returns a working fresh token and signs out the old one', async () => {
+    const oldToken = await signUp();
+    const res = await request(app)
+      .post('/players/password/change')
+      .set('Authorization', `Bearer ${oldToken}`)
+      .send({ currentPassword: 'password1234', newPassword: 'newpassword5678' });
+    expect(res.status).toBe(200);
+    expect(typeof res.body.token).toBe('string');
+
+    expect((await request(app).get('/players/me').set('Authorization', `Bearer ${res.body.token}`)).status).toBe(200);
+    expect((await request(app).get('/players/me').set('Authorization', `Bearer ${oldToken}`)).status).toBe(401);
+
+    const oldLogin = await request(app).post('/players/login').send({ username: 'changer', password: 'password1234' });
+    expect(oldLogin.status).toBe(401);
+    const newLogin = await request(app).post('/players/login').send({ username: 'changer', password: 'newpassword5678' });
+    expect(newLogin.status).toBe(200);
+  });
+
+  it('rejects a wrong current password with 401 and leaves the password alone', async () => {
+    const token = await signUp('wrongcur');
+    const res = await request(app)
+      .post('/players/password/change')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'not-it-at-all', newPassword: 'newpassword5678' });
+    expect(res.status).toBe(401);
+    const login = await request(app).post('/players/login').send({ username: 'wrongcur', password: 'password1234' });
+    expect(login.status).toBe(200);
+  });
+
+  it('rejects a too-short new password with 400', async () => {
+    const token = await signUp('shortnew');
+    const res = await request(app)
+      .post('/players/password/change')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'password1234', newPassword: 'short' });
+    expect(res.status).toBe(400);
+  });
+
+  it('requires a session', async () => {
+    const res = await request(app)
+      .post('/players/password/change')
+      .send({ currentPassword: 'password1234', newPassword: 'newpassword5678' });
+    expect(res.status).toBe(401);
+  });
+});

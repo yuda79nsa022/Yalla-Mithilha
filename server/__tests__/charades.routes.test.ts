@@ -17,7 +17,7 @@ import {
   setModifiedGamePriceFils,
   updateDeck,
 } from '../src/db';
-import { makePlayerSession } from './helpers/testAuth';
+import { makePlayerAuthHeader, makePlayerSession } from './helpers/testAuth';
 
 const app = createApp();
 
@@ -471,5 +471,32 @@ describe('the modified game mode', () => {
     grantSignupBonus(player.id);
     const wallet = await request(app).get('/charades/wallet').set(auth);
     expect(wallet.body).toEqual({ balance: 0, freeGameCredits: 2 });
+  });
+});
+
+describe('GET /charades/usage', () => {
+  it('requires a player session', async () => {
+    expect((await request(app).get('/charades/usage')).status).toBe(401);
+  });
+
+  it('reports games and top-ups for the signed-in player only', async () => {
+    seedDeck();
+    const auth = await makePlayerAuthHeader();
+    const other = await makePlayerAuthHeader();
+    await buyOneCredit(auth);
+    await buyOneCredit(other);
+    await request(app)
+      .post('/charades/sessions')
+      .set(auth)
+      .send({ sessionId: 'usage-lite', deckIds: [deckId], mode: 'classic', difficulty: 'mixed' });
+
+    const res = await request(app).get('/charades/usage').set(auth);
+    expect(res.status).toBe(200);
+    expect(res.body.totals).toMatchObject({ gamesPlayed: 1, liteGames: 1, proGames: 0, gamesBought: 1, spentFils: 1500, currency: 'KWD' });
+    expect(res.body.games).toHaveLength(1);
+    expect(res.body.games[0]).toMatchObject({ id: 'usage-lite', mode: 'classic' });
+    expect(res.body.games[0].titles).toBeUndefined();
+    expect(res.body.payments).toHaveLength(1);
+    expect(res.body.payments[0]).toMatchObject({ credits: 1, amountFils: 1500, status: 'paid' });
   });
 });

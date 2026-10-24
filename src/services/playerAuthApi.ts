@@ -111,6 +111,57 @@ export async function confirmPasswordReset(
   await postJson('/players/password-reset/confirm', { username, code, newPassword }, baseUrl, timeoutMs);
 }
 
+export interface PlayerProfile {
+  id: string;
+  username: string;
+  email: string | null;
+  freeGameCredits: number;
+  createdAt: number;
+}
+
+/** The signed-in player's own profile. */
+export async function getPlayerProfile(
+  token: string,
+  baseUrl: string = CATALOGUE_API_URL,
+  timeoutMs = 8000
+): Promise<PlayerProfile> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${baseUrl}/players/me`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
+    const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!res.ok) {
+      throw new PlayerAuthError(typeof data?.error === 'string' ? data.error : `request failed with status ${res.status}`, res.status);
+    }
+    if (!data || typeof data.id !== 'string' || typeof data.username !== 'string') {
+      throw new PlayerAuthError('unexpected response from server', 0);
+    }
+    return {
+      id: data.id,
+      username: data.username,
+      email: typeof data.email === 'string' ? data.email : null,
+      freeGameCredits: typeof data.freeGameCredits === 'number' ? data.freeGameCredits : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : 0,
+    };
+  } catch (err) {
+    if (err instanceof PlayerAuthError) throw err;
+    throw new PlayerAuthError('could not reach the server', 0);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Changes the signed-in player's password. The server signs out every other device, so it hands back a fresh session for this one. */
+export function changePlayerPassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string,
+  baseUrl: string = CATALOGUE_API_URL,
+  timeoutMs = 8000
+): Promise<PlayerAuthResult> {
+  return postJsonForAuthResult('/players/password/change', { currentPassword, newPassword }, baseUrl, timeoutMs, token);
+}
+
 /**
  * Swaps a still-valid session token for a fresh one, so an active player
  * isn't signed out mid-game by the token's fixed lifetime. Throws

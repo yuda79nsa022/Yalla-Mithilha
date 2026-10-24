@@ -231,6 +231,8 @@ function Copyright({ onDark, showLinks }: { onDark: boolean; showLinks: boolean 
 
 /* ------------------------------------------------------------ site nav */
 
+const ACCOUNT_DROPDOWN_WIDTH = 220;
+
 type NavLink = { key: string; label: string; href: string; active: boolean };
 
 /**
@@ -246,6 +248,8 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const [confirmingLogout, setConfirmingLogout] = React.useState(false);
+  const [accountMenu, setAccountMenu] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const accountTriggerRef = React.useRef<View>(null);
   const compact = width < 760;
   const fg = light ? colors.white : colors.ink;
   const brandColor = light ? colors.white : colors.purple;
@@ -287,17 +291,23 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
   const links: NavLink[] = [
     { key: 'home', label: t('nav.home'), href: '/home', active: pathname === '/home' || pathname === '/' },
     { key: 'play', label: charades ? t('nav.resume') : t('nav.play'), href: playHref, active: pathname.startsWith('/charades') },
-    ...(player ? [{ key: 'buy', label: t('nav.buy'), href: '/buy', active: pathname === '/buy' }] : []),
     { key: 'settings', label: t('nav.settings'), href: '/settings', active: pathname === '/settings' },
     // The footer carries this link on a wide window; on a phone it joins the icons.
     ...(compact ? [{ key: 'privacy', label: t('home.about'), href: '/privacy', active: pathname === '/privacy' }] : []),
-    {
-      key: 'account',
-      label: player ? t('nav.account') : t('account.signIn'),
-      href: '/account',
-      active: pathname === '/account',
-    },
+    // A signed-in player gets the username dropdown below instead.
+    ...(player ? [] : [{ key: 'account', label: t('account.signIn'), href: '/account', active: pathname === '/account' }]),
   ];
+  const accountItems: NavLink[] = [
+    { key: 'profile', label: t('nav.profile'), href: '/account', active: pathname === '/account' },
+    { key: 'changePassword', label: t('nav.changePassword'), href: '/change-password', active: pathname === '/change-password' },
+    { key: 'usage', label: t('nav.usageReport'), href: '/usage', active: pathname === '/usage' },
+    { key: 'buy', label: t('nav.buyMore'), href: '/buy', active: pathname === '/buy' },
+  ];
+  const accountMenuActive = accountItems.some((item) => item.active);
+  const openAccountMenu = () => {
+    accountTriggerRef.current?.measureInWindow((x, y, w, h) => setAccountMenu({ x, y, w, h }));
+  };
+  const closeAccountMenu = () => setAccountMenu(null);
 
   const logout = () => {
     setConfirmingLogout(false);
@@ -326,15 +336,43 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
             ]}
           >
             <NavIcon name={link.key} color={link.active ? (light ? colors.ink : colors.white) : fg} />
-            {link.key === 'buy' && walletLoaded ? (
-              <View style={styles.navIconBadge}>
-                <T variant="label" color={colors.white} style={{ fontSize: 10, lineHeight: 12 }}>
-                  {gamesLeft}
-                </T>
-              </View>
-            ) : null}
           </Pressable>
         ))}
+        {player ? (
+          <View ref={accountTriggerRef} collapsable={false}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('nav.accountMenu')}
+              accessibilityState={{ expanded: accountMenu !== null }}
+              onPress={openAccountMenu}
+              style={({ pressed }) => [
+                styles.navAccount,
+                { borderColor: accountMenuActive ? brandColor : fg },
+                accountMenuActive && { backgroundColor: brandColor },
+                pressed && styles.pressed,
+              ]}
+            >
+              <T
+                variant="label"
+                color={accountMenuActive ? (light ? colors.ink : colors.white) : fg}
+                style={{ fontSize: 13, maxWidth: compact ? 70 : 140 }}
+                numberOfLines={1}
+              >
+                {player.username}
+              </T>
+              {walletLoaded ? (
+                <View style={styles.navBadge}>
+                  <T variant="label" color={colors.white} style={{ fontSize: 11 }}>
+                    {gamesLeft}
+                  </T>
+                </View>
+              ) : null}
+              <T variant="label" color={accountMenuActive ? (light ? colors.ink : colors.white) : fg} style={{ fontSize: 11 }}>
+                {'▾'}
+              </T>
+            </Pressable>
+          </View>
+        ) : null}
         {player ? (
           <Pressable
             accessibilityRole="button"
@@ -347,6 +385,38 @@ function SiteNav({ variant, title, light = false }: { variant: 'site' | 'game' |
         ) : null}
         <LanguageToggle light={light} />
       </View>
+      <Modal visible={accountMenu !== null} transparent animationType="fade" onRequestClose={closeAccountMenu}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeAccountMenu} accessibilityLabel={t('nav.close')}>
+          {accountMenu ? (
+            <View
+              style={[
+                styles.accountDropdown,
+                {
+                  top: accountMenu.y + accountMenu.h + 4,
+                  left: Math.max(8, Math.min(accountMenu.x + accountMenu.w - ACCOUNT_DROPDOWN_WIDTH, width - ACCOUNT_DROPDOWN_WIDTH - 8)),
+                },
+              ]}
+            >
+              {accountItems.map((item) => (
+                <Pressable
+                  key={item.key}
+                  accessibilityRole="menuitem"
+                  accessibilityState={{ selected: item.active }}
+                  onPress={() => {
+                    closeAccountMenu();
+                    go(item.href);
+                  }}
+                  style={({ pressed }) => [styles.accountDropdownItem, item.active && styles.accountDropdownItemActive, pressed && styles.pressed]}
+                >
+                  <T variant="label" color={item.active ? colors.white : colors.ink} style={{ fontSize: 15 }}>
+                    {item.label}
+                  </T>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </Pressable>
+      </Modal>
       <ConfirmModal
         visible={confirmingLogout}
         title={t('account.logout')}
@@ -1016,6 +1086,15 @@ const styles = StyleSheet.create({
   navAccount: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 2, paddingHorizontal: 12, paddingVertical: 5, maxWidth: 260 },
   navAccountActive: { backgroundColor: colors.ink },
   navBadge: { backgroundColor: colors.purple, paddingHorizontal: 6, paddingVertical: 1 },
+  accountDropdown: {
+    position: 'absolute',
+    width: ACCOUNT_DROPDOWN_WIDTH,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+  },
+  accountDropdownItem: { paddingVertical: 12, paddingHorizontal: spacing.md },
+  accountDropdownItemActive: { backgroundColor: colors.purple },
   navIconButton: { borderWidth: 2, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   navIconBadge: { position: 'absolute', top: -6, right: -6, minWidth: 16, height: 16, paddingHorizontal: 3, backgroundColor: colors.purple, alignItems: 'center', justifyContent: 'center' },
   navMenuButton: { borderWidth: 2, width: 40, height: 36, alignItems: 'center', justifyContent: 'center' },
