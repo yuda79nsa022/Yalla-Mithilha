@@ -31,6 +31,9 @@ export default function CharadesCheckout() {
   const [starting, setStarting] = useState(false);
 
   const start = async () => {
+    // Only a game still waiting to be paid for — this screen stays mounted
+    // under the game, and must never re-deal one already in progress.
+    if (!charades || charades.lock === 'unlocked' || starting) return;
     setStarting(true);
     const unlocked = await unlockCurrentCharades();
     setStarting(false);

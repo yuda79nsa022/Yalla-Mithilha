@@ -104,13 +104,23 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
 
   // The payment currently out at the gateway, and its popup.
   const open = useRef<{ paymentId: string; popup: PopupWindow | null; timer: ReturnType<typeof setInterval> | null } | null>(null);
+  // The last payment this screen started — still listened for after it
+  // stopped polling, since a browser that cut the popup's link back here
+  // reports it closed while the player is in fact still paying.
+  const lastPayment = useRef<string | null>(null);
+  // Payments whose final answer was already acted on: `onPaid` runs once per
+  // payment, never again on a re-render, a session refresh or a late message
+  // (a second run would re-deal a game already in progress).
+  const settled = useRef(new Set<string>());
 
+  // The popup flag is left alone here: it's cleared once the payment is
+  // settled, or goes stale on its own — a popup still open after the player
+  // stopped waiting must still close itself rather than load the app.
   const stopWatching = useCallback((closePopup: boolean) => {
     const current = open.current;
     open.current = null;
     if (current?.timer) clearInterval(current.timer);
     if (closePopup && current?.popup && !current.popup.closed) current.popup.close();
-    setPopupFlag(false);
     setWaiting(false);
     setBusy(false);
   }, []);
@@ -118,9 +128,13 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
   /** Asks the server; true once the payment is settled one way or the other. */
   const settle = useCallback(
     async (paymentId: string): Promise<boolean> => {
+      if (settled.current.has(paymentId)) return true;
       const status = await checkTopUp(paymentId);
       if (status === 'paid' || status === 'failed' || status === 'cancelled') {
+        if (settled.current.has(paymentId)) return true; // another check got here first
+        settled.current.add(paymentId);
         if (open.current?.paymentId === paymentId) stopWatching(true);
+        if (lastPayment.current === paymentId) setPopupFlag(false);
         setNotice(noticeFor(status));
         if (status === 'paid') onPaidRef.current?.();
         return true;
@@ -141,8 +155,8 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
   useEffect(() => {
     if (!player) return;
     if (returnedPaymentId) {
-      void settle(returnedPaymentId).then((settled) => {
-        if (!settled) setNotice('pending');
+      void settle(returnedPaymentId).then((done) => {
+        if (!done) setNotice('pending');
       });
     } else if (returnedResult === 'error') {
       setNotice('error');
@@ -155,11 +169,11 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onResult = (data: unknown) => {
-      const current = open.current;
-      if (!current || !isResultMessage(data)) return;
-      if (data.payment && data.payment !== current.paymentId) return;
-      void settle(current.paymentId).then((settled) => {
-        if (!settled && open.current?.paymentId === current.paymentId) {
+      const paymentId = lastPayment.current;
+      if (!paymentId || !isResultMessage(data)) return;
+      if (data.payment && data.payment !== paymentId) return;
+      void settle(paymentId).then((done) => {
+        if (!done && open.current?.paymentId === paymentId) {
           stopWatching(true);
           setNotice('pending');
         }
@@ -190,7 +204,6 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
     const current = open.current;
     if (current?.timer) clearInterval(current.timer);
     open.current = null;
-    setPopupFlag(false);
   }, []);
 
   // Native apps open the gateway's page in the device browser, which never
@@ -201,8 +214,8 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
     const sub = AppState.addEventListener('change', (state) => {
       const paymentId = pendingNativePayment.current;
       if (state !== 'active' || !paymentId) return;
-      void settle(paymentId).then((settled) => {
-        if (settled) pendingNativePayment.current = null;
+      void settle(paymentId).then((done) => {
+        if (done) pendingNativePayment.current = null;
         else setNotice('pending');
       });
     });
@@ -225,6 +238,7 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
         // The development mock: no gateway page at all.
         popup?.close();
         if (await confirmTopUp(payment.id)) {
+          settled.current.add(payment.id);
           setNotice('paid');
           onPaidRef.current?.();
         }
@@ -245,6 +259,7 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
         return;
       }
 
+      lastPayment.current = payment.id;
       setPopupFlag(true);
       popup.location.href = payment.redirectUrl;
       setWaiting(true);
@@ -252,8 +267,8 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
       const timer = setInterval(() => {
         const current = open.current;
         if (!current || current.paymentId !== payment.id) return;
-        void settle(payment.id).then((settled) => {
-          if (settled || open.current?.paymentId !== payment.id) return;
+        void settle(payment.id).then((done) => {
+          if (done || open.current?.paymentId !== payment.id) return;
           // Closed without finishing: one more look, then it wasn't completed.
           if (popup.closed && ++closedChecks >= 2) {
             stopWatching(false);

@@ -283,6 +283,13 @@ max — no SVG, since it's served from this same origin) is written to
 `DATA_DIR/branding/` and served publicly at `/branding/*`; replacing or
 removing it deletes the old file.
 
+## Admin tool language
+
+The admin tool has the same AR/EN toggle as the player app's header
+(remembered per browser). Arabic lays the whole page out right-to-left —
+every card's actions move to the bottom-left with the primary outermost,
+and the hard shadows fall to the left — exactly like the player app.
+
 ## Admin lists: search, sort, pages
 
 Decks, players, admins and the audit log all take `?q=&page=&pageSize=&sort=
@@ -471,8 +478,12 @@ place to look for either portal's runtime errors.
 
 ## Known gaps
 
-- **No real payment provider.** `MockPaymentProvider` stands in until real
-  KNET/aggregator merchant credentials exist — see "The wallet" above.
+- **The mock payment provider is development-only.** Without
+  `PAYMENT_PROVIDER=myfatoorah`, checkout uses `MockPaymentProvider`, where
+  a player confirms their own payment. With `NODE_ENV=production` the mock
+  refuses every checkout (no game can start without a real MyFatoorah
+  payment) unless `ALLOW_MOCK_PAYMENTS=true` marks a deliberate test
+  server; `installer.sh` warns whenever MyFatoorah isn't configured.
 - **No real reset-code delivery.** `ConsoleResetCodeProvider` stands in
   until a real email/SMS provider exists — see "Auth model" above. Every
   account created before this feature shipped also has no email on file,

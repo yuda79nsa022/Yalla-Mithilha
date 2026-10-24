@@ -150,3 +150,30 @@ describe('payment done page', () => {
     expect(res.text).toContain('"result":"error"');
   });
 });
+
+describe('the mock payment provider in production', () => {
+  const env = { ...process.env };
+  afterEach(() => {
+    process.env.NODE_ENV = env.NODE_ENV;
+    delete process.env.ALLOW_MOCK_PAYMENTS;
+  });
+
+  it('refuses checkout, so no game is playable without a real gateway payment', async () => {
+    const { makePlayerAuthHeader } = await import('./helpers/testAuth');
+    const player = await makePlayerAuthHeader();
+    process.env.NODE_ENV = 'production';
+    const res = await request(app).post('/charades/checkout').set(player).send({ mode: 'classic' });
+    expect(res.status).toBe(503);
+  });
+
+  it('allows it on a test server that opts in', async () => {
+    const { makePlayerAuthHeader } = await import('./helpers/testAuth');
+    const player = await makePlayerAuthHeader();
+    process.env.NODE_ENV = 'production';
+    process.env.ALLOW_MOCK_PAYMENTS = 'true';
+    const res = await request(app).post('/charades/checkout').set(player).send({ mode: 'classic' });
+    expect(res.status).toBe(201);
+    const confirm = await request(app).post(`/charades/checkout/${res.body.id}/confirm`).set(player);
+    expect(confirm.status).toBe(200);
+  });
+});

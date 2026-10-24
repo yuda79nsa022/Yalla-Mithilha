@@ -3,7 +3,7 @@ import { GameSessionNotFoundError, PaymentNotFoundError, confirmPayment, createP
 import { isGameMode, type GameMode } from '../types';
 import { requirePlayerSession } from '../auth';
 import { handleError } from '../errors';
-import { getPaymentProvider } from '../payments/provider';
+import { getPaymentProvider, mockPaymentsAllowed } from '../payments/provider';
 import { settleFromProvider } from '../payments/settle';
 import { notifyLowBalance } from '../notifications/lowBalance';
 import { paymentGatewayLimiter } from '../rateLimit';
@@ -106,6 +106,10 @@ charadesRouter.post('/checkout', requirePlayerSession, async (req, res) => {
     const body = (req.body as Record<string, unknown> | undefined) ?? {};
     const mode = modeFromQuery(body.mode);
     const provider = getPaymentProvider();
+    if (!provider.redirects && !mockPaymentsAllowed()) {
+      res.status(503).json({ error: 'payments are not set up on this server yet' });
+      return;
+    }
     const payment = createPayment({ playerId: req.player!.sub, provider: provider.name, mode });
     let checkout: { redirectUrl?: string; providerRef?: string };
     try {
@@ -145,6 +149,10 @@ function ownPayment(paymentId: string, playerId: string) {
 function requireMockProvider(res: Response): boolean {
   if (getPaymentProvider().redirects) {
     res.status(403).json({ error: 'payments are confirmed by the payment gateway' });
+    return false;
+  }
+  if (!mockPaymentsAllowed()) {
+    res.status(403).json({ error: 'payments are not set up on this server yet' });
     return false;
   }
   return true;

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,14 +12,17 @@
      both portals look like one product:
      - same tokens: ink rules, square corners, hard offset shadows, purple primary
      - same header: logo + app name on the start side, the sections as
-       icon + label tabs (active = solid purple), the account and a red
-       log-out icon on the end side; same one-line copyright footer
+       icon + label tabs (active = solid purple), the account, a red log-out
+       icon and the AR/EN toggle on the end side; same copyright footer
      - same buttons: 56px tall, 17px bold label; primary purple with the ink
        shadow, secondary outlined, danger red outline. Small ones only inside
        table and title rows.
      - same placement rule: every card's actions sit in its bottom bar on the
-       end side (bottom-right — this tool is English), primary outermost,
-       secondary/danger beside it. Dialogs too. */
+       end side — bottom-right in English, bottom-left in Arabic — primary
+       outermost, secondary/danger beside it. Dialogs too.
+     - same direction rule: Arabic is laid out right-to-left (dir="rtl"), and
+       the hard shadows fall to the left, as in the player app. Everything
+       below uses logical sides (start/end), so it mirrors on its own. */
   :root {
     color-scheme: light;
     --ink: #201E1D; --ground: #F3F2F2; --white: #FFFFFF;
@@ -29,8 +32,10 @@
     --overlay: rgba(32, 30, 29, 0.72);
     --column: 1100px;
     --font: 'Noto Kufi Arabic', system-ui, sans-serif;
-    --display: 'Archivo', system-ui, sans-serif;
+    --display: 'Archivo', 'Noto Kufi Arabic', system-ui, sans-serif;
+    --dx: 1;   /* shadow direction: right in English … */
   }
+  [dir="rtl"] { --dx: -1; }   /* … left in Arabic */
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body {
@@ -40,16 +45,18 @@
   .hidden { display: none !important; }
 
   /* ---- header: the player app's site bar */
-  header.site .bar { max-width: var(--column); margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  /* Full window width, like the player app's bar — the column is for the page below it. */
+  header.site .bar { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--purple); min-width: 0; }
   .brand img { height: 36px; width: auto; max-width: 120px; object-fit: contain; }
   .brandName { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
   .brandTag { font-family: var(--display); font-size: 11px; letter-spacing: 1.5px; color: var(--white); background: var(--ink); padding: 2px 8px; transform: rotate(-2deg); }
+  [dir="rtl"] .brandTag { letter-spacing: 0; }
   .cubeWrap { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; perspective: 800px; }
   .cube { width: 24px; height: 24px; position: relative; transform-style: preserve-3d; transform: rotateX(-22deg) rotateY(-32deg); }
   .cube span { position: absolute; inset: 0; }
   .cube .front { background: var(--purple); transform: translateZ(12px); }
-  .cube .front::before { content: ''; position: absolute; left: 22%; right: 22%; top: 36%; height: 2px; background: var(--white); box-shadow: 0 0 0 0 transparent; }
+  .cube .front::before { content: ''; position: absolute; left: 22%; right: 22%; top: 36%; height: 2px; background: var(--white); }
   .cube .front::after { content: ''; position: absolute; left: 18%; right: 18%; bottom: 24%; height: 3px; background: var(--ink); }
   .cube .side { background: var(--purpleSide); transform: rotateY(90deg) translateZ(12px); }
   .cube .top { background: var(--purpleTop); transform: rotateX(90deg) translateZ(12px); }
@@ -63,10 +70,15 @@
   .navTab:hover { border-color: var(--ink); }
   .navTab.active { background: var(--purple); border-color: var(--purple); color: var(--white); }
   .navTab svg, .iconBtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+  .headerEnd { display: flex; align-items: center; gap: 12px; }
   .account { display: flex; align-items: center; gap: 12px; }
   .chip { border: 2px solid var(--ink); padding: 5px 12px; font-weight: 700; font-size: 13px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .iconBtn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid transparent; background: transparent; cursor: pointer; color: var(--red); padding: 0; }
   .iconBtn:hover { border-color: var(--red); }
+  [dir="rtl"] .iconBtn svg { transform: scaleX(-1); }
+  /* The player app's AR/EN switch: names the language it switches to. */
+  .langToggle { font-family: var(--display); font-size: 13px; letter-spacing: 1px; color: var(--purple); background: transparent; border: 2px solid var(--ink); padding: 5px 12px; cursor: pointer; }
+  .langToggle:hover { background: var(--ink); color: var(--white); }
 
   /* ---- footer: the player app's copyright line */
   footer.site { margin-top: auto; padding: 8px 20px 12px; text-align: center; font-size: 11px; color: var(--muted-text); }
@@ -75,35 +87,36 @@
 
   /* ---- page title + cards */
   .pageHead { margin: 16px 0 20px; }
-  .pageHead h1 { font-size: 30px; line-height: 38px; font-weight: 900; margin: 0; }
+  .pageHead h1 { font-size: 30px; line-height: 1.3; font-weight: 900; margin: 0; }
   .pageHead p { margin: 4px 0 0; color: var(--neutral700); font-size: 14px; }
   .card { background: var(--white); border: 2px solid var(--ink); padding: 24px; margin-bottom: 24px; }
-  .card h2 { font-size: 22px; line-height: 30px; font-weight: 700; margin: 0 0 4px; }
+  .card h2 { font-size: 22px; line-height: 1.4; font-weight: 700; margin: 0 0 4px; }
   .card > p.lead { margin: 0 0 16px; color: var(--neutral700); font-size: 14px; }
   .gate { max-width: 480px; margin: 48px auto; }
   a.back { color: var(--purple700); font-weight: 700; font-size: 14px; cursor: pointer; display: inline-block; margin: 16px 0 0; border-bottom: 2px solid var(--purple700); text-decoration: none; }
+  code { font-size: 13px; background: var(--muted-bg); padding: 1px 6px; direction: ltr; unicode-bidi: isolate; }
 
   /* ---- buttons: one look, the player app's */
   .btn {
     cursor: pointer; font: inherit; font-weight: 700; font-size: 17px; line-height: 1.2;
     min-height: 56px; min-width: 128px; padding: 12px 24px; border-radius: 0;
     border: 2px solid var(--ink); background: var(--purple); color: var(--white);
-    box-shadow: 6px 6px 0 var(--ink); transition: transform 60ms, box-shadow 60ms;
+    box-shadow: calc(6px * var(--dx)) 6px 0 var(--ink); transition: transform 60ms, box-shadow 60ms;
   }
-  .btn:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 3px 3px 0 var(--ink); }
+  .btn:active:not(:disabled) { transform: translate(calc(3px * var(--dx)), 3px); box-shadow: calc(3px * var(--dx)) 3px 0 var(--ink); }
   .btn.secondary { background: transparent; color: var(--ink); box-shadow: none; }
   .btn.danger { background: transparent; color: var(--red); border-color: var(--red); box-shadow: none; }
   .btn.secondary:hover:not(:disabled) { background: var(--muted-bg); }
   .btn.danger:hover:not(:disabled) { background: #FDEBE8; }
   .btn:disabled { background: var(--muted-bg); color: var(--muted-text); border-color: var(--muted-text); box-shadow: none; cursor: default; }
   /* Small: only the per-row controls inside a table or the title list. */
-  .btn.sm { min-height: 36px; min-width: 0; padding: 4px 12px; font-size: 14px; box-shadow: 3px 3px 0 var(--ink); }
+  .btn.sm { min-height: 36px; min-width: 0; padding: 4px 12px; font-size: 14px; box-shadow: calc(3px * var(--dx)) 3px 0 var(--ink); }
   .btn.sm.secondary, .btn.sm.danger { box-shadow: none; }
 
-  /* ---- the action bar: bottom of every card and dialog, end side (right) */
+  /* ---- the action bar: bottom of every card and dialog, end side */
   .actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--muted-bg); }
   .actions.withPager { justify-content: space-between; }
-  .actions .end { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+  .actions .end { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; margin-inline-start: auto; }
   .result { margin: 12px 0 0; font-size: 14px; font-weight: 700; color: var(--purple); }
   .result.error { color: var(--red); }
   .result:empty { display: none; }
@@ -116,12 +129,11 @@
   }
   textarea { min-height: 120px; resize: vertical; }
   input[type="file"] { min-height: 0; padding: 12px; font-size: 14px; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); box-shadow: 3px 3px 0 var(--purple); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); box-shadow: calc(3px * var(--dx)) 3px 0 var(--purple); }
   .field { margin-bottom: 16px; }
   .hint { margin: 6px 0 0; font-size: 12px; color: var(--neutral700); }
   .row { display: flex; gap: 16px; }
   .row > * { flex: 1; min-width: 0; }
-  [dir="rtl"] { text-align: right; }
   .imageField { display: flex; align-items: center; gap: 12px; }
   .imageField img { width: 56px; height: 56px; object-fit: contain; background: var(--muted-bg); border: 2px solid var(--ink); flex: 0 0 auto; }
 
@@ -131,15 +143,15 @@
   .toolbar .size { width: 140px; }
   .tableWrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--muted-bg); font-size: 14px; vertical-align: middle; }
+  th, td { text-align: start; padding: 10px 12px; border-bottom: 2px solid var(--muted-bg); font-size: 14px; vertical-align: middle; }
   th { font-size: 13px; color: var(--neutral700); font-weight: 700; white-space: nowrap; border-bottom-color: var(--ink); }
   th button.sort { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
   th button.sort:hover { color: var(--purple700); }
   th button.sort .arrow { font-size: 11px; color: var(--muted-text); }
   th button.sort.on { color: var(--ink); }
   th button.sort.on .arrow { color: var(--purple); }
-  td.rowActions { white-space: nowrap; text-align: right; }
-  td.rowActions .btn { margin-left: 8px; }
+  td.rowActions { white-space: nowrap; text-align: end; }
+  td.rowActions .btn { margin-inline-start: 8px; }
   td.muted, .muted { color: var(--neutral700); }
   td.empty { text-align: center; color: var(--neutral700); padding: 24px; }
   .pager { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--neutral700); flex-wrap: wrap; }
@@ -153,28 +165,32 @@
   .titleRow input[data-title-text] { flex: 1; min-width: 160px; min-height: 40px; padding: 6px 10px; }
   .titleRow select { width: 140px; min-height: 40px; padding: 6px 10px; font-size: 14px; }
   .titleRow input[type="file"] { width: 190px; font-size: 12px; padding: 6px; }
-  .titleRow .rowEnd { display: flex; gap: 8px; margin-left: auto; }
+  .titleRow .rowEnd { display: flex; gap: 8px; margin-inline-start: auto; }
   #titleRows { max-height: 560px; overflow-y: auto; }
 
   /* ---- dialog: the player app's ConfirmModal */
   .backdrop { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 50; }
-  .dialog { background: var(--white); border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); padding: 24px; width: 100%; max-width: 512px; }
-  .dialog h2 { font-size: 22px; line-height: 30px; margin: 0 0 8px; font-weight: 700; }
+  .dialog { background: var(--white); border: 2px solid var(--ink); box-shadow: calc(6px * var(--dx)) 6px 0 var(--ink); padding: 24px; width: 100%; max-width: 512px; }
+  .dialog h2 { font-size: 22px; line-height: 1.4; margin: 0 0 8px; font-weight: 700; }
   .dialog p { margin: 0 0 16px; color: var(--neutral700); }
 
   /* ---- toast */
-  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--white); padding: 10px 18px; font-weight: 700; font-size: 14px; z-index: 60; border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--purple); max-width: calc(100% - 32px); }
-  .toast.error { background: var(--red); box-shadow: 4px 4px 0 var(--ink); }
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--white); padding: 10px 18px; font-weight: 700; font-size: 14px; z-index: 60; border: 2px solid var(--ink); box-shadow: calc(4px * var(--dx)) 4px 0 var(--purple); max-width: calc(100% - 32px); }
+  .toast.error { background: var(--red); box-shadow: calc(4px * var(--dx)) 4px 0 var(--ink); }
 
+  /* Narrower windows: the tabs are icons only (named by their tooltip), as the player app's are on a phone. */
+  @media (max-width: 1100px) {
+    .navTab .label { display: none; }
+  }
   @media (max-width: 760px) {
-    .navTab .label, .brandName { display: none; }
+    .brandName { display: none; }
     header.site .bar { padding: 10px 16px; row-gap: 8px; }
     /* Phone: logo and account on the first line, the sections as one full-width row under them. */
     nav#mainNav { order: 3; width: 100%; justify-content: space-between; }
     main { padding: 0 16px 32px; }
     .row { flex-direction: column; gap: 0; }
     .card { padding: 16px; }
-    .pageHead h1 { font-size: 24px; line-height: 30px; }
+    .pageHead h1 { font-size: 24px; }
   }
 </style>
 </head>
@@ -185,72 +201,75 @@
   <a class="brand" id="brandHome" href="#">
     <span id="brandMark" class="cubeWrap"><span class="cube"><span class="front"></span><span class="side"></span><span class="top"></span></span></span>
     <span class="brandName" id="brandName">Bas Bedoon Kalam</span>
-    <span class="brandTag">ADMIN</span>
+    <span class="brandTag" data-i18n="brand.tag">ADMIN</span>
   </a>
-  <nav id="mainNav" class="hidden" aria-label="Sections">
-    <button class="navTab" data-tab="decks"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="14"/><path d="M7 3h14v14"/></svg><span class="label">Decks</span></button>
-    <button class="navTab" data-tab="players"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><span class="label">Players</span></button>
-    <button class="navTab" data-tab="admins"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span class="label">Admins</span></button>
-    <button class="navTab" data-tab="auditLog"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg><span class="label">Audit log</span></button>
-    <button class="navTab" data-tab="settings"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span class="label">Settings</span></button>
+  <nav id="mainNav" class="hidden">
+    <button class="navTab" data-tab="decks"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="14"/><path d="M7 3h14v14"/></svg><span class="label" data-i18n="nav.decks">Decks</span></button>
+    <button class="navTab" data-tab="players"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><span class="label" data-i18n="nav.players">Players</span></button>
+    <button class="navTab" data-tab="admins"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span class="label" data-i18n="nav.admins">Admins</span></button>
+    <button class="navTab" data-tab="auditLog"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg><span class="label" data-i18n="nav.audit">Audit log</span></button>
+    <button class="navTab" data-tab="settings"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span class="label" data-i18n="nav.settings">Settings</span></button>
   </nav>
-  <div class="account hidden" id="accountBox">
-    <span class="chip" id="whoami"></span>
-    <button class="iconBtn" id="logoutBtn" title="Log out" aria-label="Log out"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+  <div class="headerEnd">
+    <div class="account hidden" id="accountBox">
+      <span class="chip" id="whoami"></span>
+      <button class="iconBtn" id="logoutBtn" data-i18n-aria="logout"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+    </div>
+    <button class="langToggle" id="langToggle"></button>
   </div>
  </div>
 </header>
 
 <main>
   <div id="gate" class="card gate">
-    <h2>Sign in</h2>
-    <p class="lead">Admin accounts only. No account yet? Ask another admin to add one, or run <code>npm run create-admin</code> on the server.</p>
-    <div class="field"><label for="usernameInput">Username</label><input id="usernameInput" type="text" autocomplete="username" /></div>
-    <div class="field"><label for="passwordInput">Password</label><input id="passwordInput" type="password" autocomplete="current-password" /></div>
+    <h2 data-i18n="gate.title">Sign in</h2>
+    <p class="lead"><span data-i18n="gate.lead"></span> <code>npm run create-admin</code></p>
+    <div class="field"><label for="usernameInput" data-i18n="common.username"></label><input id="usernameInput" type="text" dir="auto" autocomplete="username" /></div>
+    <div class="field"><label for="passwordInput" data-i18n="common.password"></label><input id="passwordInput" type="password" autocomplete="current-password" /></div>
     <p id="gateError" class="result error"></p>
-    <div class="actions"><button class="btn" id="signInBtn">Sign in</button></div>
+    <div class="actions"><button class="btn" id="signInBtn" data-i18n="gate.signIn"></button></div>
   </div>
 
   <div id="app" class="hidden">
 
     <section id="decksSection">
       <div id="deckListView">
-        <div class="pageHead"><h1>Decks</h1><p>A pool of titles to act out. Any deck with at least one title is playable.</p></div>
+        <div class="pageHead"><h1 data-i18n="nav.decks"></h1><p data-i18n="decks.lead"></p></div>
         <div class="card" id="decksList"></div>
       </div>
 
       <div id="deckEditView" class="hidden">
-        <a class="back" id="deckBackLink">&larr; All decks</a>
+        <a class="back" id="deckBackLink" data-i18n="deck.back"></a>
         <div class="pageHead"><h1 id="deckEditTitle"></h1></div>
         <div class="card">
-          <h2>Deck details</h2>
+          <h2 data-i18n="deck.details"></h2>
           <div class="row">
-            <div class="field"><label for="dId">ID</label><input id="dId" /><p class="hint">Lower-case letters, numbers and dashes. Can't be changed later.</p></div>
+            <div class="field"><label for="dId" data-i18n="deck.id"></label><input id="dId" dir="ltr" /><p class="hint" data-i18n="deck.idHint"></p></div>
           </div>
           <div class="row">
-            <div class="field"><label for="dNameEn">Name (English)</label><input id="dNameEn" /></div>
-            <div class="field"><label for="dNameAr">Name (Arabic)</label><input id="dNameAr" dir="rtl" /></div>
+            <div class="field"><label for="dNameEn" data-i18n="deck.nameEn"></label><input id="dNameEn" dir="ltr" /></div>
+            <div class="field"><label for="dNameAr" data-i18n="deck.nameAr"></label><input id="dNameAr" dir="rtl" /></div>
           </div>
           <div class="row">
             <div class="field">
-              <label for="dLanguage">Language</label>
+              <label for="dLanguage" data-i18n="deck.language"></label>
               <select id="dLanguage">
-                <option value="ar">Arabic — Kuwaiti, Khaleeji, Egyptian content</option>
-                <option value="en">English — Hollywood, American content</option>
+                <option value="ar" data-i18n="deck.langAr"></option>
+                <option value="en" data-i18n="deck.langEn"></option>
               </select>
             </div>
             <div class="field">
-              <label for="dDifficulty">Difficulty (default for every title — Pro mode only)</label>
+              <label for="dDifficulty" data-i18n="deck.difficulty"></label>
               <select id="dDifficulty">
-                <option value="easy">Easy — 1 point (everyday words, things everyone knows)</option>
-                <option value="medium">Medium — 3 points (recent series and films)</option>
-                <option value="hard">Hard — 5 points (classics, long or obscure titles)</option>
+                <option value="easy" data-i18n="deck.diffEasy"></option>
+                <option value="medium" data-i18n="deck.diffMedium"></option>
+                <option value="hard" data-i18n="deck.diffHard"></option>
               </select>
-              <p class="hint">A title over four words is bumped one level up automatically. A single title can override this below, or with an "easy / medium / hard" column when importing.</p>
+              <p class="hint" data-i18n="deck.diffHint"></p>
             </div>
           </div>
           <div class="field" id="deckImageField">
-            <label for="deckImageFile">Deck picture (shown next to this deck on the player's deck picker)</label>
+            <label for="deckImageFile" data-i18n="deck.picture"></label>
             <div class="imageField">
               <img id="deckImagePreview" alt="" />
               <input id="deckImageFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
@@ -258,47 +277,47 @@
           </div>
           <p id="deckResult" class="result"></p>
           <div class="actions">
-            <button class="btn danger" id="deleteDeckBtn">Delete deck</button>
-            <button class="btn secondary" id="removeDeckImageBtn">Remove picture</button>
-            <button class="btn secondary" id="cancelDeckBtn">Cancel</button>
-            <button class="btn" id="saveDeckBtn">Save deck</button>
+            <button class="btn danger" id="deleteDeckBtn" data-i18n="deck.delete"></button>
+            <button class="btn secondary" id="removeDeckImageBtn" data-i18n="deck.removePicture"></button>
+            <button class="btn secondary" id="cancelDeckBtn" data-i18n="common.cancel"></button>
+            <button class="btn" id="saveDeckBtn"></button>
           </div>
         </div>
 
         <div id="deckContent">
           <div class="card">
-            <h2>Add a title</h2>
-            <p class="lead">One title by hand, with an optional picture — quicker than an import file for a single addition.</p>
+            <h2 data-i18n="add.title"></h2>
+            <p class="lead" data-i18n="add.lead"></p>
             <div class="row">
-              <div class="field"><label for="newTitleText">Title</label><input id="newTitleText" dir="rtl" /></div>
-              <div class="field"><label for="newTitleImage">Picture (optional)</label><input id="newTitleImage" type="file" accept=".png,.jpg,.jpeg,.webp" /></div>
+              <div class="field"><label for="newTitleText" data-i18n="add.text"></label><input id="newTitleText" dir="auto" /></div>
+              <div class="field"><label for="newTitleImage" data-i18n="add.picture"></label><input id="newTitleImage" type="file" accept=".png,.jpg,.jpeg,.webp" /></div>
             </div>
             <p id="addTitleResult" class="result"></p>
-            <div class="actions"><button class="btn" id="addTitleBtn">Add title</button></div>
+            <div class="actions"><button class="btn" id="addTitleBtn" data-i18n="add.btn"></button></div>
           </div>
 
           <div class="card">
-            <h2>Import titles</h2>
-            <p class="lead">A .docx, .xlsx or .pdf list — every non-duplicate title is added to this deck. In a .docx or .xlsx table, a cell reading "easy"/"medium"/"hard" (or "سهل"/"متوسط"/"صعب") sets that row's own difficulty.</p>
-            <div class="field"><label for="importFile">File</label><input id="importFile" type="file" accept=".docx,.xlsx,.pdf" /></div>
+            <h2 data-i18n="imp.title"></h2>
+            <p class="lead" data-i18n="imp.lead"></p>
+            <div class="field"><label for="importFile" data-i18n="imp.file"></label><input id="importFile" type="file" accept=".docx,.xlsx,.pdf" /></div>
             <p id="importResult" class="result"></p>
-            <div class="actions"><button class="btn" id="importBtn">Import</button></div>
+            <div class="actions"><button class="btn" id="importBtn" data-i18n="imp.btn"></button></div>
           </div>
 
           <div class="card">
-            <h2>Import titles with pictures</h2>
-            <p class="lead">A .xlsx with two or three columns (title, image filename, optional difficulty — row 1 is a header) and a .zip of those images (.png/.jpg/.webp, 5 MB max each). A title whose picture isn't found is still added, without one.</p>
+            <h2 data-i18n="impi.title"></h2>
+            <p class="lead" data-i18n="impi.lead"></p>
             <div class="row">
-              <div class="field"><label for="imageManifestFile">Manifest (.xlsx)</label><input id="imageManifestFile" type="file" accept=".xlsx" /></div>
-              <div class="field"><label for="imageZipFile">Images (.zip)</label><input id="imageZipFile" type="file" accept=".zip" /></div>
+              <div class="field"><label for="imageManifestFile" data-i18n="impi.manifest"></label><input id="imageManifestFile" type="file" accept=".xlsx" /></div>
+              <div class="field"><label for="imageZipFile" data-i18n="impi.zip"></label><input id="imageZipFile" type="file" accept=".zip" /></div>
             </div>
             <p id="importWithImagesResult" class="result"></p>
-            <div class="actions"><button class="btn" id="importWithImagesBtn">Import with pictures</button></div>
+            <div class="actions"><button class="btn" id="importWithImagesBtn" data-i18n="impi.btn"></button></div>
           </div>
 
           <div class="card">
-            <h2>Titles (<span id="titleCount">0</span>)</h2>
-            <div class="toolbar"><div class="search"><label for="titleFilter">Filter</label><input id="titleFilter" type="search" placeholder="Type to filter this deck's titles" /></div></div>
+            <h2 id="titlesHeading"></h2>
+            <div class="toolbar"><div class="search"><label for="titleFilter" data-i18n="titles.filter"></label><input id="titleFilter" type="search" dir="auto" data-i18n-ph="titles.filterPh" /></div></div>
             <div id="titleRows"></div>
           </div>
         </div>
@@ -306,37 +325,37 @@
     </section>
 
     <section id="playersSection" class="hidden">
-      <div class="pageHead"><h1>Players</h1><p>Everyone who created an account in the app.</p></div>
+      <div class="pageHead"><h1 data-i18n="nav.players"></h1><p data-i18n="players.lead"></p></div>
       <div class="card" id="playersList"></div>
     </section>
 
     <section id="adminsSection" class="hidden">
-      <div class="pageHead"><h1>Admins</h1><p>Everyone here can manage decks, players, settings and other admins.</p></div>
+      <div class="pageHead"><h1 data-i18n="nav.admins"></h1><p data-i18n="admins.lead"></p></div>
       <div class="card" id="adminsList"></div>
     </section>
 
     <section id="auditLogSection" class="hidden">
-      <div class="pageHead"><h1>Audit log</h1><p>Every sensitive change, who made it, and what changed. Read-only on purpose.</p></div>
+      <div class="pageHead"><h1 data-i18n="nav.audit"></h1><p data-i18n="audit.lead"></p></div>
       <div class="card" id="auditList"></div>
     </section>
 
     <section id="settingsSection" class="hidden">
-      <div class="pageHead"><h1>Settings</h1><p>Branding, prices and the home page — shown to every player.</p></div>
+      <div class="pageHead"><h1 data-i18n="nav.settings"></h1><p data-i18n="settings.lead"></p></div>
 
       <div class="card">
-        <h2>Branding</h2>
-        <p class="lead">The app's name and logo in the header of every page (player app and this tool), and the timezone every date is shown in.</p>
+        <h2 data-i18n="brandSet.title"></h2>
+        <p class="lead" data-i18n="brandSet.lead"></p>
         <div class="row">
-          <div class="field"><label for="appNameEn">App name (English)</label><input id="appNameEn" maxlength="60" /></div>
-          <div class="field"><label for="appNameAr">App name (Arabic)</label><input id="appNameAr" dir="rtl" maxlength="60" /></div>
+          <div class="field"><label for="appNameEn" data-i18n="brandSet.nameEn"></label><input id="appNameEn" dir="ltr" maxlength="60" /></div>
+          <div class="field"><label for="appNameAr" data-i18n="brandSet.nameAr"></label><input id="appNameAr" dir="rtl" maxlength="60" /></div>
         </div>
         <div class="row">
           <div class="field">
-            <label for="timezoneSelect">Timezone</label>
-            <select id="timezoneSelect"></select>
+            <label for="timezoneSelect" data-i18n="brandSet.timezone"></label>
+            <select id="timezoneSelect" dir="ltr"></select>
           </div>
           <div class="field">
-            <label for="logoFile">Logo (.png, .jpg or .webp, 2 MB max)</label>
+            <label for="logoFile" data-i18n="brandSet.logo"></label>
             <div class="imageField">
               <img id="logoPreview" alt="" />
               <input id="logoFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
@@ -345,35 +364,35 @@
         </div>
         <p id="brandingResult" class="result"></p>
         <div class="actions">
-          <button class="btn secondary" id="removeLogoBtn">Use the built-in logo</button>
-          <button class="btn" id="saveBrandingBtn">Save branding</button>
+          <button class="btn secondary" id="removeLogoBtn" data-i18n="brandSet.removeLogo"></button>
+          <button class="btn" id="saveBrandingBtn" data-i18n="brandSet.save"></button>
         </div>
       </div>
 
       <div class="card">
-        <h2>Game prices</h2>
-        <p class="lead">What one game costs a player, per game mode.</p>
+        <h2 data-i18n="prices.title"></h2>
+        <p class="lead" data-i18n="prices.lead"></p>
         <div class="row">
-          <div class="field"><label for="gamePriceInput">Lite price (KD)</label><input id="gamePriceInput" type="number" step="0.001" min="0.001" /></div>
-          <div class="field"><label for="modifiedGamePriceInput">Pro price (KD)</label><input id="modifiedGamePriceInput" type="number" step="0.001" min="0.001" /></div>
+          <div class="field"><label for="gamePriceInput" data-i18n="prices.lite"></label><input id="gamePriceInput" type="number" dir="ltr" step="0.001" min="0.001" /></div>
+          <div class="field"><label for="modifiedGamePriceInput" data-i18n="prices.pro"></label><input id="modifiedGamePriceInput" type="number" dir="ltr" step="0.001" min="0.001" /></div>
         </div>
         <p id="pricesResult" class="result"></p>
-        <div class="actions"><button class="btn" id="savePricesBtn">Save prices</button></div>
+        <div class="actions"><button class="btn" id="savePricesBtn" data-i18n="prices.save"></button></div>
       </div>
 
       <div class="card">
-        <h2>Home page content</h2>
-        <p class="lead">The tagline and paragraph on the player app's home screen, in both languages.</p>
+        <h2 data-i18n="home.title"></h2>
+        <p class="lead" data-i18n="home.lead"></p>
         <div class="row">
-          <div class="field"><label for="homeTaglineEn">Tagline (English)</label><input id="homeTaglineEn" /></div>
-          <div class="field"><label for="homeTaglineAr">Tagline (Arabic)</label><input id="homeTaglineAr" dir="rtl" /></div>
+          <div class="field"><label for="homeTaglineEn" data-i18n="home.taglineEn"></label><input id="homeTaglineEn" dir="ltr" /></div>
+          <div class="field"><label for="homeTaglineAr" data-i18n="home.taglineAr"></label><input id="homeTaglineAr" dir="rtl" /></div>
         </div>
         <div class="row">
-          <div class="field"><label for="homeWriteupEn">Write-up (English)</label><textarea id="homeWriteupEn" rows="4"></textarea></div>
-          <div class="field"><label for="homeWriteupAr">Write-up (Arabic)</label><textarea id="homeWriteupAr" dir="rtl" rows="4"></textarea></div>
+          <div class="field"><label for="homeWriteupEn" data-i18n="home.writeupEn"></label><textarea id="homeWriteupEn" dir="ltr" rows="4"></textarea></div>
+          <div class="field"><label for="homeWriteupAr" data-i18n="home.writeupAr"></label><textarea id="homeWriteupAr" dir="rtl" rows="4"></textarea></div>
         </div>
         <p id="homeContentResult" class="result"></p>
-        <div class="actions"><button class="btn" id="saveHomeContentBtn">Save home content</button></div>
+        <div class="actions"><button class="btn" id="saveHomeContentBtn" data-i18n="home.save"></button></div>
       </div>
     </section>
 
@@ -389,14 +408,177 @@
     <div id="dialogFields"></div>
     <p id="dialogError" class="result error"></p>
     <div class="actions">
-      <button class="btn secondary" id="dialogCancel">Cancel</button>
-      <button class="btn" id="dialogConfirm">OK</button>
+      <button class="btn secondary" id="dialogCancel" data-i18n="common.cancel"></button>
+      <button class="btn" id="dialogConfirm"></button>
     </div>
   </div>
 </div>
 <div id="toast" class="toast hidden" role="status"></div>
 
 <script>
+/* ------------------------------------------------------------ language */
+
+// Both languages, like the player app: Arabic lays the whole page out
+// right-to-left, so every action bar lands bottom-left and every shadow
+// falls to the left. Remembered per browser.
+const STRINGS = {
+  en: {
+    'brand.tag': 'ADMIN', 'lang.toggle': 'AR', 'lang.switchTo': 'التبديل إلى العربية',
+    'nav.decks': 'Decks', 'nav.players': 'Players', 'nav.admins': 'Admins', 'nav.audit': 'Audit log', 'nav.settings': 'Settings',
+    'logout': 'Log out', 'logout.confirm': 'Log out?',
+    'copyright': '© {year} {name}. All rights reserved.',
+    'common.username': 'Username', 'common.password': 'Password', 'common.email': 'Email', 'common.cancel': 'Cancel', 'common.save': 'Save',
+    'common.saving': 'Saving…', 'common.saved': 'Saved.', 'common.saveFailed': 'Could not save: {e}', 'common.loadFailed': 'Could not load: {e}',
+    'gate.title': 'Sign in', 'gate.lead': 'Admin accounts only. No account yet? Ask another admin to add one, or run this on the server:',
+    'gate.signIn': 'Sign in', 'gate.signingIn': 'Signing in…', 'gate.failed': 'Sign-in failed.',
+    'list.search': 'Search', 'list.perPage': 'Per page', 'list.prev': '‹ Prev', 'list.next': 'Next ›',
+    'list.range': '{from}–{to} of {total}', 'list.page': 'Page {page} of {last}', 'list.noMatch': 'Nothing matches "{q}".',
+    'col.id': 'ID', 'col.name': 'Name', 'col.language': 'Language', 'col.difficulty': 'Difficulty', 'col.titles': 'Titles',
+    'col.username': 'Username', 'col.email': 'Email', 'col.created': 'Created',
+    'col.when': 'When', 'col.admin': 'Admin', 'col.action': 'Action', 'col.target': 'Target', 'col.details': 'Details',
+    'lang.ar': 'Arabic', 'lang.en': 'English', 'diff.easy': 'Easy', 'diff.medium': 'Medium', 'diff.hard': 'Hard',
+    'row.open': 'Open', 'row.delete': 'Delete', 'row.changePassword': 'Change password', 'row.editEmail': 'Edit email', 'row.rename': 'Rename',
+    'decks.lead': 'A pool of titles to act out. Any deck with at least one title is playable.',
+    'decks.search': 'Search by ID or name, English or Arabic', 'decks.empty': 'No decks yet.', 'decks.new': 'New deck',
+    'deck.back': '← All decks', 'deck.new': 'New deck', 'deck.details': 'Deck details',
+    'deck.id': 'ID', 'deck.idHint': 'Lower-case letters, numbers and dashes. Can’t be changed later.',
+    'deck.nameEn': 'Name (English)', 'deck.nameAr': 'Name (Arabic)', 'deck.language': 'Language',
+    'deck.langAr': 'Arabic — Kuwaiti, Khaleeji, Egyptian content', 'deck.langEn': 'English — Hollywood, American content',
+    'deck.difficulty': 'Difficulty (default for every title — Pro mode only)',
+    'deck.diffEasy': 'Easy — 1 point (everyday words, things everyone knows)',
+    'deck.diffMedium': 'Medium — 3 points (recent series and films)',
+    'deck.diffHard': 'Hard — 5 points (classics, long or obscure titles)',
+    'deck.diffHint': 'A title over four words is bumped one level up automatically. A single title can override this below, or with an "easy / medium / hard" column when importing.',
+    'deck.picture': 'Deck picture (shown next to this deck on the player’s deck picker)',
+    'deck.delete': 'Delete deck', 'deck.removePicture': 'Remove picture', 'deck.save': 'Save deck', 'deck.create': 'Create deck',
+    'deck.deleteTitle': 'Delete this deck?', 'deck.deleteBody': '"{name}" and all {count} of its titles will be deleted. This can’t be undone.',
+    'deck.deleted': 'Deck deleted.', 'deck.pictureRemoved': 'Picture removed.', 'deck.pictureRemoveFailed': 'Could not remove picture: {e}',
+    'deck.openFailed': 'Could not open deck: {e}',
+    'add.title': 'Add a title', 'add.lead': 'One title by hand, with an optional picture — quicker than an import file for a single addition.',
+    'add.text': 'Title', 'add.picture': 'Picture (optional)', 'add.btn': 'Add title', 'add.busy': 'Adding…',
+    'add.empty': 'Type a title first.', 'add.added': 'Added.', 'add.dup': 'Already in this deck — not added again.', 'add.failed': 'Could not add title: {e}',
+    'imp.title': 'Import titles', 'imp.lead': 'A .docx, .xlsx or .pdf list — every non-duplicate title is added to this deck. In a .docx or .xlsx table, a cell reading "easy"/"medium"/"hard" (or "سهل"/"متوسط"/"صعب") sets that row’s own difficulty.',
+    'imp.file': 'File', 'imp.btn': 'Import', 'imp.busy': 'Importing…', 'imp.wait': 'Importing… a large file can take a while.',
+    'imp.choose': 'Choose a file first.', 'imp.result': 'Found {found} titles: {added} added, {skipped} skipped (already in this deck, or blank).', 'imp.failed': 'Import failed: {e}',
+    'impi.title': 'Import titles with pictures', 'impi.lead': 'A .xlsx with two or three columns (title, image filename, optional difficulty — row 1 is a header) and a .zip of those images (.png/.jpg/.webp, 5 MB max each). A title whose picture isn’t found is still added, without one.',
+    'impi.manifest': 'Manifest (.xlsx)', 'impi.zip': 'Images (.zip)', 'impi.btn': 'Import with pictures',
+    'impi.choose': 'Choose both a manifest (.xlsx) and an images (.zip) file first.',
+    'impi.result': 'Found {found} titles: {added} added, {skipped} skipped.', 'impi.issues': ' {count} picture issue(s): {list}',
+    'titles.heading': 'Titles ({count})', 'titles.of': '{n} of {total}', 'titles.filter': 'Filter', 'titles.filterPh': 'Type to filter this deck’s titles',
+    'titles.none': 'No titles yet — add or import some above.', 'titles.noMatch': 'No title matches.',
+    'titles.deckDefault': 'Deck default', 'titles.override': 'Overrides the deck’s default difficulty for this title only',
+    'titles.remove': 'Remove', 'titles.save': 'Save', 'titles.saved': 'Title saved.',
+    'titles.removeTitle': 'Remove this title?', 'titles.removeBody': '"{text}" will be removed from this deck.', 'titles.removed': 'Title removed.',
+    'aria.title': 'Title', 'aria.difficulty': 'Difficulty', 'aria.picture': 'Picture',
+    'players.lead': 'Everyone who created an account in the app.', 'players.search': 'Search by username or email', 'players.empty': 'No player accounts yet.',
+    'players.renameTitle': 'Rename player', 'players.renamed': 'Player renamed.',
+    'players.emailTitle': 'Edit email', 'players.emailBody': 'Used for forgot-password codes and the low-balance notice. Leave blank to remove it.', 'players.emailUpdated': 'Email updated.',
+    'players.deleteTitle': 'Delete this player?', 'players.deleteBody': '{name}’s account and wallet will be deleted. This can’t be undone.',
+    'players.deleteBtn': 'Delete player', 'players.deleted': 'Player deleted.',
+    'pw.title': 'Change password', 'pw.body': 'Sets a new password for {name} and signs them out everywhere.', 'pw.label': 'New password (8+ characters)', 'pw.changed': 'Password changed.',
+    'admins.lead': 'Everyone here can manage decks, players, settings and other admins.', 'admins.search': 'Search by username', 'admins.empty': 'No admins yet.',
+    'admins.you': 'You', 'admins.add': 'Add admin', 'admins.addTitle': 'Add an admin', 'admins.password': 'Password (8+ characters)', 'admins.added': 'Admin added.',
+    'admins.renameTitle': 'Rename admin', 'admins.renamed': 'Admin renamed.',
+    'admins.deleteTitle': 'Delete this admin?', 'admins.deleteBody': '{name} will no longer be able to sign in here.', 'admins.deleteBtn': 'Delete admin', 'admins.deleted': 'Admin deleted.',
+    'audit.lead': 'Every sensitive change, who made it, and what changed. Read-only on purpose.',
+    'audit.search': 'Search by admin, action, target or details', 'audit.empty': 'Nothing logged yet.',
+    'audit.changed': 'changed: {fields}', 'audit.newLogo': 'new logo uploaded', 'audit.builtInLogo': 'back to the built-in logo',
+    'audit.import': '{added} added, {skipped} skipped', 'audit.passwordChanged': 'password changed', 'audit.detailsChanged': 'details changed',
+    'settings.lead': 'Branding, prices and the home page — shown to every player.', 'settings.loadFailed': 'Could not load settings: {e}',
+    'brandSet.title': 'Branding', 'brandSet.lead': 'The app’s name and logo in the header of every page (player app and this tool), and the timezone every date is shown in.',
+    'brandSet.nameEn': 'App name (English)', 'brandSet.nameAr': 'App name (Arabic)', 'brandSet.timezone': 'Timezone',
+    'brandSet.logo': 'Logo (.png, .jpg or .webp, 2 MB max)', 'brandSet.removeLogo': 'Use the built-in logo', 'brandSet.save': 'Save branding',
+    'brandSet.saved': 'Saved — players see it the next time they open the app.', 'brandSet.logoRemoved': 'Back to the built-in logo.', 'brandSet.removeFailed': 'Could not remove logo: {e}',
+    'prices.title': 'Game prices', 'prices.lead': 'What one game costs a player, per game mode.', 'prices.lite': 'Lite price (KD)', 'prices.pro': 'Pro price (KD)',
+    'prices.save': 'Save prices', 'prices.invalid': 'Enter prices greater than zero.',
+    'home.title': 'Home page content', 'home.lead': 'The tagline and paragraph on the player app’s home screen, in both languages.',
+    'home.taglineEn': 'Tagline (English)', 'home.taglineAr': 'Tagline (Arabic)', 'home.writeupEn': 'Write-up (English)', 'home.writeupAr': 'Write-up (Arabic)', 'home.save': 'Save home content',
+  },
+  ar: {
+    'brand.tag': 'الإدارة', 'lang.toggle': 'EN', 'lang.switchTo': 'Switch to English',
+    'nav.decks': 'المجموعات', 'nav.players': 'اللاعبون', 'nav.admins': 'المشرفون', 'nav.audit': 'سجل التدقيق', 'nav.settings': 'الإعدادات',
+    'logout': 'تسجيل الخروج', 'logout.confirm': 'تسجيل الخروج؟',
+    'copyright': '© {year} {name}. جميع الحقوق محفوظة.',
+    'common.username': 'اسم المستخدم', 'common.password': 'كلمة المرور', 'common.email': 'البريد الإلكتروني', 'common.cancel': 'إلغاء', 'common.save': 'حفظ',
+    'common.saving': 'جاري الحفظ…', 'common.saved': 'تم الحفظ.', 'common.saveFailed': 'تعذّر الحفظ: {e}', 'common.loadFailed': 'تعذّر التحميل: {e}',
+    'gate.title': 'تسجيل الدخول', 'gate.lead': 'لحسابات المشرفين فقط. ما عندك حساب؟ اطلب من مشرف آخر إضافتك، أو شغّل هذا الأمر على السيرفر:',
+    'gate.signIn': 'دخول', 'gate.signingIn': 'جاري الدخول…', 'gate.failed': 'تعذّر تسجيل الدخول.',
+    'list.search': 'بحث', 'list.perPage': 'لكل صفحة', 'list.prev': '› السابق', 'list.next': 'التالي ‹',
+    'list.range': '{from}–{to} من {total}', 'list.page': 'صفحة {page} من {last}', 'list.noMatch': 'لا توجد نتائج لـ "{q}".',
+    'col.id': 'المعرّف', 'col.name': 'الاسم', 'col.language': 'اللغة', 'col.difficulty': 'الصعوبة', 'col.titles': 'العناوين',
+    'col.username': 'اسم المستخدم', 'col.email': 'البريد الإلكتروني', 'col.created': 'تاريخ الإنشاء',
+    'col.when': 'الوقت', 'col.admin': 'المشرف', 'col.action': 'الإجراء', 'col.target': 'الهدف', 'col.details': 'التفاصيل',
+    'lang.ar': 'عربي', 'lang.en': 'إنجليزي', 'diff.easy': 'سهل', 'diff.medium': 'متوسط', 'diff.hard': 'صعب',
+    'row.open': 'فتح', 'row.delete': 'حذف', 'row.changePassword': 'تغيير كلمة المرور', 'row.editEmail': 'تعديل البريد', 'row.rename': 'إعادة تسمية',
+    'decks.lead': 'مجموعات من العناوين للتمثيل. أي مجموعة فيها عنوان واحد على الأقل جاهزة للعب.',
+    'decks.search': 'ابحث بالمعرّف أو الاسم، بالعربي أو الإنجليزي', 'decks.empty': 'لا توجد مجموعات بعد.', 'decks.new': 'مجموعة جديدة',
+    'deck.back': '→ كل المجموعات', 'deck.new': 'مجموعة جديدة', 'deck.details': 'تفاصيل المجموعة',
+    'deck.id': 'المعرّف', 'deck.idHint': 'أحرف إنجليزية صغيرة وأرقام وشرطات. لا يمكن تغييره لاحقاً.',
+    'deck.nameEn': 'الاسم (إنجليزي)', 'deck.nameAr': 'الاسم (عربي)', 'deck.language': 'اللغة',
+    'deck.langAr': 'عربي — محتوى كويتي وخليجي ومصري', 'deck.langEn': 'إنجليزي — محتوى هوليوود وأمريكي',
+    'deck.difficulty': 'الصعوبة (الافتراضية لكل عنوان — وضع برو فقط)',
+    'deck.diffEasy': 'سهل — نقطة واحدة (كلمات يومية يعرفها الكل)',
+    'deck.diffMedium': 'متوسط — 3 نقاط (مسلسلات وأفلام حديثة)',
+    'deck.diffHard': 'صعب — 5 نقاط (كلاسيكيات وعناوين طويلة أو غير معروفة)',
+    'deck.diffHint': 'العنوان الأطول من أربع كلمات يرتفع مستوى واحداً تلقائياً. يمكن لأي عنوان تجاوز ذلك من القائمة بالأسفل، أو بعمود "سهل / متوسط / صعب" عند الاستيراد.',
+    'deck.picture': 'صورة المجموعة (تظهر بجانبها عند اختيار المجموعات في التطبيق)',
+    'deck.delete': 'حذف المجموعة', 'deck.removePicture': 'إزالة الصورة', 'deck.save': 'حفظ المجموعة', 'deck.create': 'إنشاء المجموعة',
+    'deck.deleteTitle': 'حذف هذه المجموعة؟', 'deck.deleteBody': 'سيتم حذف "{name}" وكل عناوينها ({count}). لا يمكن التراجع عن ذلك.',
+    'deck.deleted': 'تم حذف المجموعة.', 'deck.pictureRemoved': 'تمت إزالة الصورة.', 'deck.pictureRemoveFailed': 'تعذّرت إزالة الصورة: {e}',
+    'deck.openFailed': 'تعذّر فتح المجموعة: {e}',
+    'add.title': 'إضافة عنوان', 'add.lead': 'عنوان واحد يدوياً مع صورة اختيارية — أسرع من ملف استيراد لإضافة واحدة.',
+    'add.text': 'العنوان', 'add.picture': 'صورة (اختياري)', 'add.btn': 'إضافة العنوان', 'add.busy': 'جاري الإضافة…',
+    'add.empty': 'اكتب العنوان أولاً.', 'add.added': 'تمت الإضافة.', 'add.dup': 'موجود في هذه المجموعة — لم تتم إضافته مرة أخرى.', 'add.failed': 'تعذّرت إضافة العنوان: {e}',
+    'imp.title': 'استيراد عناوين', 'imp.lead': 'قائمة بصيغة ‎.docx أو ‎.xlsx أو ‎.pdf — يُضاف كل عنوان غير مكرر إلى هذه المجموعة. في جدول ‎.docx أو ‎.xlsx، الخلية التي فيها "سهل"/"متوسط"/"صعب" (أو easy/medium/hard) تحدد صعوبة ذلك السطر.',
+    'imp.file': 'الملف', 'imp.btn': 'استيراد', 'imp.busy': 'جاري الاستيراد…', 'imp.wait': 'جاري الاستيراد… الملف الكبير قد يستغرق وقتاً.',
+    'imp.choose': 'اختر ملفاً أولاً.', 'imp.result': 'تم العثور على {found} عنواناً: أُضيف {added}، وتم تخطي {skipped} (موجودة مسبقاً أو فارغة).', 'imp.failed': 'فشل الاستيراد: {e}',
+    'impi.title': 'استيراد عناوين مع صور', 'impi.lead': 'ملف ‎.xlsx بعمودين أو ثلاثة (العنوان، اسم ملف الصورة، والصعوبة اختيارياً — السطر الأول للعناوين) وملف ‎.zip فيه الصور (‎.png/.jpg/.webp، حتى 5 ميغابايت لكل صورة). العنوان الذي لا توجد صورته يُضاف بدونها.',
+    'impi.manifest': 'ملف البيان (‎.xlsx)', 'impi.zip': 'الصور (‎.zip)', 'impi.btn': 'استيراد مع الصور',
+    'impi.choose': 'اختر ملف البيان (‎.xlsx) وملف الصور (‎.zip) أولاً.',
+    'impi.result': 'تم العثور على {found} عنواناً: أُضيف {added}، وتم تخطي {skipped}.', 'impi.issues': ' مشاكل في {count} صورة: {list}',
+    'titles.heading': 'العناوين ({count})', 'titles.of': '{n} من {total}', 'titles.filter': 'تصفية', 'titles.filterPh': 'اكتب لتصفية عناوين هذه المجموعة',
+    'titles.none': 'لا توجد عناوين بعد — أضف أو استورد من الأعلى.', 'titles.noMatch': 'لا يوجد عنوان مطابق.',
+    'titles.deckDefault': 'افتراضي المجموعة', 'titles.override': 'يتجاوز صعوبة المجموعة الافتراضية لهذا العنوان فقط',
+    'titles.remove': 'حذف', 'titles.save': 'حفظ', 'titles.saved': 'تم حفظ العنوان.',
+    'titles.removeTitle': 'حذف هذا العنوان؟', 'titles.removeBody': 'سيتم حذف "{text}" من هذه المجموعة.', 'titles.removed': 'تم حذف العنوان.',
+    'aria.title': 'العنوان', 'aria.difficulty': 'الصعوبة', 'aria.picture': 'الصورة',
+    'players.lead': 'كل من أنشأ حساباً في التطبيق.', 'players.search': 'ابحث باسم المستخدم أو البريد الإلكتروني', 'players.empty': 'لا توجد حسابات لاعبين بعد.',
+    'players.renameTitle': 'إعادة تسمية اللاعب', 'players.renamed': 'تمت إعادة تسمية اللاعب.',
+    'players.emailTitle': 'تعديل البريد الإلكتروني', 'players.emailBody': 'يُستخدم لرموز استعادة كلمة المرور وتنبيه انخفاض الرصيد. اتركه فارغاً لإزالته.', 'players.emailUpdated': 'تم تحديث البريد الإلكتروني.',
+    'players.deleteTitle': 'حذف هذا اللاعب؟', 'players.deleteBody': 'سيتم حذف حساب {name} ورصيده. لا يمكن التراجع عن ذلك.',
+    'players.deleteBtn': 'حذف اللاعب', 'players.deleted': 'تم حذف اللاعب.',
+    'pw.title': 'تغيير كلمة المرور', 'pw.body': 'يعيّن كلمة مرور جديدة لـ {name} ويسجّل خروجه من كل الأجهزة.', 'pw.label': 'كلمة المرور الجديدة (8 أحرف أو أكثر)', 'pw.changed': 'تم تغيير كلمة المرور.',
+    'admins.lead': 'كل من هنا يمكنه إدارة المجموعات واللاعبين والإعدادات والمشرفين الآخرين.', 'admins.search': 'ابحث باسم المستخدم', 'admins.empty': 'لا يوجد مشرفون بعد.',
+    'admins.you': 'أنت', 'admins.add': 'إضافة مشرف', 'admins.addTitle': 'إضافة مشرف', 'admins.password': 'كلمة المرور (8 أحرف أو أكثر)', 'admins.added': 'تمت إضافة المشرف.',
+    'admins.renameTitle': 'إعادة تسمية المشرف', 'admins.renamed': 'تمت إعادة تسمية المشرف.',
+    'admins.deleteTitle': 'حذف هذا المشرف؟', 'admins.deleteBody': 'لن يتمكن {name} من الدخول إلى هنا بعد الآن.', 'admins.deleteBtn': 'حذف المشرف', 'admins.deleted': 'تم حذف المشرف.',
+    'audit.lead': 'كل تغيير حساس، ومن قام به، وما الذي تغيّر. للقراءة فقط عمداً.',
+    'audit.search': 'ابحث بالمشرف أو الإجراء أو الهدف أو التفاصيل', 'audit.empty': 'لا يوجد شيء في السجل بعد.',
+    'audit.changed': 'تغيّر: {fields}', 'audit.newLogo': 'تم رفع شعار جديد', 'audit.builtInLogo': 'العودة للشعار الافتراضي',
+    'audit.import': 'أُضيف {added}، وتم تخطي {skipped}', 'audit.passwordChanged': 'تم تغيير كلمة المرور', 'audit.detailsChanged': 'تم تغيير البيانات',
+    'settings.lead': 'الهوية والأسعار والصفحة الرئيسية — تظهر لكل اللاعبين.', 'settings.loadFailed': 'تعذّر تحميل الإعدادات: {e}',
+    'brandSet.title': 'الهوية', 'brandSet.lead': 'اسم التطبيق وشعاره في رأس كل صفحة (تطبيق اللاعبين وهذه الأداة)، والمنطقة الزمنية التي تُعرض بها كل التواريخ.',
+    'brandSet.nameEn': 'اسم التطبيق (إنجليزي)', 'brandSet.nameAr': 'اسم التطبيق (عربي)', 'brandSet.timezone': 'المنطقة الزمنية',
+    'brandSet.logo': 'الشعار (‎.png أو ‎.jpg أو ‎.webp، حتى 2 ميغابايت)', 'brandSet.removeLogo': 'استخدام الشعار الافتراضي', 'brandSet.save': 'حفظ الهوية',
+    'brandSet.saved': 'تم الحفظ — يراه اللاعبون عند فتح التطبيق في المرة القادمة.', 'brandSet.logoRemoved': 'تمت العودة للشعار الافتراضي.', 'brandSet.removeFailed': 'تعذّرت إزالة الشعار: {e}',
+    'prices.title': 'أسعار الألعاب', 'prices.lead': 'سعر اللعبة الواحدة للاعب، لكل وضع لعب.', 'prices.lite': 'سعر لايت (د.ك)', 'prices.pro': 'سعر برو (د.ك)',
+    'prices.save': 'حفظ الأسعار', 'prices.invalid': 'أدخل أسعاراً أكبر من صفر.',
+    'home.title': 'محتوى الصفحة الرئيسية', 'home.lead': 'الشعار النصي والفقرة في الصفحة الرئيسية لتطبيق اللاعبين، باللغتين.',
+    'home.taglineEn': 'الشعار النصي (إنجليزي)', 'home.taglineAr': 'الشعار النصي (عربي)', 'home.writeupEn': 'النبذة (إنجليزي)', 'home.writeupAr': 'النبذة (عربي)', 'home.save': 'حفظ المحتوى',
+  },
+};
+
+let lang = (() => {
+  try { return localStorage.getItem('adminLang') === 'ar' ? 'ar' : 'en'; } catch { return 'en'; }
+})();
+
+function t(key, params = {}) {
+  const s = STRINGS[lang][key] ?? STRINGS.en[key] ?? key;
+  return s.replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m));
+}
+
+/* ------------------------------------------------------------ session */
+
 // The player app's own sign-in form (app/account.tsx) tries an admin login
 // as a fallback after a player login fails, and on success opens this page
 // with the freshly issued token/username in the URL fragment — so an admin
@@ -418,6 +600,7 @@
 let token = sessionStorage.getItem('adminSessionToken') || '';
 let currentUsername = sessionStorage.getItem('adminUsername') || '';
 let branding = { appNameEn: 'Bas Bedoon Kalam', appNameAr: 'بس بدون كلام', logoPath: null, timezone: 'Asia/Kuwait' };
+let currentTab = null;
 let currentDeckId = null;
 let currentDeck = null;
 
@@ -427,13 +610,18 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function appName() {
+  return (lang === 'ar' ? branding.appNameAr : branding.appNameEn) || branding.appNameEn;
+}
+
 /** Every date in this tool is shown in the admin-set timezone (Settings → Branding), same as the player app. */
 function formatDate(ts, withTime) {
+  const locale = lang === 'ar' ? 'ar-KW' : 'en-GB';
   const options = withTime ? { dateStyle: 'medium', timeStyle: 'short' } : { dateStyle: 'medium' };
   try {
-    return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: branding.timezone }).format(ts);
+    return new Intl.DateTimeFormat(locale, { ...options, timeZone: branding.timezone }).format(ts);
   } catch {
-    return new Intl.DateTimeFormat('en-GB', options).format(ts);
+    return new Intl.DateTimeFormat(locale, options).format(ts);
   }
 }
 
@@ -478,6 +666,11 @@ function setResult(id, message, isError) {
   $(id).classList.toggle('error', Boolean(isError));
 }
 
+/** A failure worth showing — a 401 already sent the admin back to the sign-in form. */
+function reportable(e) {
+  return e.message !== 'signed out';
+}
+
 /** Runs `fn` with `btn` disabled and relabelled, restoring both afterwards. */
 async function withBusy(btn, busyLabel, fn) {
   const label = btn.textContent;
@@ -497,7 +690,7 @@ async function withBusy(btn, busyLabel, fn) {
  * of the product. Resolves the fields' values (or `{}`) on confirm, `null`
  * on cancel. `onConfirm` may throw to keep it open with the error shown.
  */
-function openDialog({ title, body = '', fields = [], confirmLabel = 'Save', destructive = false, onConfirm }) {
+function openDialog({ title, body = '', fields = [], confirmLabel = t('common.save'), destructive = false, onConfirm }) {
   return new Promise((resolve) => {
     $('dialogTitle').textContent = title;
     $('dialogBody').textContent = body;
@@ -505,7 +698,7 @@ function openDialog({ title, body = '', fields = [], confirmLabel = 'Save', dest
     $('dialogFields').innerHTML = fields.map((f, i) => `
       <div class="field">
         <label for="dlgField${i}">${escapeHtml(f.label)}</label>
-        <input id="dlgField${i}" type="${f.type || 'text'}" value="${escapeHtml(f.value || '')}" ${f.autocomplete ? `autocomplete="${f.autocomplete}"` : ''} />
+        <input id="dlgField${i}" type="${f.type || 'text'}" dir="${f.type === 'password' ? 'ltr' : 'auto'}" value="${escapeHtml(f.value || '')}" ${f.autocomplete ? `autocomplete="${f.autocomplete}"` : ''} />
       </div>`).join('');
     setResult('dialogError', '');
     const confirmBtn = $('dialogConfirm');
@@ -515,6 +708,7 @@ function openDialog({ title, body = '', fields = [], confirmLabel = 'Save', dest
     const first = $('dialogFields').querySelector('input');
     (first || confirmBtn).focus();
 
+    let submitting = false;
     const values = () => Object.fromEntries(fields.map((f, i) => [f.name, $('dlgField' + i).value]));
     const close = (result) => {
       $('dialog').classList.add('hidden');
@@ -524,35 +718,70 @@ function openDialog({ title, body = '', fields = [], confirmLabel = 'Save', dest
       resolve(result);
     };
     const confirm = async () => {
+      // Enter and a click can both land while a save is still in flight.
+      if (submitting) return;
       const v = values();
       if (!onConfirm) return close(v);
+      submitting = true;
       try {
-        await withBusy(confirmBtn, 'Saving…', () => onConfirm(v));
+        await withBusy(confirmBtn, t('common.saving'), () => onConfirm(v));
         close(v);
       } catch (e) {
-        if (e.message !== 'signed out') setResult('dialogError', e.message, true);
+        if (reportable(e)) setResult('dialogError', e.message, true);
+      } finally {
+        submitting = false;
       }
     };
     const onKey = (e) => {
-      if (e.key === 'Escape') close(null);
+      if (e.key === 'Escape' && !submitting) close(null);
       if (e.key === 'Enter' && e.target.tagName === 'INPUT') confirm();
     };
     confirmBtn.onclick = confirm;
-    $('dialogCancel').onclick = () => close(null);
+    $('dialogCancel').onclick = () => { if (!submitting) close(null); };
     document.addEventListener('keydown', onKey);
   });
 }
 
-/* ------------------------------------------------------------ branding */
+/* ------------------------------------------------------------ branding + language */
 
 function applyBranding() {
-  $('brandName').textContent = branding.appNameEn;
-  document.title = branding.appNameEn + ' — Admin';
-  $('copyright').textContent = `© ${new Date().getFullYear()} ${branding.appNameEn}. All rights reserved.`;
+  $('brandName').textContent = appName();
+  document.title = appName() + ' — ' + t('brand.tag');
+  $('copyright').textContent = t('copyright', { year: new Date().getFullYear(), name: appName() });
   $('brandMark').innerHTML = branding.logoPath
-    ? `<img src="${escapeHtml(branding.logoPath)}" alt="${escapeHtml(branding.appNameEn)}" />`
+    ? `<img src="${escapeHtml(branding.logoPath)}" alt="${escapeHtml(appName())}" />`
     : '<span class="cube"><span class="front"></span><span class="side"></span><span class="top"></span></span>';
   $('brandMark').className = branding.logoPath ? '' : 'cubeWrap';
+}
+
+/** Puts every fixed label in the current language and lays the page out in its direction. */
+function applyLanguage() {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('.navTab').forEach((el) => {
+    const label = el.querySelector('.label').textContent;
+    el.setAttribute('aria-label', label);
+    el.title = label;
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAria));
+    el.title = t(el.dataset.i18nAria);
+  });
+  $('langToggle').textContent = t('lang.toggle');
+  $('langToggle').setAttribute('aria-label', t('lang.switchTo'));
+  applyBranding();
+}
+
+function switchLanguage() {
+  lang = lang === 'ar' ? 'en' : 'ar';
+  try { localStorage.setItem('adminLang', lang); } catch { /* per-visit only */ }
+  applyLanguage();
+  Object.values(lists).forEach((l) => l.renderShell());
+  if (!currentTab) return;
+  if (currentTab === 'decks' && !$('deckEditView').classList.contains('hidden')) refreshDeckLabels();
+  else if (currentTab !== 'settings') showTab(currentTab);
 }
 
 async function loadBranding() {
@@ -572,11 +801,11 @@ async function signIn() {
   const password = $('passwordInput').value;
   setResult('gateError', '');
   try {
-    const data = await withBusy($('signInBtn'), 'Signing in…', async () => {
+    const data = await withBusy($('signInBtn'), t('gate.signingIn'), async () => {
       const res = await fetch('/admin/auth/login', jsonBody('POST', { username, password }));
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'sign-in failed');
+        throw new Error(body.error || t('gate.failed'));
       }
       return res.json();
     });
@@ -600,12 +829,14 @@ function signOut() {
 
 async function enterApp() {
   try {
-    await api('/admin/settings/branding');
+    // Also proves the stored token still works.
+    branding = await api('/admin/settings/branding');
   } catch (e) {
     // Stored token is stale/invalid — fall back to the sign-in form.
     signOut();
     return;
   }
+  applyBranding();
   $('gate').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('mainNav').classList.remove('hidden');
@@ -620,7 +851,8 @@ const TABS = ['decks', 'players', 'admins', 'auditLog', 'settings'];
 const lists = {};
 
 function showTab(tab) {
-  TABS.forEach((t) => $(t + 'Section').classList.toggle('hidden', t !== tab));
+  currentTab = tab;
+  TABS.forEach((x) => $(x + 'Section').classList.toggle('hidden', x !== tab));
   document.querySelectorAll('.navTab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   if (tab === 'decks') showDeckList();
   else if (tab === 'settings') loadSettings();
@@ -633,55 +865,88 @@ function showTab(tab) {
  * One searchable, sortable, paged list — the same for decks, players,
  * admins and the audit log. The server does the work (`?q=&page=&pageSize=
  * &sort=&dir=`, see parseListQuery); this only keeps the controls' state.
- * `primary` is the list's own action, bottom-right like every other card's.
+ * `primary` is the list's own action, at the end of its bottom bar like
+ * every other card's. `columns[].sort` may be a function of the language
+ * (a deck's name sorts by its name in the language being read).
  */
-function createList({ mount, endpoint, columns, defaultSort, defaultDir, row, empty, searchPlaceholder, primary, bind }) {
+function createList({ mount, endpoint, columns, defaultSort, defaultDir, row, emptyKey, searchKey, primary, bind }) {
   const state = { q: '', page: 1, pageSize: 20, sort: defaultSort, dir: defaultDir, items: [], total: 0 };
   const el = $(mount);
-  el.innerHTML = `
-    <div class="toolbar">
-      <div class="search"><label for="${mount}Search">Search</label><input id="${mount}Search" type="search" placeholder="${escapeHtml(searchPlaceholder)}" /></div>
-      <div class="size"><label for="${mount}Size">Per page</label>
-        <select id="${mount}Size"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></div>
-    </div>
-    <div class="tableWrap"><table>
-      <thead><tr>${columns.map((c) => c.sort
-        ? `<th><button class="sort" data-sort="${c.sort}">${escapeHtml(c.label)} <span class="arrow"></span></button></th>`
-        : `<th>${escapeHtml(c.label)}</th>`).join('')}</tr></thead>
-      <tbody></tbody>
-    </table></div>
-    <div class="actions withPager">
-      <div class="pager">
-        <span class="info"></span>
-        <button class="btn secondary sm prev" aria-label="Previous page">&lsaquo; Prev</button>
-        <span class="pageNo"></span>
-        <button class="btn secondary sm next" aria-label="Next page">Next &rsaquo;</button>
-      </div>
-      ${primary ? `<div class="end"><button class="btn" id="${mount}Primary">${escapeHtml(primary.label)}</button></div>` : ''}
-    </div>`;
-  const tbody = el.querySelector('tbody');
+  let tbody = null;
+  const sortKey = (c) => (typeof c.sort === 'function' ? c.sort() : c.sort);
 
+  function renderShell() {
+    // A sort by a language-dependent column follows the language switch.
+    columns.forEach((c) => {
+      if (typeof c.sort === 'function' && c.sortKeys.includes(state.sort)) state.sort = c.sort();
+    });
+    el.innerHTML = `
+      <div class="toolbar">
+        <div class="search"><label for="${mount}Search">${escapeHtml(t('list.search'))}</label><input id="${mount}Search" type="search" dir="auto" placeholder="${escapeHtml(t(searchKey))}" /></div>
+        <div class="size"><label for="${mount}Size">${escapeHtml(t('list.perPage'))}</label>
+          <select id="${mount}Size">${[10, 20, 50, 100].map((n) => `<option ${n === state.pageSize ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      </div>
+      <div class="tableWrap"><table>
+        <thead><tr>${columns.map((c) => c.sort
+          ? `<th><button class="sort" data-sort="${sortKey(c)}">${escapeHtml(t(c.label))} <span class="arrow"></span></button></th>`
+          : `<th>${c.label ? escapeHtml(t(c.label)) : ''}</th>`).join('')}</tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="actions withPager">
+        <div class="pager">
+          <span class="info"></span>
+          <button class="btn secondary sm prev">${escapeHtml(t('list.prev'))}</button>
+          <span class="pageNo"></span>
+          <button class="btn secondary sm next">${escapeHtml(t('list.next'))}</button>
+        </div>
+        ${primary ? `<div class="end"><button class="btn" id="${mount}Primary">${escapeHtml(t(primary.label))}</button></div>` : ''}
+      </div>`;
+    tbody = el.querySelector('tbody');
+    $(mount + 'Search').value = state.q;
+
+    let debounce = null;
+    $(mount + 'Search').addEventListener('input', (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => { state.q = e.target.value.trim(); state.page = 1; load(); }, 300);
+    });
+    $(mount + 'Size').addEventListener('change', (e) => { state.pageSize = Number(e.target.value); state.page = 1; load(); });
+    el.querySelector('.prev').addEventListener('click', () => { state.page -= 1; load(); });
+    el.querySelector('.next').addEventListener('click', () => { state.page += 1; load(); });
+    el.querySelectorAll('button.sort').forEach((b) => b.addEventListener('click', () => {
+      if (state.sort === b.dataset.sort) state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+      else { state.sort = b.dataset.sort; state.dir = b.dataset.sort === 'created' ? 'desc' : 'asc'; }
+      state.page = 1;
+      load();
+    }));
+    if (primary) $(mount + 'Primary').addEventListener('click', primary.onClick);
+  }
+
+  // Only the latest request may draw — a slow earlier one (typing fast in
+  // the search box) must not overwrite a newer answer.
+  let requestNo = 0;
   async function load() {
+    const mine = ++requestNo;
     const params = new URLSearchParams({ page: state.page, pageSize: state.pageSize, sort: state.sort, dir: state.dir });
     if (state.q) params.set('q', state.q);
     let data;
     try {
       data = await api(endpoint + '?' + params);
     } catch (e) {
-      if (e.message !== 'signed out') toast('Could not load: ' + e.message, true);
+      if (reportable(e) && mine === requestNo) toast(t('common.loadFailed', { e: e.message }), true);
       return;
     }
+    if (mine !== requestNo) return;
     const lastPage = Math.max(1, Math.ceil(data.total / state.pageSize));
     if (state.page > lastPage) { state.page = lastPage; return load(); }
     state.items = data.items;
     state.total = data.total;
     tbody.innerHTML = data.items.length
       ? data.items.map(row).join('')
-      : `<tr><td class="empty" colspan="${columns.length}">${escapeHtml(state.q ? 'Nothing matches "' + state.q + '".' : empty)}</td></tr>`;
+      : `<tr><td class="empty" colspan="${columns.length}">${escapeHtml(state.q ? t('list.noMatch', { q: state.q }) : t(emptyKey))}</td></tr>`;
     const from = data.total ? (state.page - 1) * state.pageSize + 1 : 0;
     const to = Math.min(data.total, state.page * state.pageSize);
-    el.querySelector('.info').textContent = `${from}–${to} of ${data.total}`;
-    el.querySelector('.pageNo').textContent = `Page ${state.page} of ${lastPage}`;
+    el.querySelector('.info').textContent = t('list.range', { from, to, total: data.total });
+    el.querySelector('.pageNo').textContent = t('list.page', { page: state.page, last: lastPage });
     el.querySelector('.prev').disabled = state.page <= 1;
     el.querySelector('.next').disabled = state.page >= lastPage;
     el.querySelectorAll('button.sort').forEach((b) => {
@@ -692,50 +957,42 @@ function createList({ mount, endpoint, columns, defaultSort, defaultDir, row, em
     if (bind) bind(tbody, state.items);
   }
 
-  let debounce = null;
-  $(mount + 'Search').addEventListener('input', (e) => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => { state.q = e.target.value.trim(); state.page = 1; load(); }, 300);
-  });
-  $(mount + 'Size').addEventListener('change', (e) => { state.pageSize = Number(e.target.value); state.page = 1; load(); });
-  el.querySelector('.prev').addEventListener('click', () => { state.page -= 1; load(); });
-  el.querySelector('.next').addEventListener('click', () => { state.page += 1; load(); });
-  el.querySelectorAll('button.sort').forEach((b) => b.addEventListener('click', () => {
-    if (state.sort === b.dataset.sort) state.dir = state.dir === 'asc' ? 'desc' : 'asc';
-    else { state.sort = b.dataset.sort; state.dir = b.dataset.sort === 'created' ? 'desc' : 'asc'; }
-    state.page = 1;
-    load();
-  }));
-  if (primary) $(mount + 'Primary').addEventListener('click', primary.onClick);
-  return { load };
+  renderShell();
+  return { load, renderShell };
 }
 
 /* ------------------------------------------------------------ decks */
 
+const difficultyLabel = (d) => t('diff.' + (d || 'medium'));
+
 lists.decks = createList({
   mount: 'decksList',
   endpoint: '/admin/decks',
-  searchPlaceholder: 'Search by ID or name, English or Arabic',
+  searchKey: 'decks.search',
   defaultSort: 'id',
   defaultDir: 'asc',
-  empty: 'No decks yet.',
+  emptyKey: 'decks.empty',
   columns: [
-    { label: 'ID', sort: 'id' },
-    { label: 'Name', sort: 'name' },
-    { label: 'Language', sort: 'language' },
-    { label: 'Difficulty', sort: 'difficulty' },
-    { label: 'Titles', sort: 'titles' },
+    { label: 'col.id', sort: 'id' },
+    { label: 'col.name', sort: () => (lang === 'ar' ? 'nameAr' : 'name'), sortKeys: ['name', 'nameAr'] },
+    { label: 'col.language', sort: 'language' },
+    { label: 'col.difficulty', sort: 'difficulty' },
+    { label: 'col.titles', sort: 'titles' },
     { label: '' },
   ],
-  row: (d) => `<tr>
-      <td>${escapeHtml(d.id)}</td>
-      <td>${escapeHtml(d.nameEn)}<br /><bdi class="muted" dir="rtl">${escapeHtml(d.nameAr)}</bdi></td>
-      <td><span class="badge ${d.language === 'en' ? 'en' : ''}">${d.language === 'en' ? 'English' : 'Arabic'}</span></td>
-      <td>${escapeHtml(d.difficulty || 'medium')}</td>
+  // The name in the language being read first, the other under it.
+  row: (d) => {
+    const [main, other] = lang === 'ar' ? [d.nameAr, d.nameEn] : [d.nameEn, d.nameAr];
+    return `<tr>
+      <td><bdi>${escapeHtml(d.id)}</bdi></td>
+      <td><bdi>${escapeHtml(main)}</bdi><br /><bdi class="muted">${escapeHtml(other)}</bdi></td>
+      <td><span class="badge ${d.language === 'en' ? 'en' : ''}">${escapeHtml(t(d.language === 'en' ? 'lang.en' : 'lang.ar'))}</span></td>
+      <td>${escapeHtml(difficultyLabel(d.difficulty))}</td>
       <td>${d.titleCount}</td>
-      <td class="rowActions"><button class="btn secondary sm" data-open="${escapeHtml(d.id)}">Open</button></td>
-    </tr>`,
-  primary: { label: 'New deck', onClick: () => openDeck(null) },
+      <td class="rowActions"><button class="btn secondary sm" data-open="${escapeHtml(d.id)}">${escapeHtml(t('row.open'))}</button></td>
+    </tr>`;
+  },
+  primary: { label: 'decks.new', onClick: () => openDeck(null) },
   bind: (tbody) => tbody.querySelectorAll('[data-open]').forEach((btn) => btn.addEventListener('click', () => openDeck(btn.dataset.open))),
 });
 
@@ -757,7 +1014,7 @@ async function openDeck(id) {
     renderDeckEdit();
     window.scrollTo(0, 0);
   } catch (e) {
-    if (e.message !== 'signed out') toast('Could not open deck: ' + e.message, true);
+    if (reportable(e)) toast(t('deck.openFailed', { e: e.message }), true);
   }
 }
 
@@ -765,12 +1022,20 @@ function deckUrl(suffix = '') {
   return '/admin/decks/' + encodeURIComponent(currentDeckId) + suffix;
 }
 
+/** The deck editor's labels that depend on the deck — redrawn on a language switch without touching unsaved field edits. */
+function refreshDeckLabels() {
+  const d = currentDeck;
+  const isNew = !currentDeckId;
+  $('deckEditTitle').textContent = isNew ? t('deck.new') : (lang === 'ar' ? d.nameAr : d.nameEn) || d.id;
+  $('saveDeckBtn').textContent = t(isNew ? 'deck.create' : 'deck.save');
+  renderTitles();
+}
+
 function renderDeckEdit() {
   $('deckListView').classList.add('hidden');
   $('deckEditView').classList.remove('hidden');
   const d = currentDeck;
   const isNew = !currentDeckId;
-  $('deckEditTitle').textContent = isNew ? 'New deck' : d.nameEn || d.id;
   $('dId').value = d.id;
   $('dId').disabled = !isNew;
   $('dNameAr').value = d.nameAr;
@@ -779,7 +1044,6 @@ function renderDeckEdit() {
   $('dDifficulty').value = d.difficulty || 'medium';
   $('deleteDeckBtn').classList.toggle('hidden', isNew);
   $('cancelDeckBtn').classList.toggle('hidden', !isNew);
-  $('saveDeckBtn').textContent = isNew ? 'Create deck' : 'Save deck';
   $('deckImagePreview').src = d.imagePath || '';
   $('deckImagePreview').style.visibility = d.imagePath ? 'visible' : 'hidden';
   $('deckImageFile').value = '';
@@ -787,40 +1051,32 @@ function renderDeckEdit() {
   // Pictures and titles need the deck to exist first.
   $('deckImageField').classList.toggle('hidden', isNew);
   $('deckContent').classList.toggle('hidden', isNew);
-  setResult('deckResult', '');
-  setResult('addTitleResult', '');
-  setResult('importResult', '');
-  setResult('importWithImagesResult', '');
-  $('newTitleText').value = '';
-  $('newTitleImage').value = '';
-  $('importFile').value = '';
-  $('imageManifestFile').value = '';
-  $('imageZipFile').value = '';
-  renderTitles();
+  ['deckResult', 'addTitleResult', 'importResult', 'importWithImagesResult'].forEach((id) => setResult(id, ''));
+  ['newTitleText', 'newTitleImage', 'importFile', 'imageManifestFile', 'imageZipFile'].forEach((id) => { $(id).value = ''; });
+  refreshDeckLabels();
 }
 
 function renderTitles() {
   const filter = $('titleFilter').value.trim().toLowerCase();
-  const titles = currentDeck.titles.filter((t) => !filter || t.text.toLowerCase().includes(filter));
-  $('titleCount').textContent = filter ? `${titles.length} of ${currentDeck.titles.length}` : currentDeck.titles.length;
-  $('titleRows').innerHTML = titles.map((t) => `
+  const all = currentDeck.titles;
+  const titles = all.filter((x) => !filter || x.text.toLowerCase().includes(filter));
+  $('titlesHeading').textContent = t('titles.heading', { count: filter ? t('titles.of', { n: titles.length, total: all.length }) : all.length });
+  $('titleRows').innerHTML = titles.map((x) => `
     <div class="titleRow">
-      <img src="${t.imagePath ? escapeHtml(t.imagePath) : ''}" alt="" style="${t.imagePath ? '' : 'visibility:hidden'}" />
-      <input dir="rtl" value="${escapeHtml(t.text)}" data-title-text="${escapeHtml(t.id)}" aria-label="Title" />
-      <select data-title-difficulty="${escapeHtml(t.id)}" aria-label="Difficulty" title="Overrides the deck's default difficulty for this title only">
-        <option value="" ${!t.difficulty ? 'selected' : ''}>Deck default</option>
-        <option value="easy" ${t.difficulty === 'easy' ? 'selected' : ''}>Easy</option>
-        <option value="medium" ${t.difficulty === 'medium' ? 'selected' : ''}>Medium</option>
-        <option value="hard" ${t.difficulty === 'hard' ? 'selected' : ''}>Hard</option>
+      <img src="${x.imagePath ? escapeHtml(x.imagePath) : ''}" alt="" style="${x.imagePath ? '' : 'visibility:hidden'}" />
+      <input dir="auto" value="${escapeHtml(x.text)}" data-title-text="${escapeHtml(x.id)}" aria-label="${escapeHtml(t('aria.title'))}" />
+      <select data-title-difficulty="${escapeHtml(x.id)}" aria-label="${escapeHtml(t('aria.difficulty'))}" title="${escapeHtml(t('titles.override'))}">
+        <option value="" ${!x.difficulty ? 'selected' : ''}>${escapeHtml(t('titles.deckDefault'))}</option>
+        ${['easy', 'medium', 'hard'].map((lv) => `<option value="${lv}" ${x.difficulty === lv ? 'selected' : ''}>${escapeHtml(t('diff.' + lv))}</option>`).join('')}
       </select>
-      <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(t.id)}" aria-label="Picture" />
+      <input type="file" accept=".png,.jpg,.jpeg,.webp" data-title-image="${escapeHtml(x.id)}" aria-label="${escapeHtml(t('aria.picture'))}" />
       <div class="rowEnd">
-        <button class="btn danger sm" data-remove-title="${escapeHtml(t.id)}">Remove</button>
-        ${t.imagePath ? `<button class="btn secondary sm" data-remove-image="${escapeHtml(t.id)}">Remove picture</button>` : ''}
-        <button class="btn sm" data-save-title="${escapeHtml(t.id)}">Save</button>
+        <button class="btn danger sm" data-remove-title="${escapeHtml(x.id)}">${escapeHtml(t('titles.remove'))}</button>
+        ${x.imagePath ? `<button class="btn secondary sm" data-remove-image="${escapeHtml(x.id)}">${escapeHtml(t('deck.removePicture'))}</button>` : ''}
+        <button class="btn sm" data-save-title="${escapeHtml(x.id)}">${escapeHtml(t('titles.save'))}</button>
       </div>
     </div>
-  `).join('') || `<p class="muted">${filter ? 'No title matches.' : 'No titles yet — add or import some above.'}</p>`;
+  `).join('') || `<p class="muted">${escapeHtml(t(filter ? 'titles.noMatch' : 'titles.none'))}</p>`;
   $('titleRows').querySelectorAll('[data-remove-title]').forEach((btn) => btn.addEventListener('click', () => removeTitle(btn.dataset.removeTitle)));
   $('titleRows').querySelectorAll('[data-save-title]').forEach((btn) => btn.addEventListener('click', () => saveTitleEdit(btn.dataset.saveTitle, btn)));
   $('titleRows').querySelectorAll('[data-remove-image]').forEach((btn) => btn.addEventListener('click', () => removeTitleImage(btn.dataset.removeImage)));
@@ -833,7 +1089,7 @@ async function saveDeck() {
     language: $('dLanguage').value,
     difficulty: $('dDifficulty').value,
   };
-  await withBusy($('saveDeckBtn'), 'Saving…', async () => {
+  await withBusy($('saveDeckBtn'), t('common.saving'), async () => {
     try {
       if (currentDeckId) {
         currentDeck = await api(deckUrl(), jsonBody('PUT', body));
@@ -846,25 +1102,27 @@ async function saveDeck() {
       } else {
         const id = $('dId').value.trim();
         currentDeck = await api('/admin/decks', jsonBody('POST', { id, ...body }));
-        currentDeckId = id;
+        currentDeckId = currentDeck.id;
       }
       renderDeckEdit();
-      setResult('deckResult', 'Saved.');
+      setResult('deckResult', t('common.saved'));
     } catch (e) {
-      if (e.message !== 'signed out') setResult('deckResult', 'Could not save: ' + e.message, true);
+      if (reportable(e)) setResult('deckResult', t('common.saveFailed', { e: e.message }), true);
     }
   });
+  // withBusy put back the label it found; a deck just created now says "Save deck".
+  if (currentDeckId) $('saveDeckBtn').textContent = t('deck.save');
 }
 
 async function deleteDeck() {
   await openDialog({
-    title: 'Delete this deck?',
-    body: `"${currentDeck.nameEn || currentDeckId}" and all ${currentDeck.titles.length} of its titles will be deleted. This can't be undone.`,
-    confirmLabel: 'Delete deck',
+    title: t('deck.deleteTitle'),
+    body: t('deck.deleteBody', { name: (lang === 'ar' ? currentDeck.nameAr : currentDeck.nameEn) || currentDeckId, count: currentDeck.titles.length }),
+    confirmLabel: t('deck.delete'),
     destructive: true,
     onConfirm: async () => {
       await api(deckUrl(), { method: 'DELETE' });
-      toast('Deck deleted.');
+      toast(t('deck.deleted'));
       showDeckList();
     },
   });
@@ -876,45 +1134,45 @@ async function removeDeckImage() {
   try {
     currentDeck = await api(deckUrl('/image'), { method: 'PUT', body: form });
     renderDeckEdit();
-    setResult('deckResult', 'Picture removed.');
+    setResult('deckResult', t('deck.pictureRemoved'));
   } catch (e) {
-    if (e.message !== 'signed out') setResult('deckResult', 'Could not remove picture: ' + e.message, true);
+    if (reportable(e)) setResult('deckResult', t('deck.pictureRemoveFailed', { e: e.message }), true);
   }
 }
 
 async function addTitle() {
   const text = $('newTitleText').value.trim();
-  if (!text) { setResult('addTitleResult', 'Type a title first.', true); return; }
+  if (!text) { setResult('addTitleResult', t('add.empty'), true); return; }
   const form = new FormData();
   form.append('text', text);
   const file = $('newTitleImage').files[0];
   if (file) form.append('image', file);
-  await withBusy($('addTitleBtn'), 'Adding…', async () => {
+  await withBusy($('addTitleBtn'), t('add.busy'), async () => {
     try {
       const result = await api(deckUrl('/titles'), { method: 'POST', body: form });
       currentDeck = result.deck;
       renderDeckEdit();
-      setResult('addTitleResult', result.added ? 'Added.' : 'Already in this deck — not added again.', !result.added);
+      setResult('addTitleResult', t(result.added ? 'add.added' : 'add.dup'), !result.added);
     } catch (e) {
-      if (e.message !== 'signed out') setResult('addTitleResult', 'Could not add title: ' + e.message, true);
+      if (reportable(e)) setResult('addTitleResult', t('add.failed', { e: e.message }), true);
     }
   });
 }
 
 async function importTitles() {
   const file = $('importFile').files[0];
-  if (!file) { setResult('importResult', 'Choose a file first.', true); return; }
+  if (!file) { setResult('importResult', t('imp.choose'), true); return; }
   const form = new FormData();
   form.append('file', file);
-  await withBusy($('importBtn'), 'Importing…', async () => {
-    setResult('importResult', 'Importing… a large file can take a while.');
+  await withBusy($('importBtn'), t('imp.busy'), async () => {
+    setResult('importResult', t('imp.wait'));
     try {
       const result = await api(deckUrl('/import'), { method: 'POST', body: form });
       currentDeck = result.deck;
       renderDeckEdit();
-      setResult('importResult', `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped (already in this deck, or blank).`);
+      setResult('importResult', t('imp.result', { found: result.titlesFound, added: result.added, skipped: result.skipped }));
     } catch (e) {
-      if (e.message !== 'signed out') setResult('importResult', 'Import failed: ' + e.message, true);
+      setResult('importResult', reportable(e) ? t('imp.failed', { e: e.message }) : '', true);
     }
   });
 }
@@ -922,25 +1180,26 @@ async function importTitles() {
 async function importTitlesWithImages() {
   const manifest = $('imageManifestFile').files[0];
   const images = $('imageZipFile').files[0];
-  if (!manifest || !images) { setResult('importWithImagesResult', 'Choose both a manifest (.xlsx) and an images (.zip) file first.', true); return; }
+  if (!manifest || !images) { setResult('importWithImagesResult', t('impi.choose'), true); return; }
   const form = new FormData();
   form.append('manifest', manifest);
   form.append('images', images);
-  await withBusy($('importWithImagesBtn'), 'Importing…', async () => {
-    setResult('importWithImagesResult', 'Importing… a large file can take a while.');
+  await withBusy($('importWithImagesBtn'), t('imp.busy'), async () => {
+    setResult('importWithImagesResult', t('imp.wait'));
     try {
       const result = await api(deckUrl('/import-with-images'), { method: 'POST', body: form });
       currentDeck = result.deck;
       renderDeckEdit();
-      let msg = `Found ${result.titlesFound} titles: ${result.added} added, ${result.skipped} skipped.`;
-      if (result.imageIssues.length) msg += ` ${result.imageIssues.length} picture issue(s): ${result.imageIssues.join('; ')}`;
+      let msg = t('impi.result', { found: result.titlesFound, added: result.added, skipped: result.skipped });
+      if (result.imageIssues.length) msg += t('impi.issues', { count: result.imageIssues.length, list: result.imageIssues.join('; ') });
       setResult('importWithImagesResult', msg);
     } catch (e) {
-      if (e.message !== 'signed out') setResult('importWithImagesResult', 'Import failed: ' + e.message, true);
+      setResult('importWithImagesResult', reportable(e) ? t('imp.failed', { e: e.message }) : '', true);
     }
   });
 }
 
+/** Re-fetches the open deck, keeping the title filter as typed. */
 async function refreshDeck() {
   currentDeck = await api(deckUrl());
   const filter = $('titleFilter').value;
@@ -956,28 +1215,28 @@ async function saveTitleEdit(titleId, btn) {
   form.append('difficulty', document.querySelector('[data-title-difficulty="' + CSS.escape(titleId) + '"]').value);
   const file = document.querySelector('[data-title-image="' + CSS.escape(titleId) + '"]').files[0];
   if (file) form.append('image', file);
-  await withBusy(btn, 'Saving…', async () => {
+  await withBusy(btn, t('common.saving'), async () => {
     try {
       await api(deckUrl('/titles/' + encodeURIComponent(titleId)), { method: 'PUT', body: form });
       await refreshDeck();
-      toast('Title saved.');
+      toast(t('titles.saved'));
     } catch (e) {
-      if (e.message !== 'signed out') toast('Could not save: ' + e.message, true);
+      if (reportable(e)) toast(t('common.saveFailed', { e: e.message }), true);
     }
   });
 }
 
 async function removeTitle(titleId) {
-  const title = currentDeck.titles.find((t) => t.id === titleId);
+  const title = currentDeck.titles.find((x) => x.id === titleId);
   await openDialog({
-    title: 'Remove this title?',
-    body: title ? `"${title.text}" will be removed from this deck.` : '',
-    confirmLabel: 'Remove',
+    title: t('titles.removeTitle'),
+    body: title ? t('titles.removeBody', { text: title.text }) : '',
+    confirmLabel: t('titles.remove'),
     destructive: true,
     onConfirm: async () => {
       await api(deckUrl('/titles/' + encodeURIComponent(titleId)), { method: 'DELETE' });
       await refreshDeck();
-      toast('Title removed.');
+      toast(t('titles.removed'));
     },
   });
 }
@@ -988,9 +1247,9 @@ async function removeTitleImage(titleId) {
   try {
     await api(deckUrl('/titles/' + encodeURIComponent(titleId)), { method: 'PUT', body: form });
     await refreshDeck();
-    toast('Picture removed.');
+    toast(t('deck.pictureRemoved'));
   } catch (e) {
-    if (e.message !== 'signed out') toast('Could not remove picture: ' + e.message, true);
+    if (reportable(e)) toast(t('deck.pictureRemoveFailed', { e: e.message }), true);
   }
 }
 
@@ -999,20 +1258,20 @@ async function removeTitleImage(titleId) {
 lists.players = createList({
   mount: 'playersList',
   endpoint: '/admin/players',
-  searchPlaceholder: 'Search by username or email',
+  searchKey: 'players.search',
   defaultSort: 'username',
   defaultDir: 'asc',
-  empty: 'No player accounts yet.',
-  columns: [{ label: 'Username', sort: 'username' }, { label: 'Email', sort: 'email' }, { label: 'Created', sort: 'created' }, { label: '' }],
+  emptyKey: 'players.empty',
+  columns: [{ label: 'col.username', sort: 'username' }, { label: 'col.email', sort: 'email' }, { label: 'col.created', sort: 'created' }, { label: '' }],
   row: (p) => `<tr>
-      <td>${escapeHtml(p.username)}</td>
-      <td class="muted">${p.email ? escapeHtml(p.email) : '—'}</td>
+      <td><bdi>${escapeHtml(p.username)}</bdi></td>
+      <td class="muted"><bdi>${p.email ? escapeHtml(p.email) : '—'}</bdi></td>
       <td class="muted">${formatDate(p.createdAt)}</td>
       <td class="rowActions">
-        <button class="btn danger sm" data-del="${p.id}">Delete</button>
-        <button class="btn secondary sm" data-repw="${p.id}">Change password</button>
-        <button class="btn secondary sm" data-email="${p.id}">Edit email</button>
-        <button class="btn secondary sm" data-rename="${p.id}">Rename</button>
+        <button class="btn danger sm" data-del="${p.id}">${escapeHtml(t('row.delete'))}</button>
+        <button class="btn secondary sm" data-repw="${p.id}">${escapeHtml(t('row.changePassword'))}</button>
+        <button class="btn secondary sm" data-email="${p.id}">${escapeHtml(t('row.editEmail'))}</button>
+        <button class="btn secondary sm" data-rename="${p.id}">${escapeHtml(t('row.rename'))}</button>
       </td>
     </tr>`,
   bind: (tbody, players) => {
@@ -1021,43 +1280,43 @@ lists.players = createList({
     tbody.querySelectorAll('[data-rename]').forEach((btn) => btn.addEventListener('click', async () => {
       const p = find(btn.dataset.rename);
       const done = await openDialog({
-        title: 'Rename player',
-        fields: [{ name: 'username', label: 'Username', value: p.username }],
+        title: t('players.renameTitle'),
+        fields: [{ name: 'username', label: t('common.username'), value: p.username }],
         onConfirm: (v) => put(p.id, { username: v.username.trim() }),
       });
-      if (done) { toast('Player renamed.'); lists.players.load(); }
+      if (done) { toast(t('players.renamed')); lists.players.load(); }
     }));
     tbody.querySelectorAll('[data-email]').forEach((btn) => btn.addEventListener('click', async () => {
       const p = find(btn.dataset.email);
       const done = await openDialog({
-        title: 'Edit email',
-        body: 'Used for forgot-password codes and the low-balance notice. Leave blank to remove it.',
-        fields: [{ name: 'email', label: 'Email', type: 'email', value: p.email || '' }],
+        title: t('players.emailTitle'),
+        body: t('players.emailBody'),
+        fields: [{ name: 'email', label: t('common.email'), type: 'email', value: p.email || '' }],
         onConfirm: (v) => put(p.id, { email: v.email.trim() || null }),
       });
-      if (done) { toast('Email updated.'); lists.players.load(); }
+      if (done) { toast(t('players.emailUpdated')); lists.players.load(); }
     }));
     tbody.querySelectorAll('[data-repw]').forEach((btn) => btn.addEventListener('click', async () => {
       const p = find(btn.dataset.repw);
       const done = await openDialog({
-        title: 'Change password',
-        body: `Sets a new password for ${p.username} and signs them out everywhere.`,
-        fields: [{ name: 'password', label: 'New password (8+ characters)', type: 'password', autocomplete: 'new-password' }],
-        confirmLabel: 'Change password',
+        title: t('pw.title'),
+        body: t('pw.body', { name: p.username }),
+        fields: [{ name: 'password', label: t('pw.label'), type: 'password', autocomplete: 'new-password' }],
+        confirmLabel: t('pw.title'),
         onConfirm: (v) => put(p.id, { password: v.password }),
       });
-      if (done) toast('Password changed.');
+      if (done) toast(t('pw.changed'));
     }));
     tbody.querySelectorAll('[data-del]').forEach((btn) => btn.addEventListener('click', async () => {
       const p = find(btn.dataset.del);
       const done = await openDialog({
-        title: 'Delete this player?',
-        body: `${p.username}'s account and wallet will be deleted. This can't be undone.`,
-        confirmLabel: 'Delete player',
+        title: t('players.deleteTitle'),
+        body: t('players.deleteBody', { name: p.username }),
+        confirmLabel: t('players.deleteBtn'),
         destructive: true,
         onConfirm: () => api('/admin/players/' + p.id, { method: 'DELETE' }),
       });
-      if (done) { toast('Player deleted.'); lists.players.load(); }
+      if (done) { toast(t('players.deleted')); lists.players.load(); }
     }));
   },
 });
@@ -1067,69 +1326,77 @@ lists.players = createList({
 lists.admins = createList({
   mount: 'adminsList',
   endpoint: '/admin/users',
-  searchPlaceholder: 'Search by username',
+  searchKey: 'admins.search',
   defaultSort: 'username',
   defaultDir: 'asc',
-  empty: 'No admins yet.',
-  columns: [{ label: 'Username', sort: 'username' }, { label: 'Created', sort: 'created' }, { label: '' }],
+  emptyKey: 'admins.empty',
+  columns: [{ label: 'col.username', sort: 'username' }, { label: 'col.created', sort: 'created' }, { label: '' }],
   row: (u) => `<tr>
-      <td>${escapeHtml(u.username)}${u.username === currentUsername ? ' <span class="badge">You</span>' : ''}</td>
+      <td><bdi>${escapeHtml(u.username)}</bdi>${u.username === currentUsername ? ` <span class="badge">${escapeHtml(t('admins.you'))}</span>` : ''}</td>
       <td class="muted">${formatDate(u.createdAt)}</td>
       <td class="rowActions">
-        <button class="btn danger sm" data-del="${u.id}">Delete</button>
-        <button class="btn secondary sm" data-repw="${u.id}">Change password</button>
-        <button class="btn secondary sm" data-rename="${u.id}">Rename</button>
+        <button class="btn danger sm" data-del="${u.id}">${escapeHtml(t('row.delete'))}</button>
+        <button class="btn secondary sm" data-repw="${u.id}">${escapeHtml(t('row.changePassword'))}</button>
+        <button class="btn secondary sm" data-rename="${u.id}">${escapeHtml(t('row.rename'))}</button>
       </td>
     </tr>`,
-  primary: { label: 'Add admin', onClick: addAdmin },
+  primary: { label: 'admins.add', onClick: addAdmin },
   bind: (tbody, admins) => {
     const find = (id) => admins.find((u) => u.id === id);
     const put = (id, body) => api('/admin/users/' + id, jsonBody('PUT', body));
     tbody.querySelectorAll('[data-rename]').forEach((btn) => btn.addEventListener('click', async () => {
       const u = find(btn.dataset.rename);
       const done = await openDialog({
-        title: 'Rename admin',
-        fields: [{ name: 'username', label: 'Username', value: u.username }],
-        onConfirm: (v) => put(u.id, { username: v.username.trim() }),
+        title: t('admins.renameTitle'),
+        fields: [{ name: 'username', label: t('common.username'), value: u.username }],
+        onConfirm: async (v) => {
+          const updated = await put(u.id, { username: v.username.trim() });
+          // Renaming yourself: the header and the "You" badge follow.
+          if (u.username === currentUsername) {
+            currentUsername = updated.username;
+            sessionStorage.setItem('adminUsername', currentUsername);
+            $('whoami').textContent = currentUsername;
+          }
+        },
       });
-      if (done) { toast('Admin renamed.'); lists.admins.load(); }
+      if (done) { toast(t('admins.renamed')); lists.admins.load(); }
     }));
     tbody.querySelectorAll('[data-repw]').forEach((btn) => btn.addEventListener('click', async () => {
       const u = find(btn.dataset.repw);
       const done = await openDialog({
-        title: 'Change password',
-        body: `Sets a new password for ${u.username} and signs them out everywhere.`,
-        fields: [{ name: 'password', label: 'New password (8+ characters)', type: 'password', autocomplete: 'new-password' }],
-        confirmLabel: 'Change password',
+        title: t('pw.title'),
+        body: t('pw.body', { name: u.username }),
+        fields: [{ name: 'password', label: t('pw.label'), type: 'password', autocomplete: 'new-password' }],
+        confirmLabel: t('pw.title'),
         onConfirm: (v) => put(u.id, { password: v.password }),
       });
-      if (done) toast('Password changed.');
+      if (done) toast(t('pw.changed'));
     }));
     tbody.querySelectorAll('[data-del]').forEach((btn) => btn.addEventListener('click', async () => {
       const u = find(btn.dataset.del);
       const done = await openDialog({
-        title: 'Delete this admin?',
-        body: `${u.username} will no longer be able to sign in here.`,
-        confirmLabel: 'Delete admin',
+        title: t('admins.deleteTitle'),
+        body: t('admins.deleteBody', { name: u.username }),
+        confirmLabel: t('admins.deleteBtn'),
         destructive: true,
         onConfirm: () => api('/admin/users/' + u.id, { method: 'DELETE' }),
       });
-      if (done) { toast('Admin deleted.'); lists.admins.load(); }
+      if (done) { toast(t('admins.deleted')); lists.admins.load(); }
     }));
   },
 });
 
 async function addAdmin() {
   const done = await openDialog({
-    title: 'Add an admin',
+    title: t('admins.addTitle'),
     fields: [
-      { name: 'username', label: 'Username', autocomplete: 'off' },
-      { name: 'password', label: 'Password (8+ characters)', type: 'password', autocomplete: 'new-password' },
+      { name: 'username', label: t('common.username'), autocomplete: 'off' },
+      { name: 'password', label: t('admins.password'), type: 'password', autocomplete: 'new-password' },
     ],
-    confirmLabel: 'Add admin',
+    confirmLabel: t('admins.add'),
     onConfirm: (v) => api('/admin/users', jsonBody('POST', { username: v.username.trim(), password: v.password })),
   });
-  if (done) { toast('Admin added.'); lists.admins.load(); }
+  if (done) { toast(t('admins.added')); lists.admins.load(); }
 }
 
 /* ------------------------------------------------------------ audit log */
@@ -1141,15 +1408,15 @@ function summarizeAuditEntry(entry) {
   const after = entry.after || {};
   if (entry.action === 'deck.update' || entry.action === 'settings.branding.update') {
     const changed = Object.keys(after).filter((k) => JSON.stringify(after[k]) !== JSON.stringify(before[k]));
-    return changed.length ? `changed: ${changed.join(', ')}` : '';
+    return changed.length ? t('audit.changed', { fields: changed.join(', ') }) : '';
   }
-  if (entry.action === 'settings.branding.logo') return after.logoPath ? 'new logo uploaded' : 'back to the built-in logo';
-  if (entry.action === 'deck.import') return `${after.added} added, ${after.skipped} skipped`;
+  if (entry.action === 'settings.branding.logo') return t(after.logoPath ? 'audit.newLogo' : 'audit.builtInLogo');
+  if (entry.action === 'deck.import') return t('audit.import', { added: after.added, skipped: after.skipped });
   if (entry.action === 'settings.game-price.update' || entry.action === 'settings.modified-game-price.update') {
     return `${(before.fils / 1000).toFixed(3)} KD → ${(after.fils / 1000).toFixed(3)} KD`;
   }
   if (entry.action.endsWith('.update') && 'passwordChanged' in after) {
-    return after.passwordChanged ? 'password changed' : 'details changed';
+    return t(after.passwordChanged ? 'audit.passwordChanged' : 'audit.detailsChanged');
   }
   return '';
 }
@@ -1157,22 +1424,22 @@ function summarizeAuditEntry(entry) {
 lists.auditLog = createList({
   mount: 'auditList',
   endpoint: '/admin/audit-log',
-  searchPlaceholder: 'Search by admin, action, target or details',
+  searchKey: 'audit.search',
   defaultSort: 'created',
   defaultDir: 'desc',
-  empty: 'Nothing logged yet.',
+  emptyKey: 'audit.empty',
   columns: [
-    { label: 'When', sort: 'created' },
-    { label: 'Admin', sort: 'actor' },
-    { label: 'Action', sort: 'action' },
-    { label: 'Target', sort: 'target' },
-    { label: 'Details' },
+    { label: 'col.when', sort: 'created' },
+    { label: 'col.admin', sort: 'actor' },
+    { label: 'col.action', sort: 'action' },
+    { label: 'col.target', sort: 'target' },
+    { label: 'col.details' },
   ],
   row: (e) => `<tr>
       <td class="muted">${formatDate(e.createdAt, true)}</td>
-      <td>${escapeHtml(e.actorUsername)}</td>
-      <td>${escapeHtml(e.action)}</td>
-      <td>${escapeHtml(e.target)}</td>
+      <td><bdi>${escapeHtml(e.actorUsername)}</bdi></td>
+      <td><bdi>${escapeHtml(e.action)}</bdi></td>
+      <td><bdi>${escapeHtml(e.target)}</bdi></td>
       <td class="muted">${escapeHtml(summarizeAuditEntry(e))}</td>
     </tr>`,
 });
@@ -1206,6 +1473,7 @@ async function loadSettings() {
     ]);
     branding = b;
     renderBranding();
+    applyBranding();
     $('gamePriceInput').value = (price.fils / 1000).toFixed(3);
     $('modifiedGamePriceInput').value = (modifiedPrice.fils / 1000).toFixed(3);
     $('homeTaglineEn').value = homeContent.taglineEn;
@@ -1214,12 +1482,12 @@ async function loadSettings() {
     $('homeWriteupAr').value = homeContent.writeupAr;
     ['brandingResult', 'pricesResult', 'homeContentResult'].forEach((id) => setResult(id, ''));
   } catch (e) {
-    if (e.message !== 'signed out') toast('Could not load settings: ' + e.message, true);
+    if (reportable(e)) toast(t('settings.loadFailed', { e: e.message }), true);
   }
 }
 
 async function saveBranding() {
-  await withBusy($('saveBrandingBtn'), 'Saving…', async () => {
+  await withBusy($('saveBrandingBtn'), t('common.saving'), async () => {
     try {
       branding = await api('/admin/settings/branding', jsonBody('PUT', {
         appNameEn: $('appNameEn').value,
@@ -1234,9 +1502,9 @@ async function saveBranding() {
       }
       renderBranding();
       applyBranding();
-      setResult('brandingResult', 'Saved — players see it the next time they open the app.');
+      setResult('brandingResult', t('brandSet.saved'));
     } catch (e) {
-      if (e.message !== 'signed out') setResult('brandingResult', 'Could not save: ' + e.message, true);
+      if (reportable(e)) setResult('brandingResult', t('common.saveFailed', { e: e.message }), true);
     }
   });
 }
@@ -1248,31 +1516,31 @@ async function removeLogo() {
     branding = await api('/admin/settings/branding/logo', { method: 'PUT', body: form });
     renderBranding();
     applyBranding();
-    setResult('brandingResult', 'Back to the built-in logo.');
+    setResult('brandingResult', t('brandSet.logoRemoved'));
   } catch (e) {
-    if (e.message !== 'signed out') setResult('brandingResult', 'Could not remove logo: ' + e.message, true);
+    if (reportable(e)) setResult('brandingResult', t('brandSet.removeFailed', { e: e.message }), true);
   }
 }
 
 async function savePrices() {
   const lite = parseFloat($('gamePriceInput').value);
   const pro = parseFloat($('modifiedGamePriceInput').value);
-  if (!(lite > 0) || !(pro > 0)) { setResult('pricesResult', 'Enter prices greater than zero.', true); return; }
-  await withBusy($('savePricesBtn'), 'Saving…', async () => {
+  if (!(lite > 0) || !(pro > 0)) { setResult('pricesResult', t('prices.invalid'), true); return; }
+  await withBusy($('savePricesBtn'), t('common.saving'), async () => {
     try {
       const a = await api('/admin/settings/game-price', jsonBody('PUT', { fils: Math.round(lite * 1000) }));
       const b = await api('/admin/settings/modified-game-price', jsonBody('PUT', { fils: Math.round(pro * 1000) }));
       $('gamePriceInput').value = (a.fils / 1000).toFixed(3);
       $('modifiedGamePriceInput').value = (b.fils / 1000).toFixed(3);
-      setResult('pricesResult', 'Saved.');
+      setResult('pricesResult', t('common.saved'));
     } catch (e) {
-      if (e.message !== 'signed out') setResult('pricesResult', 'Could not save prices: ' + e.message, true);
+      if (reportable(e)) setResult('pricesResult', t('common.saveFailed', { e: e.message }), true);
     }
   });
 }
 
 async function saveHomeContent() {
-  await withBusy($('saveHomeContentBtn'), 'Saving…', async () => {
+  await withBusy($('saveHomeContentBtn'), t('common.saving'), async () => {
     try {
       const result = await api('/admin/settings/home-content', jsonBody('PUT', {
         taglineEn: $('homeTaglineEn').value,
@@ -1284,9 +1552,9 @@ async function saveHomeContent() {
       $('homeTaglineAr').value = result.taglineAr;
       $('homeWriteupEn').value = result.writeupEn;
       $('homeWriteupAr').value = result.writeupAr;
-      setResult('homeContentResult', 'Saved.');
+      setResult('homeContentResult', t('common.saved'));
     } catch (e) {
-      if (e.message !== 'signed out') setResult('homeContentResult', 'Could not save home content: ' + e.message, true);
+      if (reportable(e)) setResult('homeContentResult', t('common.saveFailed', { e: e.message }), true);
     }
   });
 }
@@ -1295,8 +1563,9 @@ async function saveHomeContent() {
 
 $('signInBtn').addEventListener('click', signIn);
 $('passwordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
+$('langToggle').addEventListener('click', switchLanguage);
 $('logoutBtn').addEventListener('click', async () => {
-  const done = await openDialog({ title: 'Log out?', confirmLabel: 'Log out', destructive: true });
+  const done = await openDialog({ title: t('logout.confirm'), confirmLabel: t('logout'), destructive: true });
   if (done) signOut();
 });
 $('brandHome').addEventListener('click', (e) => { e.preventDefault(); if (token) showTab('decks'); });
@@ -1315,6 +1584,7 @@ $('removeLogoBtn').addEventListener('click', removeLogo);
 $('savePricesBtn').addEventListener('click', savePrices);
 $('saveHomeContentBtn').addEventListener('click', saveHomeContent);
 
+applyLanguage();
 loadBranding();
 if (token) enterApp();
 </script>

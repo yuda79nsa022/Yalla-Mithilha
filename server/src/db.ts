@@ -543,7 +543,7 @@ function pagedList<T>(
 }
 
 /** Sort keys each admin list accepts — `parseListQuery` rejects any other. The first is the default. */
-export const DECK_SORTS = { id: 'id', name: 'name_en', language: 'language', difficulty: 'difficulty', titles: 'title_count', created: 'created_at' } as const;
+export const DECK_SORTS = { id: 'id', name: 'name_en', nameAr: 'name_ar', language: 'language', difficulty: 'difficulty', titles: 'title_count', created: 'created_at' } as const;
 export const PLAYER_SORTS = { username: 'username', email: 'email', created: 'created_at' } as const;
 export const ADMIN_SORTS = { username: 'username', created: 'created_at' } as const;
 export const AUDIT_SORTS = { created: 'created_at', actor: 'actor_username', action: 'action', target: 'target' } as const;
