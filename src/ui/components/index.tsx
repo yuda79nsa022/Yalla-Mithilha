@@ -1299,7 +1299,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  buttonPair: { gap: spacing.sm, flexWrap: 'wrap', maxWidth: '100%' },
+  // `flex-end` along the row's own direction is the end side in both languages, so a pair that
+  // wraps onto two lines on a narrow phone still sits on the end side, not back at the start.
+  buttonPair: { gap: spacing.sm, flexWrap: 'wrap', maxWidth: '100%', justifyContent: 'flex-end' },
   footerInner: { width: '100%', alignSelf: 'center', paddingHorizontal: spacing.lg, gap: spacing.sm },
   footerInnerPhone: { paddingHorizontal: spacing.md },
   bigChoice: {
