@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-skills": {
+      "source": { "source": "github", "repo": "BT-Rajan/claude-skills" }
+    }
+  },
+  "enabledPlugins": {
+    "promo-video@claude-skills": true
+  }
+}
