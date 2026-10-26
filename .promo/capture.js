@@ -1,9 +1,11 @@
 // Plays one full 20-round game on a phone-sized screen and screenshots the
-// moments the promo uses, in one language.
-//   node capture.js <shotsDir> <en|ar>
-// Env: BASE (default http://localhost:4400), PROMO_USER, PROMO_PASS (a player
-// with at least one game in the wallet — make-promo.sh creates one).
-// Writes <lang>-01-home-guest … <lang>-10-final .png (1170×2532).
+// moments the promo's scenes use, in one language; then the guest home page
+// on a desktop browser.
+//   node .promo/capture.js <shotsDir> <en|ar>
+// Env: BASE (the app start.sh started), PROMO_USER, PROMO_PASS (a player with
+// at least one game in the wallet — start.sh creates one).
+// Writes <lang>-01-home-guest … <lang>-10-final .png (390×844 at 3×) and
+// <lang>-desktop-home.png (1440×900 at 2×).
 const { chromium } = require('playwright');
 
 const OUT = process.argv[2];
@@ -89,6 +91,15 @@ const L = AR
   }
   await page.waitForTimeout(1500);
   await shot('10-final');
+
+  // The guest home page on a desktop browser, for the "for everyone" scene.
+  const desk = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+  await desk.goto(B + '/home'); await desk.waitForTimeout(2500);
+  if (desk.url().includes('language')) { await desk.locator('[role="button"]').last().click(); await desk.waitForTimeout(1500); }
+  const deskToggle = desk.getByRole('button', { name: L.toLang });
+  if (await deskToggle.count()) { await deskToggle.first().click(); await desk.waitForTimeout(800); }
+  await desk.waitForTimeout(800);
+  await desk.screenshot({ path: `${OUT}/${LANG}-desktop-home.png` });
   console.log(`${LANG}: captured a full game`);
   await browser.close();
 })().catch((e) => { console.error(`${LANG}: ${e.message.split('\n')[0]}`); process.exit(1); });

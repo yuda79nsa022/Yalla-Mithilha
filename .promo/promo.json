@@ -1,0 +1,26 @@
+{
+  "company": "PERENNIA",
+  "logo": "assets/images/brand-logo.png",
+  "music": "assets/sounds/timer-music.mp3",
+  "appLanguages": ["en", "ar"],
+  "langs": ["en", "ar"],
+  "healthPath": "/health",
+  "startTimeout": 300,
+  "colors": {
+    "ink": "#201E1D",
+    "ground": "#F3F2F2",
+    "accent": "#8038D1",
+    "accentLight": "#A473EE",
+    "accentDark": "#591F97",
+    "pop": "#6FDB55",
+    "muted": "#5B5654"
+  },
+  "displayFont": "Archivo",
+  "fonts": [
+    { "family": "Archivo", "weight": 800, "file": "node_modules/@expo-google-fonts/archivo/800ExtraBold/Archivo_800ExtraBold.ttf" },
+    { "family": "Archivo", "weight": 900, "file": "node_modules/@expo-google-fonts/archivo/900Black/Archivo_900Black.ttf" },
+    { "family": "Kufi", "weight": 500, "file": "node_modules/@expo-google-fonts/noto-kufi-arabic/500Medium/NotoKufiArabic_500Medium.ttf" },
+    { "family": "Kufi", "weight": 700, "file": "node_modules/@expo-google-fonts/noto-kufi-arabic/700Bold/NotoKufiArabic_700Bold.ttf" },
+    { "family": "Kufi", "weight": 900, "file": "node_modules/@expo-google-fonts/noto-kufi-arabic/900Black/NotoKufiArabic_900Black.ttf" }
+  ]
+}

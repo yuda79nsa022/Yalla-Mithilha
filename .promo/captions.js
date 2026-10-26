@@ -1,13 +1,16 @@
-// Every line of text in the promo, per language. A promo shows any of these
-// (PROMO_LANGS=en,ar · en · en,ta · ar …): the first language is the big
-// headline in each scene, the others are the coloured lines under it.
+// Every line of text in Bas Bedoon Kalam's promo, per language. A promo shows
+// any of these (PROMO_LANGS=en,ar · en · en,ta · ar …): the first language is
+// the big headline in each scene, the others are the coloured lines under it.
+// Keys are the ones scenes.js names, plus `chips` (one per content scene) and
+// `byline` (the end card's "A GAME BY").
 //
 // To add a language: add it to LANGUAGES (its text direction; its font —
-// either one bundled in stage/fonts, or any Google Fonts family, loaded at
-// render time; `size` against the Latin headline and `lineHeight` for a
-// headline, since scripts differ in both) and give it every key in CAPTIONS. `\n` is a line break; keep
-// lines short — they're read in a few seconds. Marketing copy in a new
-// language should be checked by a native speaker before it's published.
+// either one in promo.json "fonts", or any Google Fonts family via `google`,
+// loaded at render time; `size` against the Latin headline and `lineHeight`
+// for a headline, since scripts differ in both) and give it every key `en`
+// has. `\n` is a line break; keep lines short — they're read in a few
+// seconds. Marketing copy in a new language should be checked by a native
+// speaker before it's published.
 window.LANGUAGES = {
   en: { name: 'English', dir: 'ltr', font: 'Archivo', weight: 900, lineHeight: 1.05 },
   ar: { name: 'Arabic', dir: 'rtl', font: 'Kufi', weight: 900, size: 0.82, lineHeight: 1.55 },
@@ -27,7 +30,7 @@ window.CAPTIONS = {
     s7: 'Win together.\nLaugh together.',
     s8: 'Arabic & English.\nPhone, tablet\nor TV.',
     endLine: 'Gather your people.',
-    gameBy: 'A GAME BY',
+    byline: 'A GAME BY',
     chips: ['TOGETHER', 'SET UP', 'THE SECRET', 'ACT IT OUT', 'GOT IT!', 'TOGETHER', 'FOR EVERYONE'],
     tags: ['Kuwaiti', 'Khaleeji', 'Egyptian', 'Hollywood'],
   },
@@ -42,7 +45,7 @@ window.CAPTIONS = {
     s7: 'نفوز سوا… ونضحك سوا',
     s8: 'عربي وإنجليزي… على الجوال\nأو التابلت أو التلفزيون',
     endLine: 'يلّا… جمّعوا ربعكم',
-    gameBy: 'لعبة من',
+    byline: 'لعبة من',
     chips: ['سوا', 'التجهيز', 'السرّ', 'مثّلها', 'عرفوها!', 'سوا', 'للكل'],
     tags: ['كويتي', 'خليجي', 'مصري', 'هوليوود'],
   },
@@ -57,7 +60,7 @@ window.CAPTIONS = {
     s7: 'சேர்ந்து வெல்வோம்.\nசேர்ந்து சிரிப்போம்.',
     s8: 'அரபு & ஆங்கிலம்.\nபோன், டேப்லெட் அல்லது டிவி.',
     endLine: 'வாருங்கள்… நண்பர்களை ஒன்றுகூட்டுங்கள்!',
-    gameBy: 'உருவாக்கியது',
+    byline: 'உருவாக்கியது',
     chips: ['ஒன்றாக', 'தயாராகுங்கள்', 'ரகசியம்', 'நடியுங்கள்', 'சரி!', 'சேர்ந்து', 'அனைவருக்கும்'],
     tags: ['குவைத்', 'வளைகுடா', 'எகிப்து', 'ஹாலிவுட்'],
   },
