@@ -21,10 +21,15 @@ export default function Home() {
   } = useApp();
   const { width, height } = useWindowDimensions();
   const isWide = width >= 900;
-  // A short phone screen can't hold the decorative category tiles as well
-  // as everything else; game setup shows the real decks anyway.
-  const showCategoryTiles = height >= 760;
+  // The decorative category tiles are the first thing to go when the window
+  // is short — game setup shows the real decks anyway — so the page fits
+  // without its own scrollbar: a phone needs real height for them (they sit
+  // under everything else there), a wide window anything from 760px up
+  // (a 1080p laptop at Windows' 150% scaling is about 585px tall).
+  const showCategoryTiles = isWide ? height >= 760 : height >= 900;
   const shortPhone = !isWide && height < 760;
+  // A short wide window also tightens the words column.
+  const shortWide = isWide && height < 700;
 
   useEffect(() => {
     if (player) void refreshWallet();
@@ -131,15 +136,19 @@ export default function Home() {
         // spare space is shared evenly around the content instead of piling
         // up in patches under the shorter column and at the bottom.
         <View style={[styles.heroRow, lang === 'en' && styles.heroRowEn]}>
-          <View style={[styles.heroTextCol, height < 700 && { gap: spacing.md }]}>
+          <View style={[styles.heroTextCol, shortWide && { gap: spacing.md }]}>
             <T
               variant="title"
-              style={[styles.wideTagline, lang === 'ar' && { lineHeight: 56 }, height < 700 && { fontSize: 30, lineHeight: lang === 'ar' ? 42 : 38 }]}
+              style={[styles.wideTagline, lang === 'ar' && { lineHeight: 56 }, shortWide && { fontSize: 28, lineHeight: lang === 'ar' ? 40 : 34 }]}
             >
               {tagline}
             </T>
             {!player ? (
-              <T variant="body" color={colors.neutral700} style={[styles.wideWriteup, lang === 'ar' && { lineHeight: 32 }]}>
+              <T
+                variant="body"
+                color={colors.neutral700}
+                style={[styles.wideWriteup, lang === 'ar' && { lineHeight: 32 }, shortWide && { fontSize: 15, lineHeight: lang === 'ar' ? 26 : 23 }]}
+              >
                 {writeup}
               </T>
             ) : null}
@@ -150,8 +159,12 @@ export default function Home() {
             <View style={styles.heroLogoWrap}>
               <Logo size="lg" />
             </View>
-            <Spacer size={spacing.md} />
-            <CategoryGrid />
+            {showCategoryTiles ? (
+              <>
+                <Spacer size={spacing.md} />
+                <CategoryGrid />
+              </>
+            ) : null}
           </View>
         </View>
       ) : (

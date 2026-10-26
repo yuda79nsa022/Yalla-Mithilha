@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import { Button, ButtonRow, OptionCard, PageTitle, Screen, T } from '../src/ui/components';
 import { colors, spacing } from '../src/ui/theme';
 import { useApp } from '../src/state/AppProvider';
@@ -25,6 +25,8 @@ const NOTICE_KEY = {
 export default function Buy() {
   const { t, player, charades, walletBalance, freeGameCredits, walletBusy, walletError, refreshWallet, gamePriceFils, modifiedGamePriceFils } =
     useApp();
+  // A short window (a laptop at Windows' 150% scaling) gets a slimmer balance banner, so the page fits without scrolling.
+  const short = useWindowDimensions().height < 700;
   const { busy, waiting, notice, topUp, cancelWaiting, simulateFailure } = useTopUp();
   const [mode, setMode] = useState<GameMode>(charades?.mode ?? 'classic');
 
@@ -66,7 +68,7 @@ export default function Buy() {
         {t('buy.subtitle')}
       </T>
 
-      <View style={styles.card}>
+      <View style={[styles.card, short && { paddingVertical: 10 }]}>
         <T variant="heading" color={colors.white}>
           {t('buy.gamesLeft', { count: gamesLeft })}
         </T>
