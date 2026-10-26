@@ -193,6 +193,7 @@ export function Screen({
   // A phone gets a little less padding than a desktop window, so more of each page fits on its screen.
   // A short window (a laptop's browser, a small phone) also gets less top and bottom padding.
   const { width, height } = useWindowDimensions();
+  const { lang } = useApp();
   const actions = useActionLayout();
   const inner = (
     <View
@@ -218,8 +219,14 @@ export function Screen({
         {header ? <SiteNav variant={header.variant ?? 'site'} title={header.title} light={header.light} /> : null}
       {scroll ? (
         <ScrollView
-          style={styles.screen}
-          contentContainerStyle={styles.scrollContent}
+          // A page that's taller than the window scrolls between the header
+          // and the action bar. In Arabic its scrollbar belongs on the left,
+          // like any right-to-left page: the browser puts it on the start
+          // side of a right-to-left box, so the box is marked rtl and the
+          // page inside reset to ltr — which leaves the page's own layout
+          // (worked out per language elsewhere) exactly as it was.
+          style={[styles.screen, Platform.OS === 'web' && lang === 'ar' && styles.scrollRtl]}
+          contentContainerStyle={[styles.scrollContent, Platform.OS === 'web' && styles.scrollLtr]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
@@ -1235,8 +1242,10 @@ const styles = StyleSheet.create({
   langToggle: { borderWidth: 2, paddingHorizontal: 12, height: NAV_CONTROL_HEIGHT, justifyContent: 'center' },
   screenInner: { flex: 1, width: '100%', alignSelf: 'center', padding: spacing.lg, gap: spacing.md },
   screenInnerPhone: { padding: spacing.md, gap: 12 },
-  screenInnerShort: { paddingVertical: spacing.md },
+  screenInnerShort: { paddingVertical: 12, gap: 12 },
   scrollContent: { flexGrow: 1 },
+  scrollRtl: { direction: 'rtl' },
+  scrollLtr: { direction: 'ltr' },
   headerFrame: { borderBottomWidth: 2 },
   headerBar: {
     flexDirection: 'row',

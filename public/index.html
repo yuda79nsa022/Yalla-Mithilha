@@ -24,6 +24,31 @@
         height: 100%;
         flex: 1;
       }
+      /* A page taller than the window scrolls between the header and the
+         action bar. Its scrollbar is the brand's: slim, square, a muted grey
+         thumb on no track, ink while dragged — not the browser's chunky
+         default. (Side: right in English, left in Arabic — see Screen.) */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: #8a8583 transparent;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #8a8583;
+        /* A transparent border keeps the thumb slim on any page colour — ground, purple or ink. */
+        border: 2px solid transparent;
+        background-clip: padding-box;
+      }
+      ::-webkit-scrollbar-thumb:hover,
+      ::-webkit-scrollbar-thumb:active {
+        background: #201e1d;
+      }
       /* On mobile browsers a plain 100% can disagree with the visible area as
          the address bar shows and hides, pushing the pinned footer button out
          of reach; dvh tracks the visible area exactly. */
