@@ -24,6 +24,11 @@ interface BrowserGlobal {
   localStorage?: { setItem: (k: string, v: string) => void; removeItem: (k: string) => void };
   addEventListener?: (type: 'message' | 'focus', fn: (e: { origin: string; data: unknown }) => void) => void;
   removeEventListener?: (type: 'message' | 'focus', fn: (e: { origin: string; data: unknown }) => void) => void;
+  document?: {
+    visibilityState?: string;
+    addEventListener?: (type: 'visibilitychange', fn: () => void) => void;
+    removeEventListener?: (type: 'visibilitychange', fn: () => void) => void;
+  };
   BroadcastChannel?: new (name: string) => { onmessage: ((e: { data: unknown }) => void) | null; close: () => void };
   screenX?: number;
   screenY?: number;
@@ -206,16 +211,25 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
     };
   }, [settle, stopWatching]);
 
-  // Coming back to the game window from the payment window: ask right away
-  // rather than wait for the next poll.
+  // Coming back to the game from the payment window or tab: ask right away
+  // rather than wait for the next poll. On a phone the payment opens in
+  // another tab and this one is paused meanwhile, so nothing is asked until
+  // the player switches back — which is what `visibilitychange` reports.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    const onFocus = () => {
+    const check = () => {
       const current = open.current;
       if (current) void settle(current.paymentId);
     };
-    browser.addEventListener?.('focus', onFocus);
-    return () => browser.removeEventListener?.('focus', onFocus);
+    const onVisible = () => {
+      if (browser.document?.visibilityState === 'visible') check();
+    };
+    browser.addEventListener?.('focus', check);
+    browser.document?.addEventListener?.('visibilitychange', onVisible);
+    return () => {
+      browser.removeEventListener?.('focus', check);
+      browser.document?.removeEventListener?.('visibilitychange', onVisible);
+    };
   }, [settle]);
 
   // Leaving the screen mid-payment: stop asking, but leave the popup alone —
