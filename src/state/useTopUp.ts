@@ -22,8 +22,13 @@ interface BrowserGlobal {
   open?: (url: string, name: string, features: string) => PopupWindow | null;
   location?: { href: string; origin: string };
   localStorage?: { setItem: (k: string, v: string) => void; removeItem: (k: string) => void };
-  addEventListener?: (type: 'message', fn: (e: { origin: string; data: unknown }) => void) => void;
-  removeEventListener?: (type: 'message', fn: (e: { origin: string; data: unknown }) => void) => void;
+  addEventListener?: (type: 'message' | 'focus', fn: (e: { origin: string; data: unknown }) => void) => void;
+  removeEventListener?: (type: 'message' | 'focus', fn: (e: { origin: string; data: unknown }) => void) => void;
+  document?: {
+    visibilityState?: string;
+    addEventListener?: (type: 'visibilitychange', fn: () => void) => void;
+    removeEventListener?: (type: 'visibilitychange', fn: () => void) => void;
+  };
   BroadcastChannel?: new (name: string) => { onmessage: ((e: { data: unknown }) => void) | null; close: () => void };
   screenX?: number;
   screenY?: number;
@@ -40,8 +45,10 @@ const POPUP_NAME = 'myfatoorah-checkout';
  * so one left behind by a closed tab goes stale on its own.
  */
 const POPUP_FLAG = 'myfatoorahPopup';
-/** How often the server is asked about a payment while its popup is open. */
-const POLL_MS = 10_000;
+/** How often the server is asked about a payment while the player is out paying it. */
+const POLL_MS = 5_000;
+/** How long the page keeps asking before it gives up on a payment nobody finished. */
+const WAIT_LIMIT_MS = 15 * 60 * 1000;
 
 function setPopupFlag(on: boolean) {
   try {
@@ -87,7 +94,8 @@ function isResultMessage(data: unknown): data is { type: 'myfatoorah-result'; pa
  * Buying one game's worth of credit, shared by checkout and the Buy-more
  * screen. On web the gateway's (MyFatoorah's) page opens in a popup over the
  * game; the popup reports back when it's done (see the server's done page),
- * and this window also asks the server now and then while it's open. If the
+ * and this window also keeps asking the server until the payment is settled,
+ * so the game carries on even if the popup never reports back. If the
  * browser blocks the popup, the whole tab goes to the gateway instead and
  * comes back through the return route. Native opens the device browser and
  * checks on returning to the app. Nothing here ever decides a payment
@@ -203,6 +211,27 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
     };
   }, [settle, stopWatching]);
 
+  // Coming back to the game from the payment window or tab: ask right away
+  // rather than wait for the next poll. On a phone the payment opens in
+  // another tab and this one is paused meanwhile, so nothing is asked until
+  // the player switches back — which is what `visibilitychange` reports.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const check = () => {
+      const current = open.current;
+      if (current) void settle(current.paymentId);
+    };
+    const onVisible = () => {
+      if (browser.document?.visibilityState === 'visible') check();
+    };
+    browser.addEventListener?.('focus', check);
+    browser.document?.addEventListener?.('visibilitychange', onVisible);
+    return () => {
+      browser.removeEventListener?.('focus', check);
+      browser.document?.removeEventListener?.('visibilitychange', onVisible);
+    };
+  }, [settle]);
+
   // Leaving the screen mid-payment: stop asking, but leave the popup alone —
   // the player may still be paying, and the credit lands either way.
   useEffect(() => () => {
@@ -231,6 +260,9 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
     async (mode: GameMode) => {
       // Before anything async — see openPaymentPopup.
       const popup = openPaymentPopup();
+      // A payment still being watched is replaced by this one.
+      if (open.current?.timer) clearInterval(open.current.timer);
+      open.current = null;
       setBusy(true);
       setNotice(null);
       setReference(null);
@@ -270,14 +302,19 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
       setPopupFlag(true);
       popup.location.href = payment.redirectUrl;
       setWaiting(true);
-      let closedChecks = 0;
+      // `popup.closed` can't be trusted to mean the player gave up: a gateway
+      // page that cuts the popup's link back here reads as closed while they
+      // are still typing their card in. So keep asking the server until the
+      // payment is settled, the player cancels, or the limit runs out — the
+      // game then carries on by itself even if the gateway never sends the
+      // popup back.
+      const startedAt = Date.now();
       const timer = setInterval(() => {
         const current = open.current;
         if (!current || current.paymentId !== payment.id) return;
         void settle(payment.id).then((done) => {
           if (done || open.current?.paymentId !== payment.id) return;
-          // Closed without finishing: one more look, then it wasn't completed.
-          if (popup.closed && ++closedChecks >= 2) {
+          if (Date.now() - startedAt >= WAIT_LIMIT_MS) {
             stopWatching(false);
             setNotice('pending');
           }
