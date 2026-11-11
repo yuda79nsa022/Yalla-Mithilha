@@ -99,6 +99,9 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [notice, setNotice] = useState<PaymentNotice | null>(null);
+  // The gateway's invoice number for the payment the notice is about, so the
+  // player has something to quote if a payment needs tracing.
+  const [reference, setReference] = useState<string | null>(null);
   const onPaidRef = useRef(onPaid);
   onPaidRef.current = onPaid;
 
@@ -129,7 +132,9 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
   const settle = useCallback(
     async (paymentId: string): Promise<boolean> => {
       if (settled.current.has(paymentId)) return true;
-      const status = await checkTopUp(paymentId);
+      const checked = await checkTopUp(paymentId);
+      const status = checked?.status ?? null;
+      if (checked?.providerRef) setReference(checked.providerRef);
       if (status === 'paid' || status === 'failed' || status === 'cancelled') {
         if (settled.current.has(paymentId)) return true; // another check got here first
         settled.current.add(paymentId);
@@ -228,7 +233,9 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
       const popup = openPaymentPopup();
       setBusy(true);
       setNotice(null);
+      setReference(null);
       const payment = await startTopUp(mode);
+      if (payment?.providerRef) setReference(payment.providerRef);
       if (!payment) {
         popup?.close();
         setBusy(false);
@@ -302,5 +309,5 @@ export function useTopUp({ onPaid }: { onPaid?: () => void } = {}) {
     [startTopUp, failTopUp]
   );
 
-  return { busy, waiting, notice, topUp, cancelWaiting, simulateFailure, returnedPaymentId, returnedResult };
+  return { busy, waiting, notice, reference, topUp, cancelWaiting, simulateFailure, returnedPaymentId, returnedResult };
 }

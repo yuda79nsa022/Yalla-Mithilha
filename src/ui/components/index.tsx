@@ -50,6 +50,7 @@ export function T({
   children,
   numberOfLines,
   accessibilityLabel,
+  selectable,
 }: {
   variant?: TextVariant;
   color?: string;
@@ -58,6 +59,8 @@ export function T({
   children: React.ReactNode;
   numberOfLines?: number;
   accessibilityLabel?: string;
+  /** Lets the player select and copy the text (a payment reference, say). */
+  selectable?: boolean;
 }) {
   const { lang } = useApp();
   const isAr = lang === 'ar';
@@ -66,6 +69,7 @@ export function T({
     <Text
       numberOfLines={numberOfLines}
       accessibilityLabel={accessibilityLabel}
+      selectable={selectable}
       // `textAlign: auto` follows the layout direction, so the same component
       // aligns right in Arabic and left in English with no branching. A
       // custom-loaded static TTF needs its own per-weight family (see

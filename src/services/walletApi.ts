@@ -20,6 +20,8 @@ export interface CheckoutPayment {
   amountFils: number;
   currency: string;
   status: PaymentStatus;
+  /** The gateway's own number for this payment (MyFatoorah's invoice id), shown to the player so a payment can be traced. `null` for the development mock. */
+  providerRef?: string | null;
   /** Set when a real payment gateway is configured: the player pays on this page. Absent for the development mock. */
   redirectUrl?: string;
 }
@@ -121,7 +123,7 @@ export interface UsageReport {
     currency: string;
   };
   games: { id: string; mode: GameMode; createdAt: number }[];
-  payments: { id: string; credits: number; amountFils: number; currency: string; status: PaymentStatus; createdAt: number }[];
+  payments: { id: string; credits: number; amountFils: number; currency: string; status: PaymentStatus; providerRef?: string | null; createdAt: number }[];
 }
 
 /** The signed-in player's games started and top-ups made, with totals. */

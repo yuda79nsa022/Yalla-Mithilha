@@ -213,6 +213,7 @@ export const ar = {
   'buy.pay': 'ادفع {{price}}',
   'payment.waiting': 'كمّل الدفع في نافذة ماي فاتورة. هالصفحة تتحدّث بروحها أول ما يخلص.',
   'payment.cancel': 'إلغاء الدفع',
+  'payment.reference': 'رقم فاتورة ماي فاتورة: {{ref}}',
   'payment.starting': 'وصلت الدفعة — قاعدين نبدأ لعبتكم…',
   'charades.checkout.payToPlay': 'ادفع حق لعبة وحدة عشان تبدأون. اللعبة تبدأ أول ما ماي فاتورة تأكد الدفعة.',
   'charades.draft.difficultyTitle': 'مستوى الصعوبة',

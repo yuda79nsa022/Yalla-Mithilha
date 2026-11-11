@@ -27,7 +27,7 @@ export default function Buy() {
     useApp();
   // A short window (a laptop at Windows' 150% scaling) gets a slimmer balance banner, so the page fits without scrolling.
   const short = useWindowDimensions().height < 700;
-  const { busy, waiting, notice, topUp, cancelWaiting, simulateFailure } = useTopUp();
+  const { busy, waiting, notice, reference, topUp, cancelWaiting, simulateFailure } = useTopUp();
   const [mode, setMode] = useState<GameMode>(charades?.mode ?? 'classic');
 
   useEffect(() => {
@@ -89,6 +89,12 @@ export default function Buy() {
       ) : notice ? (
         <T variant="label" color={notice === 'paid' ? colors.purple : colors.red}>
           {t(NOTICE_KEY[notice])}
+        </T>
+      ) : null}
+
+      {reference && (waiting || notice) ? (
+        <T variant="label" color={colors.neutral700} selectable style={{ fontSize: 13 }}>
+          {t('payment.reference', { ref: reference })}
         </T>
       ) : null}
 

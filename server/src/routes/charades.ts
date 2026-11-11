@@ -96,6 +96,8 @@ charadesRouter.get('/usage', requirePlayerSession, (req, res) => {
       amountFils: p.amountFils,
       currency: p.currency,
       status: p.status,
+      // The gateway's invoice number — what the player quotes to trace a payment.
+      providerRef: p.providerRef,
       createdAt: p.createdAt,
     })),
   });

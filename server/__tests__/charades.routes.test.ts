@@ -498,5 +498,7 @@ describe('GET /charades/usage', () => {
     expect(res.body.games[0].titles).toBeUndefined();
     expect(res.body.payments).toHaveLength(1);
     expect(res.body.payments[0]).toMatchObject({ credits: 1, amountFils: 1500, status: 'paid' });
+    // The mock has no gateway invoice; a real gateway's number is passed through for the player to quote.
+    expect(res.body.payments[0]).toHaveProperty('providerRef', null);
   });
 });

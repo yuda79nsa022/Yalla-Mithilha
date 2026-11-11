@@ -45,6 +45,7 @@ export default function CharadesCheckout() {
     busy: toppingUp,
     waiting,
     notice: paymentNotice,
+    reference: paymentReference,
     topUp: topUpFor,
     cancelWaiting,
     simulateFailure: simulateFailureFor,
@@ -133,6 +134,12 @@ export default function CharadesCheckout() {
       ) : paymentNotice ? (
         <T variant="label" color={paymentNotice === 'paid' ? colors.purple : colors.red}>
           {t(NOTICE_KEY[paymentNotice])}
+        </T>
+      ) : null}
+
+      {paymentReference && (waiting || paymentNotice) ? (
+        <T variant="label" color={colors.neutral700} selectable style={{ fontSize: 13 }}>
+          {t('payment.reference', { ref: paymentReference })}
         </T>
       ) : null}
 
