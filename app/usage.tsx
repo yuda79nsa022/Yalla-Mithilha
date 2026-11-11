@@ -97,6 +97,11 @@ export default function Usage() {
                   <T variant="label" color={colors.neutral700} style={{ fontSize: 13 }}>
                     {when(p.createdAt)}
                   </T>
+                  {p.providerRef ? (
+                    <T variant="label" color={colors.neutral700} selectable style={{ fontSize: 13 }}>
+                      {t('payment.reference', { ref: p.providerRef })}
+                    </T>
+                  ) : null}
                 </View>
                 <T variant="label" color={p.status === 'paid' ? colors.green : colors.neutral700} style={{ fontSize: 13 }}>
                   {t(STATUS_KEY[p.status])}

@@ -47,7 +47,6 @@ import {
   startGameSession,
   type CheckoutPayment,
   type HomeContent,
-  type PaymentStatus,
   type UsageReport,
 } from '../services/walletApi';
 import { LOW_BALANCE_THRESHOLD, checkSession } from '../services/session';
@@ -149,9 +148,9 @@ interface AppValue {
   /**
    * After the player comes back from the payment gateway's page: has the
    * server check that payment with the gateway again and refreshes the
-   * wallet. Returns the payment's status, or `null` if the check failed.
+   * wallet. Returns the payment as it now stands, or `null` if the check failed.
    */
-  checkTopUp: (paymentId: string) => Promise<PaymentStatus | null>;
+  checkTopUp: (paymentId: string) => Promise<CheckoutPayment | null>;
   /** Development mock only: stands in for the gateway's success callback. */
   confirmTopUp: (paymentId: string) => Promise<boolean>;
   /** Development mock only: stands in for the gateway's failure callback. */
@@ -518,7 +517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const { payment, balance } = await refreshCheckoutApi(playerSession.token, paymentId);
         setWalletBalance(balance);
         if (payment.status === 'paid') track({ name: 'wallet_topped_up', balance });
-        return payment.status;
+        return payment;
       } catch (err) {
         setWalletError(handleWalletError(err));
         return null;

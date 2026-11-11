@@ -209,6 +209,7 @@ export const en: Record<TranslationKey, string> = {
   'buy.pay': 'Pay {{price}}',
   'payment.waiting': 'Complete the payment in the MyFatoorah window. This page updates on its own as soon as it’s done.',
   'payment.cancel': 'Cancel payment',
+  'payment.reference': 'MyFatoorah invoice no. {{ref}}',
   'payment.starting': 'Payment received — starting your game…',
   'charades.checkout.payToPlay': 'Pay for one game to start. Your game starts as soon as MyFatoorah confirms the payment.',
   'charades.draft.difficultyTitle': 'Difficulty',
