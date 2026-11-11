@@ -454,8 +454,12 @@ done`: a tiny page that posts the (unverified) result to the game window —
 `postMessage` to its opener, plus a `BroadcastChannel('myfatoorah')` in case
 the browser cut the opener link on the way through the gateway — and closes
 itself. The game window treats that only as a nudge to ask the server
-(`POST /charades/checkout/:id/refresh`), and also asks every 10 seconds
-while the popup is open. Only a server-confirmed "paid" lets the game start
+(`POST /charades/checkout/:id/refresh`), and also asks every 5 seconds —
+and whenever the game window regains focus — until the payment is settled,
+the player cancels, or 15 minutes pass. It does not stop when the popup
+reads as closed: a gateway page that cuts the opener link looks closed
+while the player is still paying, and MyFatoorah may leave its own receipt
+on screen instead of sending the popup back. Only a server-confirmed "paid" lets the game start
 — the checkout screen then starts it by itself. If popups are blocked the
 whole tab goes to MyFatoorah instead and the done page simply continues to
 the checkout screen, which re-checks the payment the same way. Native
